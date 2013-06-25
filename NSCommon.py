@@ -17,13 +17,14 @@ NS_parameters = dict(
   max_error = 1e-6,
   iters_on_first_timestep = 2,
   dt = 0.01,
-  check = 1,
   checkpoint = 10,
   save_step = 10,
   folder = 'results',
   restart_folder = None, # If restarting solution, set folder here
-  use_lumping_of_mass_matrix = True,
-  use_krylov_solvers = False
+  use_lumping_of_mass_matrix = False,
+  use_krylov_solvers = False,
+  velocity_degree = 2,
+  pressure_degree = 1
 )
 
 def create_initial_folders(folder, dt):

@@ -21,21 +21,18 @@ mesh = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
 # Create stretched mesh in y-direction
 x = mesh.coordinates() 
 x[:, 1] = cos(pi*(x[:, 1]-1.) / 2.)  
-
-dim = mesh.geometry().dim()
-if dim == 2:
-    u_components = ['u0', 'u1']
-else:
-    u_components = ['u0', 'u1', 'u2']
+u_components = ['u0', 'u1', 'u2']
 sys_comp =  u_components + ['p']
 
 class PeriodicDomain(SubDomain):
 
     def inside(self, x, on_boundary):
         # return True if on left or bottom boundary AND NOT on one of the two slave edges
+        #return bool((near(x[0], 0) or near(x[2], -Lz/2.)) and 
+                #(not ((near(x[0], Lx) and near(x[2], -Lz/2.)) or 
+                      #(near(x[0], 0) and near(x[2], Lz/2.)))) and on_boundary)
         return bool((near(x[0], 0) or near(x[2], -Lz/2.)) and 
-                (not ((near(x[0], Lx) and near(x[2], -Lz/2.)) or 
-                      (near(x[0], 0) and near(x[2], Lz/2.)))) and on_boundary)
+                (not (near(x[0], Lx) or near(x[2], Lz/2.))) and on_boundary)
                       
     def map(self, x, y):
         if near(x[0], Lx) and near(x[2], Lz/2.):
@@ -78,6 +75,8 @@ NS_parameters.update(dict(
     use_lumping_of_mass_matrix = False
   )
 )
+if NS_parameters['velocity_degree'] > 1:
+    NS_parameters['use_lumping_of_mass_matrix'] = False
 
 # Put all the NS_parameters in the global namespace of Problem
 # These parameters are all imported by the Navier Stokes solver
@@ -257,9 +256,9 @@ def update_end_of_timestep(tstep):
         voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_Q_{}.h5".format(tstep))
         voluviz.probes.clear()
         
-    uv.assign(project(u_, Vv))
-    pressure_plotter.plot()
-    velocity_plotter.plot()
+        uv.assign(project(u_, Vv))
+        pressure_plotter.plot()
+        velocity_plotter.plot()
     
 def theend():
     pass

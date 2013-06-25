@@ -73,6 +73,8 @@ up Ar and then using the following to create A:
 
 #from DrivenCavity import *
 from Channel import *
+#from TaylorGreen2D import *
+#from TaylorGreen3D import *
 
 #####################################################################
 
@@ -81,9 +83,9 @@ dolfin_memory_use = getMyMemoryUsage()
 info_red('Memory use of plain dolfin = ' + dolfin_memory_use)
 
 # Declare solution Functions and FunctionSpaces
-V = FunctionSpace(mesh, 'CG', 1, constrained_domain=constrained_domain)
-Q = FunctionSpace(mesh, 'CG', 1, constrained_domain=constrained_domain)
-Vv = VectorFunctionSpace(mesh, 'CG', V.ufl_element().degree(), constrained_domain=constrained_domain)
+V = FunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
+Q = FunctionSpace(mesh, 'CG', pressure_degree, constrained_domain=constrained_domain)
+Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
 u = TrialFunction(V)
 v = TestFunction(V)
 p = TrialFunction(Q)
@@ -120,8 +122,6 @@ initialize(globals())
 ###################  Boundary conditions  ###########################
 
 bcs = create_bcs()
-if V.ufl_element().degree() > 1:
-    use_lumping_of_mass_matrix = False
 
 #####################################################################
 
@@ -240,7 +240,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         p_sol.solve(Ap, x_['p'], b['p'])
         if normalize: normalize(x_['p'])
         dp_.vector()[:] = x_['p'][:] - dp_.vector()[:]
-        if tstep % check == 0:
+        if tstep % save_step == 0 or tstep % checkpoint == 0:
             if num_iter > 1:
                 if j == 1: info_blue('                 error u  error p')
                 info_blue('    Iter = {0:4d}, {1:2.2e} {2:2.2e}'.format(j, err, rp))
