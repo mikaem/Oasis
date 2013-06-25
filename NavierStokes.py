@@ -71,7 +71,7 @@ up Ar and then using the following to create A:
 """
 ################### Problem dependent parameters ####################
 
-from DrivenCavity import *
+#from DrivenCavity import *
 from Channel import *
 
 #####################################################################
