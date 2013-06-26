@@ -91,36 +91,21 @@ def get_solvers():
     In case of lumping return None for velocity update"""
     if use_krylov_solvers:
         u_sol = KrylovSolver('bicgstab', 'jacobi')
-        u_sol.parameters['error_on_nonconvergence'] = False
-        u_sol.parameters['nonzero_initial_guess'] = True
+        u_sol.parameters.update(krylov_solvers)
         u_sol.parameters['preconditioner']['reuse'] = False
-        u_sol.parameters['monitor_convergence'] = True
-        u_sol.parameters['maximum_iterations'] = 100
-        u_sol.parameters['relative_tolerance'] = 1e-8
-        u_sol.parameters['absolute_tolerance'] = 1e-8
         u_sol.t = 0
 
         if use_lumping_of_mass_matrix:
             du_sol = None
         else:
             du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
-            du_sol.parameters['error_on_nonconvergence'] = False
-            du_sol.parameters['nonzero_initial_guess'] = True
+            du_sol.parameters.update(krylov_solvers)
             du_sol.parameters['preconditioner']['reuse'] = True
-            du_sol.parameters['monitor_convergence'] = True
-            du_sol.parameters['maximum_iterations'] = 50
-            du_sol.parameters['relative_tolerance'] = 1e-9
-            du_sol.parameters['absolute_tolerance'] = 1e-10
             du_sol.t = 0
             
         p_sol = KrylovSolver('gmres', 'hypre_amg')
-        p_sol.parameters['error_on_nonconvergence'] = True
-        p_sol.parameters['nonzero_initial_guess'] = True
         p_sol.parameters['preconditioner']['reuse'] = True
-        p_sol.parameters['monitor_convergence'] = True
-        p_sol.parameters['maximum_iterations'] = 100
-        p_sol.parameters['relative_tolerance'] = 1e-8
-        p_sol.parameters['absolute_tolerance'] = 1e-8
+        p_sol.parameters.update(krylov_solvers)
         p_sol.t = 0
     else:
         u_sol = LUSolver()

@@ -98,7 +98,10 @@ VV = dict((ui, V) for ui in u_components); VV['p'] = Q
 if restart_folder:
     q_  = dict((ui, Function(VV[ui], path.join(restart_folder, ui + '.xml.gz'))) for ui in sys_comp)
     q_1 = dict((ui, Function(V, path.join(restart_folder, ui + '.xml.gz'))) for ui in u_components)
-    q_2 = dict((ui, Function(V, path.join(restart_folder, ui + '_1.xml.gz'))) for ui in u_components)
+    try: # Check if there's a previous solution stored as well
+        q_2 = dict((ui, Function(V, path.join(restart_folder, ui + '_1.xml.gz'))) for ui in u_components)
+    except:
+        q_2 = dict((ui, Function(V, path.join(restart_folder, ui + '.xml.gz'))) for ui in u_components)
 else:
     q_  = dict((ui, Function(VV[ui])) for ui in sys_comp)
     q_1 = dict((ui, Function(V)) for ui in u_components)
@@ -125,11 +128,15 @@ bcs = create_bcs()
 
 #####################################################################
 
+u_sol, p_sol, du_sol = get_solvers()
+
+################### Fetch solvers  ##################################
+
 # Preassemble constant pressure gradient matrix
 P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
 
 # Preassemble velocity divergence matrix
-if V.ufl_element().degree() == Q.ufl_element().degree():
+if velocity_degree == pressure_degree:
     Rx = P
 else:
     Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
@@ -168,8 +175,6 @@ a  = 0.5*inner(v, dot(U_, nabla_grad(u)))*dx
 # Preassemble constant body force
 assert(isinstance(f, Constant))
 b0 = dict((ui, assemble(v*f[i]*dx)) for i, ui in enumerate(u_components))
-
-u_sol, p_sol, du_sol = get_solvers()
 
 b   = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vectors
 bold= dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs temp storage vectors
@@ -219,7 +224,8 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             b[ui].axpy(-1., P[ui]*x_['p'])       # Add pressure gradient
             [bc.apply(b[ui]) for bc in bcs[ui]]
             work[:] = x_[ui][:]
-            info_blue('Solving tentative velocity '+ui)
+            if j == 1:
+                info_blue('Solving tentative velocity '+ui)
             pre_velocity_tentative_solve(ui)
             u_sol.solve(A, x_[ui], b[ui])
             b[ui][:] = bold[ui][:]  # store preassemble part
@@ -235,15 +241,17 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         b['p'].axpy(1., Ap*x_['p'])
         [bc.apply(b['p']) for bc in bcs['p']]
         rp = residual(Ap, x_['p'], b['p'])
-        info_blue('Solving pressure')
+        if j == 1:
+            info_blue('Solving pressure')
         pre_pressure_solve()
         p_sol.solve(Ap, x_['p'], b['p'])
         if normalize: normalize(x_['p'])
         dp_.vector()[:] = x_['p'][:] - dp_.vector()[:]
-        if tstep % save_step == 0 or tstep % checkpoint == 0:
-            if num_iter > 1:
-                if j == 1: info_blue('                 error u  error p')
-                info_blue('    Iter = {0:4d}, {1:2.2e} {2:2.2e}'.format(j, err, rp))
+        if num_iter > 1:
+            if j == 1: 
+                info_blue('  Inner iterations velocity pressure:')
+                info_blue('               error u  error p')
+            info_blue('    Iter = {0:4d}, {1:2.2e} {2:2.2e}'.format(j, err, rp))
         p_sol.t += (time.time()-t0)
         
     ### Update velocity ###
@@ -274,11 +282,11 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         info_green('Time = {0:2.4e}, timestep = {1:6d}, End time = {2:2.4e}'.format(t, tstep, T)) 
         tottime= time.time() - t1    
         info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(tstep - old_tstep, tottime))
-        save_solution(tstep, q_, q_1, NS_parameters)
+        save_solution(tstep, t, q_, q_1, NS_parameters)
         t1 = time.time(); old_tstep = tstep
     
     update_end_of_timestep(tstep)
-    stop = check_if_kill(tstep, q_, q_1, NS_parameters)
+    stop = check_if_kill(tstep, t, q_, q_1, NS_parameters)
     tend = time.time()
         
 info_red('Total computing time = {0:f}'.format(tend - tin))

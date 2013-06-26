@@ -6,7 +6,7 @@ from NSCommon import *
 
 from mpi4py import MPI as nMPI
 from commands import getoutput
-import time
+import time, copy
 
 #parameters["linear_algebra_backend"] = "Epetra"
 parameters["linear_algebra_backend"] = "PETSc"

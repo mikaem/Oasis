@@ -9,7 +9,7 @@ from numpy import ceil
 import time
 
 # Create a mesh here
-mesh = BoxMesh(-pi, -pi, -pi, pi, pi, pi, 20, 20, 20)
+mesh = BoxMesh(-pi, -pi, -pi, pi, pi, pi, 32, 32, 32)
 
 dim = mesh.geometry().dim()
 u_components = ['u0', 'u1', 'u2']
@@ -54,7 +54,7 @@ class PeriodicDomain(SubDomain):
 constrained_domain = PeriodicDomain()
 
 # Override some problem specific parameters and put the variables in DC_dict
-T = 0.5
+T = 4.
 #dt = 0.25*T/ceil(T/0.2/mesh.hmin())
 dt = 0.01
 folder = "taylorgreen3D_results"
@@ -65,6 +65,7 @@ NS_parameters.update(dict(
     dt = dt,
     folder = folder,
     newfolder = newfolder,
+    max_iter = 1,
     sys_comp = sys_comp,
     velocity_degree = 1,
     use_krylov_solvers = True,
@@ -88,13 +89,6 @@ f = Constant((0,)*dim)
 def pre_solve(NS_dict):    
     """Called prior to time loop"""
     globals().update(NS_dict)
-    velocity_plotter0 = VTKPlotter(q_['u0'])
-    velocity_plotter1 = VTKPlotter(q_['u1'])
-    pressure_plotter = VTKPlotter(p_) 
-    globals().update(
-                   velocity_plotter0=velocity_plotter0,
-                   velocity_plotter1=velocity_plotter1,
-                   pressure_plotter=pressure_plotter)
 
 # Specify boundary conditions
 def create_bcs():
@@ -121,36 +115,21 @@ def get_solvers():
     In case of lumping return None for velocity update"""
     if use_krylov_solvers:
         u_sol = KrylovSolver('bicgstab', 'jacobi')
-        u_sol.parameters['error_on_nonconvergence'] = False
-        u_sol.parameters['nonzero_initial_guess'] = True
+        u_sol.parameters.update(krylov_solvers)
         u_sol.parameters['preconditioner']['reuse'] = False
-        u_sol.parameters['monitor_convergence'] = True
-        u_sol.parameters['maximum_iterations'] = 100
-        u_sol.parameters['relative_tolerance'] = 1e-8
-        u_sol.parameters['absolute_tolerance'] = 1e-8
         u_sol.t = 0
 
         if use_lumping_of_mass_matrix:
             du_sol = None
         else:
             du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
-            du_sol.parameters['error_on_nonconvergence'] = False
-            du_sol.parameters['nonzero_initial_guess'] = True
+            du_sol.parameters.update(krylov_solvers)
             du_sol.parameters['preconditioner']['reuse'] = True
-            du_sol.parameters['monitor_convergence'] = True
-            du_sol.parameters['maximum_iterations'] = 50
-            du_sol.parameters['relative_tolerance'] = 1e-9
-            du_sol.parameters['absolute_tolerance'] = 1e-10
             du_sol.t = 0
             
         p_sol = KrylovSolver('gmres', 'hypre_amg')
-        p_sol.parameters['error_on_nonconvergence'] = True
-        p_sol.parameters['nonzero_initial_guess'] = True
         p_sol.parameters['preconditioner']['reuse'] = True
-        p_sol.parameters['monitor_convergence'] = True
-        p_sol.parameters['maximum_iterations'] = 100
-        p_sol.parameters['relative_tolerance'] = 1e-8
-        p_sol.parameters['absolute_tolerance'] = 1e-8
+        p_sol.parameters.update(krylov_solvers)
         p_sol.t = 0
     else:
         u_sol = LUSolver()
@@ -180,7 +159,12 @@ def pre_velocity_tentative_solve(ui):
             u_sol.parameters['preconditioner']['reuse'] = True
 
 def update_end_of_timestep(tstep):
-    #uv.assign(project(u_, Vv))
+    if not 'velocity_plotter0' in globals():
+        global velocity_plotter0, velocity_plotter1, pressure_plotter
+        velocity_plotter0 = VTKPlotter(q_['u0'])
+        velocity_plotter1 = VTKPlotter(q_['u1'])
+        pressure_plotter = VTKPlotter(p_) 
+    
     if tstep % 10 == 0:
         pressure_plotter.plot()
         velocity_plotter0.plot()

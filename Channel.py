@@ -13,15 +13,30 @@ import time
 Lx = 2.*pi
 Ly = 2.
 Lz = pi
-Nx = 25
-Ny = 19
-Nz = 19
+Nx = 20
+Ny = 12
+Nz = 12
+NS_parameters.update(dict(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz))
+
+restart_folder = 'channel_results/data/dt=5.0000e-02/4/Checkpoint'
+#restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
+#restart_folder = None
+
+### If restarting previous solution then read in parameters ########
+if not restart_folder is None:
+    restart_folder = path.join(getcwd(), restart_folder)
+    f = open(path.join(restart_folder, 'params.dat'), 'r')
+    NS_parameters.update(cPickle.load(f))
+    NS_parameters['restart_folder'] = restart_folder
+    NS_parameters['T'] = 2.0
+    globals().update(NS_parameters)
+#################### restart #######################################
 
 mesh = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
 # Create stretched mesh in y-direction
 x = mesh.coordinates() 
 x[:, 1] = cos(pi*(x[:, 1]-1.) / 2.)  
-u_components = ['u0', 'u1', 'u2']
+u_components = map(lambda x: 'u'+str(x), range(3))
 sys_comp =  u_components + ['p']
 
 class PeriodicDomain(SubDomain):
@@ -54,33 +69,35 @@ class PeriodicDomain(SubDomain):
             
 constrained_domain = PeriodicDomain()
 
-# Override some problem specific parameters and put the variables in DC_dict
-T = 1.
-dt = 0.05
-folder = "channel_results"
-newfolder = create_initial_folders(folder, dt)
-statsfolder = path.join(newfolder, "Stats")
-h5folder = path.join(newfolder, "HDF5")
-update_statistics = 10
-check_save_h5 = 10
-NS_parameters.update(dict(
-    nu = 2.e-5,
-    Re_tau = 395.,
-    T = T,
-    dt = dt,
-    folder = folder,
-    newfolder = newfolder,
-    sys_comp = sys_comp,
-    use_krylov_solvers = True,
-    use_lumping_of_mass_matrix = False
-  )
-)
+if restart_folder is None:
+    # Override some problem specific parameters and put the variables in DC_dict
+    T = 1.
+    dt = 0.05
+    folder = "channel_results"
+    newfolder = create_initial_folders(folder, dt)
+    NS_parameters.update(dict(
+        update_statistics = 10,
+        check_save_h5 = 10,
+        nu = 2.e-5,
+        Re_tau = 395.,
+        T = T,
+        dt = dt,
+        folder = folder,
+        newfolder = newfolder,
+        use_krylov_solvers = True,
+        use_lumping_of_mass_matrix = False
+      )
+    )
+
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
 
 # Put all the NS_parameters in the global namespace of Problem
 # These parameters are all imported by the Navier Stokes solver
 globals().update(NS_parameters)
+
+statsfolder = path.join(newfolder, "Stats")
+h5folder = path.join(newfolder, "HDF5")
 
 # Specify body force
 utau = nu * Re_tau
@@ -144,7 +161,7 @@ def initialize(NS_dict):
     tol = 1e-8
     voluviz = StructuredGrid(V, [Nx, Ny, Nz], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=False)
     stats = ChannelGrid(V, [Nx/5, Ny, Nz/5], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=True)
-    if restart_folder == None:
+    if restart_folder is None:
         psi = interpolate(RandomStreamVector(), Vv)
         u0 = project(curl(psi), Vv)
         u0x = project(u0[0], V)
@@ -169,36 +186,21 @@ def get_solvers():
     In case of lumping return None for velocity update"""
     if use_krylov_solvers:
         u_sol = KrylovSolver('bicgstab', 'jacobi')
-        u_sol.parameters['error_on_nonconvergence'] = False
-        u_sol.parameters['nonzero_initial_guess'] = True
+        u_sol.parameters.update(krylov_solvers)
         u_sol.parameters['preconditioner']['reuse'] = False
-        u_sol.parameters['monitor_convergence'] = True
-        u_sol.parameters['maximum_iterations'] = 100
-        u_sol.parameters['relative_tolerance'] = 1e-8
-        u_sol.parameters['absolute_tolerance'] = 1e-8
         u_sol.t = 0
 
         if use_lumping_of_mass_matrix:
             du_sol = None
         else:
             du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
-            du_sol.parameters['error_on_nonconvergence'] = False
-            du_sol.parameters['nonzero_initial_guess'] = True
+            du_sol.parameters.update(krylov_solvers)
             du_sol.parameters['preconditioner']['reuse'] = True
-            du_sol.parameters['monitor_convergence'] = True
-            du_sol.parameters['maximum_iterations'] = 50
-            du_sol.parameters['relative_tolerance'] = 1e-9
-            du_sol.parameters['absolute_tolerance'] = 1e-10
             du_sol.t = 0
             
         p_sol = KrylovSolver('gmres', 'hypre_amg')
-        p_sol.parameters['error_on_nonconvergence'] = True
-        p_sol.parameters['nonzero_initial_guess'] = True
         p_sol.parameters['preconditioner']['reuse'] = True
-        p_sol.parameters['monitor_convergence'] = True
-        p_sol.parameters['maximum_iterations'] = 100
-        p_sol.parameters['relative_tolerance'] = 1e-8
-        p_sol.parameters['absolute_tolerance'] = 1e-8
+        p_sol.parameters.update(krylov_solvers)
         p_sol.t = 0
     else:
         u_sol = LUSolver()
