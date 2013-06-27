@@ -7,17 +7,16 @@ from Oasis import *
 
 from cbc.cfd.tools.Streamfunctions import StreamFunction
 from numpy import ceil, cos, pi
-import time
 
 # Create a mesh here
 mesh = UnitSquareMesh(91, 91)
 x = mesh.coordinates()
 x[:, :] = (x[:, :] - 0.5)*2
 x[:, :] = 0.5*(cos(pi*(x[:, :]-1.) / 2.) + 1.)
+del x
 
-# Override some problem specific parameters and put the variables in DC_dict
+# Override some problem specific parameters
 T = 2.5
-#dt = 5*T/ceil(T/0.2/mesh.hmin())
 dt = 0.01
 folder = "drivencavity_results"
 newfolder = create_initial_folders(folder, dt)
@@ -36,22 +35,13 @@ NS_parameters.update(dict(
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
 
-# Put all the NS_parameters in the global namespace of Problem
-# These parameters are all imported by the Navier Stokes solver
-globals().update(NS_parameters)
-
 # Normalize pressure or not? 
 #normalize = False
 
 def pre_solve(Vv, p_, **NS_namespace):    
-    """Called prior to time loop"""
-    #globals().update(NS_namespace)
-    global uv, velocity_plotter, pressure_plotter
     uv = Function(Vv) 
-    velocity_plotter = VTKPlotter(uv)
-    pressure_plotter = VTKPlotter(p_) 
+    return dict(uv=uv)
 
-# Driven cavity example:
 def lid(x, on_boundary):
     return (on_boundary and near(x[1], 1.0))
     
@@ -70,16 +60,17 @@ def create_bcs(V, sys_comp, **NS_namespace):
     return bcs
 
 def pre_new_timestep(t, **NS_namespace):
-    u_top.assign(cos(t))
+    pass
+    #u_top.assign(cos(t))
     
 def initialize(q_, **NS_namespace):
     q_['u0'].vector()[:] = 1e-12
 
-def update_end_of_timestep(tstep, u_, Vv, **NS_namespace):
+def update_end_of_timestep(tstep, u_, Vv, uv, p_, **NS_namespace):
     if tstep % 10 == 0:
         uv.assign(project(u_, Vv))
-        pressure_plotter.plot()
-        velocity_plotter.plot()
+        plot(uv)
+        plot(p_)
 
 def theend(u_, **NS_namespace):
     psi = StreamFunction(u_, [], use_strong_bc=True)

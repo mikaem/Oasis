@@ -12,6 +12,7 @@ import time
 mesh = UnitSquareMesh(50, 50)
 scale = 2*(mesh.coordinates() - 0.5)*pi
 mesh.coordinates()[:, :] = scale
+del scale
 
 class PeriodicDomain(SubDomain):
     
@@ -36,7 +37,6 @@ constrained_domain = PeriodicDomain()
 
 # Override some problem specific parameters and put the variables in DC_dict
 T = 10.
-#dt = 0.25*T/ceil(T/0.2/mesh.hmin())
 dt = 0.1
 folder = "taylorgreen2D_results"
 newfolder = create_initial_folders(folder, dt)
@@ -57,19 +57,13 @@ NS_parameters.update(dict(
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
 
-# Put all the NS_parameters in the global namespace of Problem
-# These parameters are all imported by the Navier Stokes solver
-globals().update(NS_parameters)
-
-# Normalize pressure or not? 
-#normalize = False
-
 def pre_solve(q_, p_, **NS_namespace):    
-    """Called prior to time loop"""
-    global velocity_plotter0, velocity_plotter1, pressure_plotter
     velocity_plotter0 = VTKPlotter(q_['u0'])
     velocity_plotter1 = VTKPlotter(q_['u1'])
     pressure_plotter = VTKPlotter(p_) 
+    return dict(velocity_plotter0=velocity_plotter0, 
+                velocity_plotter1=velocity_plotter1, 
+                pressure_plotter=pressure_plotter)
 
 initial_fields = dict(
         u0='2./sqrt(3.)*sin(2.*pi/3.)*sin(x[0])*cos(x[1])',
@@ -84,7 +78,8 @@ def initialize(q_, q_1, q_2, VV, sys_comp, **NS_namespace):
             q_1[ui].vector()[:] = q_[ui].vector()[:]
             q_2[ui].vector()[:] = q_[ui].vector()[:]
 
-def update_end_of_timestep(**NS_namespace):
+def update_end_of_timestep(velocity_plotter0, velocity_plotter1,
+                           pressure_plotter, **NS_namespace):
     pressure_plotter.plot()
     velocity_plotter0.plot()
     velocity_plotter1.plot()

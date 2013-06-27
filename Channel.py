@@ -7,7 +7,6 @@ from Oasis import *
 from fenicstools import StructuredGrid, ChannelGrid
 from numpy import arctan, array, cos, pi
 import random
-import time
 
 # Create a mesh here
 Lx = 2.*pi
@@ -22,7 +21,7 @@ NS_parameters.update(dict(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz))
 #restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
 restart_folder = None
 
-### If restarting previous solution then read in parameters ########
+### If restarting from previous solution then read in parameters ########
 if not restart_folder is None:
     restart_folder = path.join(getcwd(), restart_folder)
     f = open(path.join(restart_folder, 'params.dat'), 'r')
@@ -36,6 +35,7 @@ mesh = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
 # Create stretched mesh in y-direction
 x = mesh.coordinates() 
 x[:, 1] = cos(pi*(x[:, 1]-1.) / 2.)  
+del x
 
 class PeriodicDomain(SubDomain):
 
@@ -56,14 +56,10 @@ class PeriodicDomain(SubDomain):
             y[0] = x[0] - Lx
             y[1] = x[1]
             y[2] = x[2]
-        elif near(x[2], Lz/2.):
+        else: # near(x[2], Lz/2.):
             y[0] = x[0]
             y[1] = x[1]
             y[2] = x[2] - Lz
-        else:
-            y[0] = -1000
-            y[1] = -1000
-            y[2] = -1000
             
 constrained_domain = PeriodicDomain()
 
@@ -71,13 +67,15 @@ if restart_folder is None:
     # Override some problem specific parameters and put the variables in DC_dict
     T = 1.
     dt = 0.05
+    nu = 2.e-5
+    Re_tau = 395.
     folder = "channel_results"
     newfolder = create_initial_folders(folder, dt)
     NS_parameters.update(dict(
         update_statistics = 10,
         check_save_h5 = 10,
-        nu = 2.e-5,
-        Re_tau = 395.,
+        nu = nu,
+        Re_tau = Re_tau,
         T = T,
         dt = dt,
         folder = folder,
@@ -90,11 +88,8 @@ if restart_folder is None:
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
 
-# Put all the NS_parameters in the global namespace of Problem
-# These parameters are all imported by the Navier Stokes solver
 NS_parameters.update(dict(statsfolder = path.join(newfolder, "Stats"),
                           h5folder = path.join(newfolder, "HDF5")))
-globals().update(NS_parameters)
 
 # Specify body force
 utau = nu * Re_tau
@@ -104,12 +99,16 @@ def body_force(**NS_namespace):
 # Normalize pressure or not? 
 #normalize = False
 
-def pre_solve(Vv, p_, **NS_namespace):    
+def pre_solve(Vv, V, p_, **NS_namespace):    
     """Called prior to time loop"""
-    global uv, velocity_plotter, pressure_plotter
     uv = Function(Vv) 
     velocity_plotter = VTKPlotter(uv)
     pressure_plotter = VTKPlotter(p_) 
+    tol = 1e-8
+    voluviz = StructuredGrid(V, [Nx, Ny, Nz], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=False)
+    stats = ChannelGrid(V, [Nx/5, Ny, Nz/5], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=True)
+    return dict(uv=uv, velocity_plotter=velocity_plotter, pressure_plotter=pressure_plotter,
+                voluviz=voluviz, stats=stats)
     
 def inlet(x, on_bnd):
     return on_bnd and near(x[0], 0)
@@ -117,9 +116,7 @@ def inlet(x, on_bnd):
 def walls(x, on_bnd):
     return on_bnd and (near(x[1], -Ly/2.) or near(x[1], Ly/2.))
 
-# Specify boundary conditions
-def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, **NS_namespace):
-    
+def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, **NS_namespace):    
     bcs = dict((ui, []) for ui in sys_comp)    
     Inlet = AutoSubDomain(inlet)
     facets = FacetFunction('size_t', mesh)
@@ -129,13 +126,7 @@ def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, **NS_namespace):
     bcs['u0'] = bc
     bcs['u1'] = bc
     bcs['u2'] = bc
-    bcs['p'] = []
-
-    for ui in u_components:
-        [bc.apply(q_[ui].vector()) for bc in bcs[ui]]
-        [bc.apply(q_1[ui].vector()) for bc in bcs[ui]]
-        [bc.apply(q_2[ui].vector()) for bc in bcs[ui]]
-    
+    bcs['p'] = []    
     return bcs
 
 class RandomStreamVector(Expression):
@@ -148,10 +139,7 @@ class RandomStreamVector(Expression):
     def value_shape(self):
         return (3,)  
 
-def initialize(V, Vv, q_, q_1, q_2, **NS_namespace):
-    tol = 1e-8
-    voluviz = StructuredGrid(V, [Nx, Ny, Nz], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=False)
-    stats = ChannelGrid(V, [Nx/5, Ny, Nz/5], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=True)
+def initialize(V, Vv, q_, q_1, q_2, bcs, u_components, **NS_namespace):
     if restart_folder is None:
         psi = interpolate(RandomStreamVector(), Vv)
         u0 = project(curl(psi), Vv)
@@ -170,7 +158,10 @@ def initialize(V, Vv, q_, q_1, q_2, **NS_namespace):
         q_2['u1'].vector()[:] = q_['u1'].vector()[:]
         q_1['u2'].vector()[:] = q_['u2'].vector()[:]
         q_2['u2'].vector()[:] = q_['u2'].vector()[:]
-    return dict(voluviz=voluviz, stats=stats)
+        for ui in u_components:
+            [bc.apply(q_[ui].vector()) for bc in bcs[ui]]
+            [bc.apply(q_1[ui].vector()) for bc in bcs[ui]]
+            [bc.apply(q_2[ui].vector()) for bc in bcs[ui]]
     
 def pre_velocity_tentative_solve(ui, use_krylov_solvers, u_sol, 
                                  **NS_namespace):
@@ -184,9 +175,9 @@ def pre_velocity_tentative_solve(ui, use_krylov_solvers, u_sol,
             u_sol.parameters['relative_tolerance'] = 1e-8
             u_sol.parameters['absolute_tolerance'] = 1e-8
 
-def update_end_of_timestep(q_, u_, V, Vv, tstep, voluviz, stats, 
-                           statsfolder, h5folder, **NS_namespace):   
-            
+def update_end_of_timestep(q_, u_, V, Vv, tstep, uv, voluviz, stats, 
+                           statsfolder, h5folder, pressure_plotter, 
+                           velocity_plotter, update_statistics, check_save_h5, **NS_namespace):
     if tstep % update_statistics == 0:
         stats(q_['u0'], q_['u1'], q_['u2'])
         

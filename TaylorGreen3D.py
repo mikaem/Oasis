@@ -51,7 +51,6 @@ constrained_domain = PeriodicDomain()
 
 # Override some problem specific parameters
 T = 4.
-#dt = 0.25*T/ceil(T/0.2/mesh.hmin())
 dt = 0.01
 folder = "taylorgreen3D_results"
 newfolder = create_initial_folders(folder, dt)
@@ -71,13 +70,6 @@ NS_parameters.update(dict(
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
 
-# Put all the NS_parameters in the global namespace of Problem
-# These parameters are all imported by the Navier Stokes solver
-globals().update(NS_parameters)
-
-# Normalize pressure or not? 
-#normalize = False
-
 initial_fields = dict(
         u0='sin(x[0])*cos(x[1])*cos(x[2])',
         u1='-cos(x[0])*sin(x[1])*cos(x[2])',
@@ -93,13 +85,7 @@ def initialize(q_, q_1, q_2, VV, sys_comp, **NS_namespace):
             q_2[ui].vector()[:] = q_[ui].vector()[:]
 
 def update_end_of_timestep(q_, p_, tstep, **NS_namespace):
-    if not 'velocity_plotter0' in globals():
-        global velocity_plotter0, velocity_plotter1, pressure_plotter
-        velocity_plotter0 = VTKPlotter(q_['u0'])
-        velocity_plotter1 = VTKPlotter(q_['u1'])
-        pressure_plotter = VTKPlotter(p_) 
-    
     if tstep % 10 == 0:
-        pressure_plotter.plot()
-        velocity_plotter0.plot()
-        velocity_plotter1.plot()
+        plot(p_)
+        plot(q_['u0'])
+        plot(q_['u1'])
