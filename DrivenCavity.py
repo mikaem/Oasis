@@ -64,14 +64,18 @@ def stationary_walls(x, on_boundary):
     return on_boundary and (near(x[0], 0.) or near(x[0], 1.) or near(x[1], 0.))
 
 # Specify boundary conditions
+u_top = Constant(1.0)
 def create_bcs(V, sys_comp, **NS_namespace):
     bcs = dict((ui, []) for ui in sys_comp)    
     bc0  = DirichletBC(V, 0., stationary_walls)
-    bc00 = DirichletBC(V, 1., lid)
+    bc00 = DirichletBC(V, u_top, lid)
     bc01 = DirichletBC(V, 0., lid)
     bcs['u0'] = [bc00, bc0]
     bcs['u1'] = [bc01, bc0]
     return bcs
+
+def pre_new_timestep(t, **NS_namespace):
+    u_top.assign(cos(t))
     
 def initialize(q_, **NS_namespace):
     q_['u0'].vector()[:] = 1e-12

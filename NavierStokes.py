@@ -197,6 +197,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     j = 0
     err = 1e8
     total_iters += 1
+    pre_new_timestep(**vars())
     num_iter = max(iters_on_first_timestep, max_iter) if tstep == 1 else max_iter
     while err > max_error and j < num_iter:
         err = 0
