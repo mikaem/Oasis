@@ -71,8 +71,8 @@ up Ar and then using the following to create A:
 """
 ################### Problem dependent parameters ####################
 
-#from DrivenCavity import *
-from Channel import *
+from DrivenCavity import *
+#from Channel import *
 #from TaylorGreen2D import *
 #from TaylorGreen3D import *
 
@@ -90,6 +90,9 @@ u = TrialFunction(V)
 v = TestFunction(V)
 p = TrialFunction(Q)
 q = TestFunction(Q)
+
+u_components = map(lambda x: 'u'+str(x), range(mesh.geometry().dim()))
+sys_comp =  u_components + ['p']
 
 # Use dictionaries to hold all Functions and FunctionSpaces
 VV = dict((ui, V) for ui in u_components); VV['p'] = Q
@@ -120,15 +123,15 @@ x_2 = dict((ui, q_2[ui].vector()) for ui in u_components) # Solution vectors t -
 
 ###################  Initialize solution ############################
 
-initialize(globals())
+initialize(**vars())
 
 ###################  Boundary conditions  ###########################
 
-bcs = create_bcs()
+bcs = create_bcs(**vars())
 
 #####################################################################
 
-u_sol, p_sol, du_sol = get_solvers()
+u_sol, p_sol, du_sol = get_solvers(**vars())
 
 ################### Fetch solvers  ##################################
 
@@ -185,7 +188,7 @@ total_iters = 0
 stop = False
 reset_sparsity = True
 
-pre_solve(globals())
+pre_solve(**vars())
 
 t1 = time.time(); old_tstep = tstep
 while t < (T - tstep*DOLFIN_EPS) and not stop:
@@ -226,7 +229,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             work[:] = x_[ui][:]
             if j == 1:
                 info_blue('Solving tentative velocity '+ui)
-            pre_velocity_tentative_solve(ui)
+            pre_velocity_tentative_solve(**vars())
             u_sol.solve(A, x_[ui], b[ui])
             b[ui][:] = bold[ui][:]  # store preassemble part
             err += norm(work - x_[ui])
@@ -243,7 +246,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         rp = residual(Ap, x_['p'], b['p'])
         if j == 1:
             info_blue('Solving pressure')
-        pre_pressure_solve()
+        pre_pressure_solve(**vars())
         p_sol.solve(Ap, x_['p'], b['p'])
         if normalize: normalize(x_['p'])
         dp_.vector()[:] = x_['p'][:] - dp_.vector()[:]
@@ -285,7 +288,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         save_solution(tstep, t, q_, q_1, NS_parameters)
         t1 = time.time(); old_tstep = tstep
     
-    update_end_of_timestep(tstep)
+    update_end_of_timestep(**globals())
     stop = check_if_kill(tstep, t, q_, q_1, NS_parameters)
     tend = time.time()
         
@@ -295,5 +298,4 @@ mymem = eval(getMyMemoryUsage())-eval(dolfin_memory_use)
 info_red('Total memory use of solver = ' + str(comm.reduce(mymem, root=0)))
 list_timings()
         
-theend()
-
+theend(**vars())

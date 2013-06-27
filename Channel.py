@@ -18,9 +18,9 @@ Ny = 12
 Nz = 12
 NS_parameters.update(dict(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz))
 
-restart_folder = 'channel_results/data/dt=5.0000e-02/4/Checkpoint'
+#restart_folder = 'channel_results/data/dt=5.0000e-02/4/Checkpoint'
 #restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
-#restart_folder = None
+restart_folder = None
 
 ### If restarting previous solution then read in parameters ########
 if not restart_folder is None:
@@ -36,8 +36,6 @@ mesh = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
 # Create stretched mesh in y-direction
 x = mesh.coordinates() 
 x[:, 1] = cos(pi*(x[:, 1]-1.) / 2.)  
-u_components = map(lambda x: 'u'+str(x), range(3))
-sys_comp =  u_components + ['p']
 
 class PeriodicDomain(SubDomain):
 
@@ -94,10 +92,9 @@ if NS_parameters['velocity_degree'] > 1:
 
 # Put all the NS_parameters in the global namespace of Problem
 # These parameters are all imported by the Navier Stokes solver
+NS_parameters.update(dict(statsfolder = path.join(newfolder, "Stats"),
+                          h5folder = path.join(newfolder, "HDF5")))
 globals().update(NS_parameters)
-
-statsfolder = path.join(newfolder, "Stats")
-h5folder = path.join(newfolder, "HDF5")
 
 # Specify body force
 utau = nu * Re_tau
@@ -106,32 +103,27 @@ f = Constant((utau**2, 0., 0.))
 # Normalize pressure or not? 
 #normalize = False
 
-def pre_solve(NS_dict):    
+def pre_solve(Vv, p_, **NS_namespace):    
     """Called prior to time loop"""
-    globals().update(NS_dict)
+    global uv, velocity_plotter, pressure_plotter
     uv = Function(Vv) 
     velocity_plotter = VTKPlotter(uv)
     pressure_plotter = VTKPlotter(p_) 
-    globals().update(uv=uv, 
-                   velocity_plotter=velocity_plotter,
-                   pressure_plotter=pressure_plotter)
+    
+def inlet(x, on_bnd):
+    return on_bnd and near(x[0], 0)
+
+def walls(x, on_bnd):
+    return on_bnd and (near(x[1], -Ly/2.) or near(x[1], Ly/2.))
 
 # Specify boundary conditions
-def create_bcs():
+def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, **NS_namespace):
     
-    bcs = dict((ui, []) for ui in sys_comp)
-    
-    def inlet(x, on_bnd):
-        return on_bnd and near(x[0], 0)
-
-    def walls(x, on_bnd):
-        return on_bnd and (near(x[1], -Ly/2.) or near(x[1], Ly/2.))
-
+    bcs = dict((ui, []) for ui in sys_comp)    
     Inlet = AutoSubDomain(inlet)
     facets = FacetFunction('size_t', mesh)
     facets.set_all(0)
     Inlet.mark(facets, 1)    
-
     bc = [DirichletBC(V, Constant(0), walls)]
     bcs['u0'] = bc
     bcs['u1'] = bc
@@ -154,10 +146,8 @@ class RandomStreamVector(Expression):
         values[2] = 0.0005*random.random()
     def value_shape(self):
         return (3,)  
-    
-def initialize(NS_dict):
-    globals().update(NS_dict)
-    global voluviz, stats 
+
+def initialize(V, Vv, q_, q_1, q_2, **NS_namespace):
     tol = 1e-8
     voluviz = StructuredGrid(V, [Nx, Ny, Nz], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=False)
     stats = ChannelGrid(V, [Nx/5, Ny, Nz/5], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=True)
@@ -179,50 +169,10 @@ def initialize(NS_dict):
         q_2['u1'].vector()[:] = q_['u1'].vector()[:]
         q_1['u2'].vector()[:] = q_['u2'].vector()[:]
         q_2['u2'].vector()[:] = q_['u2'].vector()[:]
-
-# Set up linear solvers
-def get_solvers():
-    """return three solvers, velocity, pressure and velocity update.
-    In case of lumping return None for velocity update"""
-    if use_krylov_solvers:
-        u_sol = KrylovSolver('bicgstab', 'jacobi')
-        u_sol.parameters.update(krylov_solvers)
-        u_sol.parameters['preconditioner']['reuse'] = False
-        u_sol.t = 0
-
-        if use_lumping_of_mass_matrix:
-            du_sol = None
-        else:
-            du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
-            du_sol.parameters.update(krylov_solvers)
-            du_sol.parameters['preconditioner']['reuse'] = True
-            du_sol.t = 0
-            
-        p_sol = KrylovSolver('gmres', 'hypre_amg')
-        p_sol.parameters['preconditioner']['reuse'] = True
-        p_sol.parameters.update(krylov_solvers)
-        p_sol.t = 0
-    else:
-        u_sol = LUSolver()
-        u_sol.t = 0
-
-        if use_lumping_of_mass_matrix:
-            du_sol = None
-        else:
-            du_sol = LUSolver()
-            du_sol.parameters['reuse_factorization'] = True
-            du_sol.t = 0
-
-        p_sol = LUSolver()
-        p_sol.parameters['reuse_factorization'] = True
-        p_sol.t = 0
-        
-    return u_sol, p_sol, du_sol
+    return dict(voluviz=voluviz, stats=stats)
     
-def pre_pressure_solve():
-    pass
-
-def pre_velocity_tentative_solve(ui):
+def pre_velocity_tentative_solve(ui, use_krylov_solvers, u_sol, 
+                                 **NS_namespace):
     if use_krylov_solvers:
         if ui == "u0":
             u_sol.parameters['preconditioner']['reuse'] = False
@@ -233,7 +183,8 @@ def pre_velocity_tentative_solve(ui):
             u_sol.parameters['relative_tolerance'] = 1e-8
             u_sol.parameters['absolute_tolerance'] = 1e-8
 
-def update_end_of_timestep(tstep):    
+def update_end_of_timestep(q_, u_, V, Vv, tstep, voluviz, stats, 
+                           statsfolder, h5folder, **NS_namespace):   
             
     if tstep % update_statistics == 0:
         stats(q_['u0'], q_['u1'], q_['u2'])
@@ -262,5 +213,3 @@ def update_end_of_timestep(tstep):
         pressure_plotter.plot()
         velocity_plotter.plot()
     
-def theend():
-    pass

@@ -11,10 +11,6 @@ import time
 # Create a mesh here
 mesh = BoxMesh(-pi, -pi, -pi, pi, pi, pi, 32, 32, 32)
 
-dim = mesh.geometry().dim()
-u_components = ['u0', 'u1', 'u2']
-sys_comp =  u_components + ['p']
-
 class PeriodicDomain(SubDomain):
     
     def inside(self, x, on_boundary):
@@ -53,7 +49,7 @@ class PeriodicDomain(SubDomain):
 
 constrained_domain = PeriodicDomain()
 
-# Override some problem specific parameters and put the variables in DC_dict
+# Override some problem specific parameters
 T = 4.
 #dt = 0.25*T/ceil(T/0.2/mesh.hmin())
 dt = 0.01
@@ -66,7 +62,6 @@ NS_parameters.update(dict(
     folder = folder,
     newfolder = newfolder,
     max_iter = 1,
-    sys_comp = sys_comp,
     velocity_degree = 1,
     use_krylov_solvers = True,
     use_lumping_of_mass_matrix = False,
@@ -81,18 +76,10 @@ if NS_parameters['velocity_degree'] > 1:
 globals().update(NS_parameters)
 
 # Specify body force
-f = Constant((0,)*dim)
+f = Constant((0,)*mesh.geometry().dim())
 
 # Normalize pressure or not? 
 #normalize = False
-
-def pre_solve(NS_dict):    
-    """Called prior to time loop"""
-    globals().update(NS_dict)
-
-# Specify boundary conditions
-def create_bcs():
-    return dict((ui, []) for ui in sys_comp)
 
 initial_fields = dict(
         u0='sin(x[0])*cos(x[1])*cos(x[2])',
@@ -100,8 +87,7 @@ initial_fields = dict(
         u2='0',
         p='0')
     
-def initialize(NS_dict):
-    globals().update(NS_dict)
+def initialize(q_, q_1, q_2, VV, sys_comp, **NS_namespace):
     for ui in sys_comp:
         vv = project(Expression((initial_fields[ui])), VV[ui])
         q_[ui].vector()[:] = vv.vector()[:]
@@ -109,56 +95,7 @@ def initialize(NS_dict):
             q_1[ui].vector()[:] = q_[ui].vector()[:]
             q_2[ui].vector()[:] = q_[ui].vector()[:]
 
-# Set up linear solvers
-def get_solvers():
-    """return three solvers, velocity, pressure and velocity update.
-    In case of lumping return None for velocity update"""
-    if use_krylov_solvers:
-        u_sol = KrylovSolver('bicgstab', 'jacobi')
-        u_sol.parameters.update(krylov_solvers)
-        u_sol.parameters['preconditioner']['reuse'] = False
-        u_sol.t = 0
-
-        if use_lumping_of_mass_matrix:
-            du_sol = None
-        else:
-            du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
-            du_sol.parameters.update(krylov_solvers)
-            du_sol.parameters['preconditioner']['reuse'] = True
-            du_sol.t = 0
-            
-        p_sol = KrylovSolver('gmres', 'hypre_amg')
-        p_sol.parameters['preconditioner']['reuse'] = True
-        p_sol.parameters.update(krylov_solvers)
-        p_sol.t = 0
-    else:
-        u_sol = LUSolver()
-        u_sol.t = 0
-
-        if use_lumping_of_mass_matrix:
-            du_sol = None
-        else:
-            du_sol = LUSolver()
-            du_sol.parameters['reuse_factorization'] = True
-            du_sol.t = 0
-
-        p_sol = LUSolver()
-        p_sol.parameters['reuse_factorization'] = True
-        p_sol.t = 0
-        
-    return u_sol, p_sol, du_sol
-
-def pre_pressure_solve():
-    pass
-
-def pre_velocity_tentative_solve(ui):
-    if use_krylov_solvers:
-        if ui == "u0":
-            u_sol.parameters['preconditioner']['reuse'] = False
-        else:
-            u_sol.parameters['preconditioner']['reuse'] = True
-
-def update_end_of_timestep(tstep):
+def update_end_of_timestep(q_, p_, tstep, **NS_namespace):
     if not 'velocity_plotter0' in globals():
         global velocity_plotter0, velocity_plotter1, pressure_plotter
         velocity_plotter0 = VTKPlotter(q_['u0'])
@@ -169,6 +106,3 @@ def update_end_of_timestep(tstep):
         pressure_plotter.plot()
         velocity_plotter0.plot()
         velocity_plotter1.plot()
-
-def theend():
-    pass
