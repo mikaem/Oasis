@@ -184,6 +184,9 @@ def pre_velocity_tentative_solve(ui, use_krylov_solvers, u_sol,
 def pre_pressure_solve(**NS_namespace):
     pass
 
+def pre_new_timestep(**NS_parameters):
+    pass
+
 def pre_velocity_update_solve(**NS_namespace):
     pass
 

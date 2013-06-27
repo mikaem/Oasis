@@ -71,10 +71,10 @@ up Ar and then using the following to create A:
 """
 ################### Problem dependent parameters ####################
 
-from DrivenCavity import *
+#from DrivenCavity import *
 #from Channel import *
 #from TaylorGreen2D import *
-#from TaylorGreen3D import *
+from TaylorGreen3D import *
 
 #####################################################################
 

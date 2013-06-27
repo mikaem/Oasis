@@ -64,7 +64,7 @@ NS_parameters.update(dict(
     max_iter = 1,
     velocity_degree = 1,
     use_krylov_solvers = True,
-    use_lumping_of_mass_matrix = False,
+    use_lumping_of_mass_matrix = True,
   )
 )
 
