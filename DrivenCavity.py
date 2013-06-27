@@ -40,11 +40,6 @@ if NS_parameters['velocity_degree'] > 1:
 # These parameters are all imported by the Navier Stokes solver
 globals().update(NS_parameters)
 
-constrained_domain = None
-
-# Specify body force
-f = Constant((0,)*mesh.geometry().dim())
-
 # Normalize pressure or not? 
 #normalize = False
 

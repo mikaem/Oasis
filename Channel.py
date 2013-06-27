@@ -98,7 +98,8 @@ globals().update(NS_parameters)
 
 # Specify body force
 utau = nu * Re_tau
-f = Constant((utau**2, 0., 0.))
+def body_force(**NS_namespace):
+    return Constant((utau**2, 0., 0.))
 
 # Normalize pressure or not? 
 #normalize = False

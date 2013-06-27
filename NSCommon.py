@@ -3,7 +3,7 @@ __date__ = "2013-06-25"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
-from dolfin import MPI, File, KrylovSolver, LUSolver
+from dolfin import MPI, File, Constant, KrylovSolver, LUSolver
 import cPickle
 from os import getpid, path, makedirs, getcwd, listdir, remove, system
 
@@ -34,6 +34,8 @@ NS_parameters = dict(
     relative_tolerance = 1e-8,
     absolute_tolerance = 1e-8)  
 )
+
+constrained_domain = None
 
 def create_initial_folders(folder, dt):
     # To avoid writing over old data create a new folder for each run
@@ -109,6 +111,10 @@ def check_if_kill(tstep, t, q_, q_1, params):
     else:
         return False
         
+def body_force(mesh, **NS_namespace):
+    # Specify body force
+    return Constant((0,)*mesh.geometry().dim())
+
 def initialize(**NS_namespace):
     pass
 

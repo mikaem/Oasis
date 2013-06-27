@@ -123,7 +123,8 @@ x_2 = dict((ui, q_2[ui].vector()) for ui in u_components) # Solution vectors t -
 
 ###################  Initialize solution ############################
 
-initialize(**vars())
+kw = initialize(**vars())
+if kw: globals().update(kw)
 
 ###################  Boundary conditions  ###########################
 
@@ -176,6 +177,7 @@ U_ = 1.5*u_1 - 0.5*u_2
 a  = 0.5*inner(v, dot(U_, nabla_grad(u)))*dx
 
 # Preassemble constant body force
+f = body_force(**vars())
 assert(isinstance(f, Constant))
 b0 = dict((ui, assemble(v*f[i]*dx)) for i, ui in enumerate(u_components))
 
@@ -197,8 +199,8 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     j = 0
     err = 1e8
     total_iters += 1
-    pre_new_timestep(**vars())
     num_iter = max(iters_on_first_timestep, max_iter) if tstep == 1 else max_iter
+    pre_new_timestep(**vars())
     while err > max_error and j < num_iter:
         err = 0
         j += 1
