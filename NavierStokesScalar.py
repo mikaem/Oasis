@@ -233,11 +233,8 @@ if use_lumping_of_mass_matrix:
     # Create vectors used for lumping mass matrix
     ones = Function(V)
     ones.vector()[:] = 1.
-
     ML = M * ones.vector()
-    MP = Vector(ML)
     ML.set_local(1. / ML.array())
-
 else:
     # Use regular mass matrix for velocity update
     Mu = Matrix(M)
@@ -357,8 +354,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     if use_lumping_of_mass_matrix:
         # Update velocity using lumped mass matrix
         for ui in u_components:
-            MP[:] = (P[ui] * dp_.vector()) * ML
-            x_[ui].axpy(-dt, MP)
+            x_[ui].axpy(-dt, (P[ui] * dp_.vector()) * ML)
             [bc.apply(x_[ui]) for bc in bcs[ui]]
     else:
         # Otherwise use regular mass matrix

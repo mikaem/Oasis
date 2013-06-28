@@ -216,7 +216,6 @@ if use_lumping_of_mass_matrix:
     ones = Function(V)
     ones.vector()[:] = 1.
     ML = M * ones.vector()
-    MP = Vector(ML)
     ML.set_local(1. / ML.array())
 else:
     # Use regular mass matrix for velocity update
@@ -329,8 +328,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     # Update velocity
     if use_lumping_of_mass_matrix:
         for ui in u_components:
-            MP[:] = (P[ui] * dp_.vector()) * ML
-            x_[ui].axpy(-dt, MP)
+            x_[ui].axpy(-dt, (P[ui] * dp_.vector()) * ML)
             [bc.apply(x_[ui]) for bc in bcs[ui]]
     else:
         t0 = time.time()

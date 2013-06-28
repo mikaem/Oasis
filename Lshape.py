@@ -20,7 +20,7 @@ del mesh_, mf1, subm
 
 # Override some problem specific parameters
 T = 10
-dt = 0.1
+dt = 0.01
 Re = 200.
 nu = 1./Re
 folder = "Lshape_results"
