@@ -84,12 +84,8 @@ if restart_folder is None:
         use_lumping_of_mass_matrix = False
       )
     )
-
-if NS_parameters['velocity_degree'] > 1:
-    NS_parameters['use_lumping_of_mass_matrix'] = False
-
-NS_parameters.update(dict(statsfolder = path.join(newfolder, "Stats"),
-                          h5folder = path.join(newfolder, "HDF5")))
+    NS_parameters.update(dict(statsfolder = path.join(newfolder, "Stats"),
+                              h5folder = path.join(newfolder, "HDF5")))
 
 # Specify body force
 utau = nu * Re_tau
@@ -99,29 +95,19 @@ def body_force(**NS_namespace):
 # Normalize pressure or not? 
 #normalize = False
 
-def pre_solve_hook(Vv, V, p_, **NS_namespace):    
+def pre_solve_hook(Vv, V, **NS_namespace):    
     """Called prior to time loop"""
     uv = Function(Vv) 
-    velocity_plotter = VTKPlotter(uv)
-    pressure_plotter = VTKPlotter(p_) 
     tol = 1e-8
     voluviz = StructuredGrid(V, [Nx, Ny, Nz], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=False)
     stats = ChannelGrid(V, [Nx/5, Ny, Nz/5], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=True)
-    return dict(uv=uv, velocity_plotter=velocity_plotter, pressure_plotter=pressure_plotter,
-                voluviz=voluviz, stats=stats)
+    return dict(uv=uv, voluviz=voluviz, stats=stats)
     
-def inlet(x, on_bnd):
-    return on_bnd and near(x[0], 0)
-
 def walls(x, on_bnd):
     return on_bnd and (near(x[1], -Ly/2.) or near(x[1], Ly/2.))
 
-def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, **NS_namespace):    
+def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, **NS_namespace):
     bcs = dict((ui, []) for ui in sys_comp)    
-    Inlet = AutoSubDomain(inlet)
-    facets = FacetFunction('size_t', mesh)
-    facets.set_all(0)
-    Inlet.mark(facets, 1)    
     bc = [DirichletBC(V, Constant(0), walls)]
     bcs['u0'] = bc
     bcs['u1'] = bc
@@ -139,15 +125,15 @@ class RandomStreamVector(Expression):
     def value_shape(self):
         return (3,)  
 
-def initialize(V, Vv, q_, q_1, q_2, bcs, u_components, **NS_namespace):
+def initialize(V, Vv, q_, q_1, q_2, bcs, restart_folder, **NS_namespace):
     if restart_folder is None:
         psi = interpolate(RandomStreamVector(), Vv)
         u0 = project(curl(psi), Vv)
-        u0x = project(u0[0], V)
-        u1x = project(u0[1], V)
-        u2x = project(u0[2], V)
+        u0x = project(u0[0], V, bcs=bcs['u0'])
+        u1x = project(u0[1], V, bcs=bcs['u0'])
+        u2x = project(u0[2], V, bcs=bcs['u0'])
         y = interpolate(Expression("x[1] > 0 ? 1-x[1] : 1+x[1]"), V)
-        uu = project(1.25*(utau/0.41*ln(conditional(y<1e-12, 1.e-12, y)*utau/nu)+5.*utau), V)
+        uu = project(1.25*(utau/0.41*ln(conditional(y<1e-12, 1.e-12, y)*utau/nu)+5.*utau), V, bcs=bcs['u0'])
         q_['u0'].vector()[:] = uu.vector()[:] 
         q_['u0'].vector().axpy(1.0, u0x.vector())
         q_['u1'].vector()[:] = u1x.vector()[:]
@@ -158,10 +144,6 @@ def initialize(V, Vv, q_, q_1, q_2, bcs, u_components, **NS_namespace):
         q_2['u1'].vector()[:] = q_['u1'].vector()[:]
         q_1['u2'].vector()[:] = q_['u2'].vector()[:]
         q_2['u2'].vector()[:] = q_['u2'].vector()[:]
-        for ui in u_components:
-            [bc.apply(q_[ui].vector()) for bc in bcs[ui]]
-            [bc.apply(q_1[ui].vector()) for bc in bcs[ui]]
-            [bc.apply(q_2[ui].vector()) for bc in bcs[ui]]
     
 def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, 
                                  **NS_namespace):
@@ -175,9 +157,8 @@ def velocity_tentative_hook(ui, use_krylov_solvers, u_sol,
             u_sol.parameters['relative_tolerance'] = 1e-8
             u_sol.parameters['absolute_tolerance'] = 1e-8
 
-def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats, 
-                           statsfolder, h5folder, pressure_plotter, 
-                           velocity_plotter, update_statistics, check_save_h5, **NS_namespace):
+def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats, statsfolder, h5folder, 
+                  update_statistics, check_save_h5, **NS_namespace):
     if tstep % update_statistics == 0:
         stats(q_['u0'], q_['u1'], q_['u2'])
         
@@ -202,6 +183,6 @@ def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats,
         voluviz.probes.clear()
         
         uv.assign(project(u_, Vv))
-        pressure_plotter.plot()
-        velocity_plotter.plot()
+        plot(q_['p'])
+        plot(uv)
     

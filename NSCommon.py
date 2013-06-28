@@ -17,6 +17,7 @@ NS_parameters = dict(
   max_error = 1e-6,
   iters_on_first_timestep = 2,
   dt = 0.01,
+  plot_interval = 10,
   checkpoint = 10,       # Overwrite solution in Checkpoint folder each checkpoint tstep
   save_step = 10,        # Store solution in new folder each save_step tstep
   folder = 'results',    # Relative folder for storing results 
@@ -24,7 +25,7 @@ NS_parameters = dict(
   use_lumping_of_mass_matrix = False,
   use_krylov_solvers = False,
   velocity_degree = 2,
-  pressure_degree = 1,
+  pressure_degree = 1,  
   krylov_solvers = dict(
     monitor_convergence = False,
     report = False,
@@ -182,7 +183,7 @@ def velocity_update_hook(**NS_namespace):
     """Called prior to velocity update solve."""
     pass
 
-def pre_scalar_solve(**NS_namespace):
+def scalar_hook(**NS_namespace):
     """Called prior to scalar solve."""
     pass
 

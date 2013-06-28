@@ -16,7 +16,7 @@ x[:, :] = 0.5*(cos(pi*(x[:, :]-1.) / 2.) + 1.)
 del x
 
 # Override some problem specific parameters
-T = 2.5
+T = 0.5
 dt = 0.01
 folder = "drivencavity_results"
 newfolder = create_initial_folders(folder, dt)
@@ -26,17 +26,16 @@ NS_parameters.update(dict(
     dt = dt,
     folder = folder,
     max_iter = 1,
+    plot_interval = 1000,
+    save_step = 1000,
+    checkpoint = 1000,
     newfolder = newfolder,
     velocity_degree = 1,
     use_lumping_of_mass_matrix = True,
-    use_krylov_solvers = True
+    use_krylov_solvers = True    
   )
 )
-if NS_parameters['velocity_degree'] > 1:
-    NS_parameters['use_lumping_of_mass_matrix'] = False
-
-# Normalize pressure or not? 
-#normalize = False
+NS_parameters['krylov_solvers']['monitor_convergence'] = True
 
 def pre_solve_hook(Vv, p_, **NS_namespace):    
     uv = Function(Vv) 
@@ -66,8 +65,8 @@ def start_timestep_hook(t, **NS_namespace):
 def initialize(q_, **NS_namespace):
     q_['u0'].vector()[:] = 1e-12
 
-def temporal_hook(tstep, u_, Vv, uv, p_, **NS_namespace):
-    if tstep % 10 == 0:
+def temporal_hook(tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace):
+    if tstep % plot_interval == 0:
         uv.assign(project(u_, Vv))
         plot(uv)
         plot(p_)

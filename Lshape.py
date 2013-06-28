@@ -32,6 +32,7 @@ NS_parameters.update(dict(
     Re = Re,
     folder = folder,
     max_iter = 1,
+    plot_interval = 10,
     newfolder = newfolder,
     velocity_degree = 1,
     use_lumping_of_mass_matrix = True,
@@ -68,8 +69,8 @@ def pre_solve_hook(Vv, **NS_namespace):
 def start_timestep_hook(t, **NS_namespace):
     p_in.t = t
     
-def temporal_hook(tstep, q_, u_, uv, Vv, **NS_namespace):
-    if tstep % 1 == 0:
+def temporal_hook(tstep, q_, u_, uv, Vv, plot_interval, **NS_namespace):
+    if tstep % plot_interval == 0:
         plot(q_['p'])
         uv.assign(project(u_, Vv))
         plot(uv)
