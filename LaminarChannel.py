@@ -4,9 +4,7 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from Oasis import *
-
 from numpy import pi, arctan, array
-import time
 
 # Create a mesh here
 L = 10.

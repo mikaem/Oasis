@@ -4,8 +4,6 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from Oasis import *
-
-from cbc.cfd.tools.Streamfunctions import StreamFunction
 from numpy import ceil, cos, pi
 
 # Create a mesh here
@@ -26,7 +24,7 @@ NS_parameters.update(dict(
     dt = dt,
     folder = folder,
     max_iter = 1,
-    plot_interval = 1000,
+    plot_interval = 10,
     save_step = 1000,
     checkpoint = 1000,
     newfolder = newfolder,
@@ -72,6 +70,10 @@ def temporal_hook(tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace):
         plot(p_)
 
 def theend(u_, **NS_namespace):
-    psi = StreamFunction(u_, [], use_strong_bc=True)
-    plot(psi)
-    interactive()
+    try:
+        from cbc.cfd.tools.Streamfunctions import StreamFunction
+        psi = StreamFunction(u_, [], use_strong_bc=True)
+        plot(psi)
+        interactive()
+    except:
+        pass

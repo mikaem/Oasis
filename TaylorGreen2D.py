@@ -5,9 +5,6 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from Oasis import *
 
-from numpy import ceil
-import time
-
 # Create a mesh here
 mesh = UnitSquareMesh(50, 50)
 scale = 2*(mesh.coordinates() - 0.5)*pi

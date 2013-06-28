@@ -116,9 +116,9 @@ mass matrix ML computed as
 ### Should import a mesh and a dictionary called NS_parameters    ###
 
 #from DrivenCavity import *
-#from Channel import *
+from Channel import *
 #from LaminarChannel import *
-from Lshape import *
+#from Lshape import *
 #from TaylorGreen2D import *
 #from TaylorGreen3D import *
 
@@ -170,12 +170,12 @@ u_  = as_vector([q_[ui]  for ui in u_components]) # Velocity vector at t
 u_1 = as_vector([q_1[ui] for ui in u_components]) # Velocity vector at t - dt
 u_2 = as_vector([q_2[ui] for ui in u_components]) # Velocity vector at t - 2*dt
 
-q_['p'] = p_ = Function(Q)  # pressure at t - dt/2
-dp_ = Function(Q)           # pressure correction
-
 x_  = dict((ui, q_ [ui].vector()) for ui in sys_comp)     # Solution vectors t
 x_1 = dict((ui, q_1[ui].vector()) for ui in u_components) # Solution vectors t - dt
 x_2 = dict((ui, q_2[ui].vector()) for ui in u_components) # Solution vectors t - 2*dt
+
+p_  = q_['p']               # pressure at t - dt/2
+dp_ = Function(Q)           # pressure correction
 
 ###################  Boundary conditions  ###########################
 
@@ -364,7 +364,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
 info_red('Total computing time = {0:f}'.format(time.time() - tin))
 print 'Additional memory use of processor = {0}'.format(eval(getMyMemoryUsage()) - eval(dolfin_memory_use))
 mymem = eval(getMyMemoryUsage())-eval(dolfin_memory_use)
-info_red('Total memory use of solver = ' + str(comm.reduce(mymem, root=0)))
+info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
 list_timings()
 
 ###### Final hook ######        

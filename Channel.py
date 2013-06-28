@@ -8,16 +8,15 @@ from fenicstools import StructuredGrid, ChannelGrid
 from numpy import arctan, array, cos, pi
 import random
 
-# Create a mesh here
-Lx = 2.*pi
-Ly = 2.
-Lz = pi
-Nx = 20
-Ny = 12
-Nz = 12
-NS_parameters.update(dict(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz))
+# For turbulence simulations it is often necessary to continue
+# solving from a previous solution. Both parameters and solution
+# required for a clean restart can be found stored is folders
+# specified using either checkpoint or save_step. In Checkpoint
+# folder two timesteps are stored, whereas in regular timestep
+# folders only one. Both can be used, but only with two previous
+# timesteps can one achieve a clean restart.
 
-#restart_folder = 'channel_results/data/dt=5.0000e-02/4/Checkpoint'
+#restart_folder = 'channel_results/data/dt=5.0000e-02/12/Checkpoint'
 #restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
 restart_folder = None
 
@@ -29,6 +28,40 @@ if not restart_folder is None:
     NS_parameters['restart_folder'] = restart_folder
     NS_parameters['T'] = 2.0
     globals().update(NS_parameters)
+    
+else:
+    # Create a mesh here
+    Lx = 2.*pi
+    Ly = 2.
+    Lz = pi
+    Nx = 20
+    Ny = 12
+    Nz = 12
+    NS_parameters.update(dict(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz))
+
+    # Override some problem specific parameters and put the variables in DC_dict
+    T = 1.
+    dt = 0.05
+    nu = 2.e-5
+    Re_tau = 395.
+    folder = "channel_results"
+    newfolder = create_initial_folders(folder, dt)
+    NS_parameters.update(dict(
+        update_statistics = 10,
+        check_save_h5 = 10,
+        nu = nu,
+        Re_tau = Re_tau,
+        T = T,
+        dt = dt,
+        folder = folder,
+        newfolder = newfolder,
+        use_krylov_solvers = True,
+        use_lumping_of_mass_matrix = False
+      )
+    )
+    NS_parameters.update(dict(statsfolder = path.join(newfolder, "Stats"),
+                              h5folder = path.join(newfolder, "HDF5")))
+
 #################### restart #######################################
 
 mesh = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
@@ -62,30 +95,6 @@ class PeriodicDomain(SubDomain):
             y[2] = x[2] - Lz
             
 constrained_domain = PeriodicDomain()
-
-if restart_folder is None:
-    # Override some problem specific parameters and put the variables in DC_dict
-    T = 1.
-    dt = 0.05
-    nu = 2.e-5
-    Re_tau = 395.
-    folder = "channel_results"
-    newfolder = create_initial_folders(folder, dt)
-    NS_parameters.update(dict(
-        update_statistics = 10,
-        check_save_h5 = 10,
-        nu = nu,
-        Re_tau = Re_tau,
-        T = T,
-        dt = dt,
-        folder = folder,
-        newfolder = newfolder,
-        use_krylov_solvers = True,
-        use_lumping_of_mass_matrix = False
-      )
-    )
-    NS_parameters.update(dict(statsfolder = path.join(newfolder, "Stats"),
-                              h5folder = path.join(newfolder, "HDF5")))
 
 # Specify body force
 utau = nu * Re_tau

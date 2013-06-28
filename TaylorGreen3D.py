@@ -5,9 +5,6 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from Oasis import *
 
-from numpy import ceil
-import time
-
 # Create a mesh here
 mesh = BoxMesh(-pi, -pi, -pi, pi, pi, pi, 32, 32, 32)
 
@@ -66,9 +63,6 @@ NS_parameters.update(dict(
     use_lumping_of_mass_matrix = True,
   )
 )
-
-if NS_parameters['velocity_degree'] > 1:
-    NS_parameters['use_lumping_of_mass_matrix'] = False
 
 initial_fields = dict(
         u0='sin(x[0])*cos(x[1])*cos(x[2])',
