@@ -61,14 +61,14 @@ def create_bcs(V, Q, sys_comp, **NS_namespace):
     bcs['p'] = [pc0, pc1]
     return bcs
 
-def pre_solve(Vv, **NS_namespace):
+def pre_solve_hook(Vv, **NS_namespace):
     uv = Function(Vv)
     return dict(uv=uv)
 
-def pre_new_timestep(t, **NS_namespace):
+def start_timestep_hook(t, **NS_namespace):
     p_in.t = t
     
-def update_end_of_timestep(tstep, q_, u_, uv, Vv, **NS_namespace):
+def temporal_hook(tstep, q_, u_, uv, Vv, **NS_namespace):
     if tstep % 1 == 0:
         plot(q_['p'])
         uv.assign(project(u_, Vv))

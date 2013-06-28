@@ -72,7 +72,7 @@ def reference(Re, t, num_terms=100):
         u += a*exp(-b*t)*c
     return u
 
-def update_end_of_timestep(tstep, q_, t, Re, **NS_namespace):
+def temporal_hook(tstep, q_, t, Re, **NS_namespace):
     if tstep % 20 == 0:        
         plot(q_['u0'])
     u_exact = reference(Re, t)

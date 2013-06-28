@@ -99,7 +99,7 @@ def body_force(**NS_namespace):
 # Normalize pressure or not? 
 #normalize = False
 
-def pre_solve(Vv, V, p_, **NS_namespace):    
+def pre_solve_hook(Vv, V, p_, **NS_namespace):    
     """Called prior to time loop"""
     uv = Function(Vv) 
     velocity_plotter = VTKPlotter(uv)
@@ -163,7 +163,7 @@ def initialize(V, Vv, q_, q_1, q_2, bcs, u_components, **NS_namespace):
             [bc.apply(q_1[ui].vector()) for bc in bcs[ui]]
             [bc.apply(q_2[ui].vector()) for bc in bcs[ui]]
     
-def pre_velocity_tentative_solve(ui, use_krylov_solvers, u_sol, 
+def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, 
                                  **NS_namespace):
     if use_krylov_solvers:
         if ui == "u0":
@@ -175,7 +175,7 @@ def pre_velocity_tentative_solve(ui, use_krylov_solvers, u_sol,
             u_sol.parameters['relative_tolerance'] = 1e-8
             u_sol.parameters['absolute_tolerance'] = 1e-8
 
-def update_end_of_timestep(q_, u_, V, Vv, tstep, uv, voluviz, stats, 
+def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats, 
                            statsfolder, h5folder, pressure_plotter, 
                            velocity_plotter, update_statistics, check_save_h5, **NS_namespace):
     if tstep % update_statistics == 0:

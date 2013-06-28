@@ -161,7 +161,7 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         p_sol.t = 0        
     return [u_sol, p_sol, du_sol] 
 
-def pre_velocity_tentative_solve(ui, use_krylov_solvers, u_sol, 
+def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, 
                                  **NS_namespace):
     """Called just prior to solving tentative velocity"""
     if use_krylov_solvers:
@@ -170,15 +170,15 @@ def pre_velocity_tentative_solve(ui, use_krylov_solvers, u_sol,
         else:
             u_sol.parameters['preconditioner']['reuse'] = True
 
-def pre_pressure_solve(**NS_namespace):
+def pressure_hook(**NS_namespace):
     """Called prior to pressure solve."""
     pass
 
-def pre_new_timestep(**NS_parameters):
+def start_timestep_hook(**NS_parameters):
     """Called at start of new timestep"""
     pass
 
-def pre_velocity_update_solve(**NS_namespace):
+def velocity_update_hook(**NS_namespace):
     """Called prior to velocity update solve."""
     pass
 
@@ -186,11 +186,11 @@ def pre_scalar_solve(**NS_namespace):
     """Called prior to scalar solve."""
     pass
 
-def update_end_of_timestep(**NS_namespace):
+def temporal_hook(**NS_namespace):
     """Called at end of a timestep."""
     pass
 
-def pre_solve(**NS_namespace):
+def pre_solve_hook(**NS_namespace):
     """Called just prior to entering time-loop. Must return a dictionary."""
     return {}
 

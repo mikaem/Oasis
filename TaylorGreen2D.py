@@ -57,7 +57,7 @@ NS_parameters.update(dict(
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
 
-def pre_solve(q_, p_, **NS_namespace):    
+def pre_solve_hook(q_, p_, **NS_namespace):    
     velocity_plotter0 = VTKPlotter(q_['u0'])
     velocity_plotter1 = VTKPlotter(q_['u1'])
     pressure_plotter = VTKPlotter(p_) 
@@ -78,7 +78,7 @@ def initialize(q_, q_1, q_2, VV, sys_comp, **NS_namespace):
             q_1[ui].vector()[:] = q_[ui].vector()[:]
             q_2[ui].vector()[:] = q_[ui].vector()[:]
 
-def update_end_of_timestep(velocity_plotter0, velocity_plotter1,
+def temporal_hook(velocity_plotter0, velocity_plotter1,
                            pressure_plotter, **NS_namespace):
     pressure_plotter.plot()
     velocity_plotter0.plot()

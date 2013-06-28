@@ -84,7 +84,7 @@ def initialize(q_, q_1, q_2, VV, sys_comp, **NS_namespace):
             q_1[ui].vector()[:] = q_[ui].vector()[:]
             q_2[ui].vector()[:] = q_[ui].vector()[:]
 
-def update_end_of_timestep(q_, p_, tstep, **NS_namespace):
+def temporal_hook(q_, p_, tstep, **NS_namespace):
     if tstep % 10 == 0:
         plot(p_)
         plot(q_['u0'])

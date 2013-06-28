@@ -93,8 +93,8 @@ mass matrix ML computed as
 
 #from DrivenCavity import *
 #from Channel import *
-from LaminarChannel import *
-#from Lshape import *
+#from LaminarChannel import *
+from Lshape import *
 #from TaylorGreen2D import *
 #from TaylorGreen3D import *
 
@@ -224,7 +224,7 @@ t1 = time.time(); old_tstep = tstep
 
 ############ Update global namespace with anything ##################
 
-vars().update(pre_solve(**vars()))
+vars().update(pre_solve_hook(**vars()))
 
 #####################################################################
 while t < (T - tstep*DOLFIN_EPS) and not stop:
@@ -235,7 +235,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     total_iters += 1
     num_iter = max(iters_on_first_timestep, max_iter) if tstep == 1 else max_iter
     ### Prior to new timestep hook ###
-    pre_new_timestep(**vars())
+    start_timestep_hook(**vars())
     ##################################
     while err > max_error and j < num_iter:
         err = 0
@@ -269,7 +269,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             if j == 1:
                 info_blue('Solving tentative velocity '+ui)
             ### pre solve hook tentative velocity ###
-            pre_velocity_tentative_solve(**vars())
+            velocity_tentative_hook(**vars())
             #########################################
             u_sol.solve(A, x_[ui], b[ui])
             b[ui][:] = bold[ui][:]  # store preassemble part
@@ -288,7 +288,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         if j == 1:
             info_blue('Solving pressure')
         ### pre solve presure hook ###
-        pre_pressure_solve(**vars())
+        pressure_hook(**vars())
         ##############################
         p_sol.solve(Ap, x_['p'], b['p'])
         if normalize: normalize(x_['p'])
@@ -314,7 +314,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             [bc.apply(b[ui]) for bc in bcs[ui]]        
             info_blue('Updating velocity '+ui)
             ### pre solve velocity update hook ###
-            pre_velocity_update_solve(**vars())
+            velocity_update_hook(**vars())
             ######################################
             du_sol.solve(M, x_[ui], b[ui])
         du_sol.t += (time.time()-t0)
@@ -334,7 +334,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         ##########################
         t1 = time.time(); old_tstep = tstep
     ### Update at end of timestep hook ###
-    update_end_of_timestep(**vars())    
+    temporal_hook(**vars())    
     ### Check for killoasis file ###
     stop = check_if_kill(tstep, t, q_, q_1, NS_parameters)
     ################################

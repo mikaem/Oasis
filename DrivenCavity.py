@@ -38,7 +38,7 @@ if NS_parameters['velocity_degree'] > 1:
 # Normalize pressure or not? 
 #normalize = False
 
-def pre_solve(Vv, p_, **NS_namespace):    
+def pre_solve_hook(Vv, p_, **NS_namespace):    
     uv = Function(Vv) 
     return dict(uv=uv)
 
@@ -59,14 +59,14 @@ def create_bcs(V, sys_comp, **NS_namespace):
     bcs['u1'] = [bc01, bc0]
     return bcs
 
-def pre_new_timestep(t, **NS_namespace):
+def start_timestep_hook(t, **NS_namespace):
     pass
     #u_top.assign(cos(t))
     
 def initialize(q_, **NS_namespace):
     q_['u0'].vector()[:] = 1e-12
 
-def update_end_of_timestep(tstep, u_, Vv, uv, p_, **NS_namespace):
+def temporal_hook(tstep, u_, Vv, uv, p_, **NS_namespace):
     if tstep % 10 == 0:
         uv.assign(project(u_, Vv))
         plot(uv)
