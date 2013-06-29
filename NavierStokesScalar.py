@@ -314,8 +314,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             b[ui].axpy(-1., P[ui]*x_['p'])       # Add pressure gradient
             [bc.apply(b[ui]) for bc in bcs[ui]]
             work[:] = x_[ui][:]
-            if inner_iter == 1 and print_solve_info:
-                info_blue('Solving tentative velocity '+ui)
+            info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
             #################################
             velocity_tentative_hook(**vars())
             #################################
@@ -333,8 +332,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         b['p'].axpy(1., Ap*x_['p'])
         [bc.apply(b['p']) for bc in bcs['p']]
         rp = residual(Ap, x_['p'], b['p'])
-        if inner_iter == 1 and print_solve_info:
-            info_blue('Solving pressure')
+        info_blue('Solving pressure', inner_iter == 1 and print_solve_info)
         #######################
         pressure_hook(**vars())
         #######################
@@ -361,8 +359,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             b[ui][:] = Mu*x_[ui][:]        
             b[ui].axpy(-dt, P[ui]*dp_.vector())
             [bc.apply(b[ui]) for bc in bcs[ui]]
-            if print_solve_info:
-                info_blue('Updating velocity '+ui)
+            info_blue('Updating velocity '+ui, print_solve_info)
             ##############################
             velocity_update_hook(**vars())
             ##############################
@@ -370,8 +367,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         du_sol.t += (time.time()-t0)
         
     # Solve for scalar
-    if print_solve_info:
-        info_blue('Solving scalar field')
+    info_blue('Solving scalar field', print_solve_info)
     [bc.apply(Ta, b['c']) for bc in bcs['c']]
     #####################
     scalar_hook(**vars())
