@@ -29,12 +29,12 @@ The system of momentum equations solved are
 u = TrialFunction(V)
 v = TestFunction(V)
 U = 0.5*(u+q_1['u0'])     # Scalar
-U1 = 1.5*u_1 - 0.5*u_2  # Vector
-F = (1/dt)*inner(u - q_1['u0'], v)*dx + inner(grad(U)*U1, v)*dx + inner(p_.dx(0), v)*dx \
-     nu*inner(grad(U), grad(v))*dx
+U1 = 1.5*u_1 - 0.5*u_2    # Vector
+F = (1/dt)*inner(u - u_1, v)*dx + inner(grad(U)*U1, v)*dx + inner(p_.dx(0), v)*dx \
+     nu*inner(grad(U), grad(v))*dx + inner(f[0], v)*dx
 
-where (q_1['u0'], p_.dx(0)) is replaced by (q_1['u1'], p_.dx(1)) and 
-(q_1['u2'], p_.dx(2)) for the two other velocity components.
+where (q_['u0'], p_.dx(0), f[0]) is replaced by (q_1['u1'], p_.dx(1), f[1]) and 
+(q_1['u2'], p_.dx(2), f[3]) for the two other velocity components.
 We solve an equation corresponding to lhs(F) == rhs(F) for all ui.
      
 The variables u_1 and u_2 are velocity vectors at time steps k-1 and k-2. We 
@@ -62,14 +62,12 @@ and diffusion:
 The pressure gradient and body force needs to be added to b as well. Three
 matrices are preassembled for the computation of the pressure gradient:
 
-P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
+  P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
 
 and the pressure gradient for each component of the momentum equation is 
 then computed as
 
-dpdx = P["u0"] * p_.vector()
-dpdy = P["u1"] * p_.vector()
-dpdz = P["u2"] * p_.vector()
+  assemble(p_.dx(i)*v*dx) = P[ui] * p_.vector()
 
 Ac needs to be reassembled each new timestep. Ac is assembled into A to 
 save memory. A and A_rhs are recreated each new timestep by assembling Ac, 
@@ -77,7 +75,7 @@ setting up A_rhs and then using the following to create A:
 
    A = -A_rhs + 2/dt*M
 
-We then solve the linear system A * q_[ui].vector() = b[ui] for ui = u_components
+We then solve the linear system A * u = b[ui] for all q_[ui].vector()
 
 Pressure is solved through
 
@@ -86,30 +84,30 @@ Pressure is solved through
 Here we assemble the rhs by:
 
   Ap = assemble(inner(grad(p), grad(q))*dx)
-  b = Ap * p_.vector()
+  bp = Ap * p_.vector()
   for ui in u_components:
-    b.axpy(-1./dt, Rx[ui]*x_[ui])
+    bp.axpy(-1./dt, Rx[ui]*x_[ui])
   where the preassemble Rx is:
     Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
-   
+
+We then solve Ap * p = bp for p_.vector().
+  
 Velocity update is computed through:
 
   inner(u, v)*dx == inner(q_[ui], v)*dx - dt*inner(dp_.dx(i), v)*dx
 
 where each component on the rhs of the equation is computed effectively as
   inner(q_[ui], v)*dx = M * q_[ui].vector()
-  dt*inner(dp_.dx(0), v)*dx = dt * P["u0"] * dp_.vector()
-  dt*inner(dp_.dx(1), v)*dx = dt * P["u1"] * dp_.vector()
-  dt*inner(dp_.dx(2), v)*dx = dt * P["u2"] * dp_.vector()
+  dt*inner(dp_.dx(i), v)*dx = dt * P[ui] * dp_.vector()
 
 where dp_ is the pressure correction, i.e., th newly computed pressure 
 at the new timestep minus the pressure at previous timestep.
 
 The lhs mass matrix is either the regular M, or the lumped and diagonal
 mass matrix ML computed as
-    ones = Function(V)
-    ones.vector()[:] = 1.
-    ML = M * ones.vector()
+  ones = Function(V)
+  ones.vector()[:] = 1.
+  ML = M * ones.vector()
 
 A scalar equation is solved through
   C = 0.5*(u + q_1['c'])
@@ -126,7 +124,7 @@ much of the velocity matrices
 
 and we solve:    
 
-    Ta * q_['c'].vector() = b['c']
+    Ta * c = b['c'] for q_['c'].vector()
   
 Ta might differ from A due to Dirichlet boundary conditions.
     

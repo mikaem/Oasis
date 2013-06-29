@@ -29,12 +29,12 @@ The system of momentum equations solved are
 u = TrialFunction(V)
 v = TestFunction(V)
 U = 0.5*(u+q_1['u0'])     # Scalar
-U1 = 1.5*u_1 - 0.5*u_2  # Vector
+U1 = 1.5*u_1 - 0.5*u_2    # Vector
 F = (1/dt)*inner(u - u_1, v)*dx + inner(grad(U)*U1, v)*dx + inner(p_.dx(0), v)*dx \
-     nu*inner(grad(U), grad(v))*dx
+     nu*inner(grad(U), grad(v))*dx + inner(f[0], v)*dx
 
-where (q_['u0'], p_.dx(0)) is replaced by (q_1['u1'], p_.dx(1)) and 
-(q_1['u2'], p_.dx(2)) for the two other velocity components.
+where (q_['u0'], p_.dx(0), f[0]) is replaced by (q_1['u1'], p_.dx(1), f[1]) and 
+(q_1['u2'], p_.dx(2), f[3]) for the two other velocity components.
 We solve an equation corresponding to lhs(F) == rhs(F) for all ui.
      
 The variables u_1 and u_2 are velocity vectors at time steps k-1 and k-2. We 
@@ -62,14 +62,12 @@ and diffusion:
 The pressure gradient and body force needs to be added to b as well. Three
 matrices are preassembled for the computation of the pressure gradient:
 
-P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
+  P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
 
 and the pressure gradient for each component of the momentum equation is 
 then computed as
 
-dpdx = P["u0"] * p_.vector()
-dpdy = P["u1"] * p_.vector()
-dpdz = P["u2"] * p_.vector()
+  assemble(p_.dx(i)*v*dx) = P[ui] * p_.vector()
 
 Ac needs to be reassembled each new timestep. Ac is assembled into A to 
 save memory. A and A_rhs are recreated each new timestep by assembling Ac, 
@@ -77,7 +75,7 @@ setting up A_rhs and then using the following to create A:
 
    A = -A_rhs + 2/dt*M
 
-We then solve the linear system A * q_[ui].vector() = b[ui] for ui = u_components
+We then solve the linear system A * u = b[ui] for all q_[ui].vector()
 
 Pressure is solved through
 
@@ -86,34 +84,33 @@ Pressure is solved through
 Here we assemble the rhs by:
 
   Ap = assemble(inner(grad(p), grad(q))*dx)
-  b = Ap * p_.vector()
+  bp = Ap * p_.vector()
   for ui in u_components:
-    b.axpy(-1./dt, Rx[ui]*x_[ui])
+    bp.axpy(-1./dt, Rx[ui]*x_[ui])
   where the preassemble Rx is:
     Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
-   
+
+We then solve Ap * p = bp for p_.vector().
+  
 Velocity update is computed through:
 
   inner(u, v)*dx == inner(q_[ui], v)*dx - dt*inner(dp_.dx(i), v)*dx
 
 where each component on the rhs of the equation is computed effectively as
   inner(q_[ui], v)*dx = M * q_[ui].vector()
-  dt*inner(dp_.dx(0), v)*dx = dt * P["u0"] * dp_.vector()
-  dt*inner(dp_.dx(1), v)*dx = dt * P["u1"] * dp_.vector()
-  dt*inner(dp_.dx(2), v)*dx = dt * P["u2"] * dp_.vector()
+  dt*inner(dp_.dx(i), v)*dx = dt * P[ui] * dp_.vector()
 
 where dp_ is the pressure correction, i.e., th newly computed pressure 
 at the new timestep minus the pressure at previous timestep.
 
 The lhs mass matrix is either the regular M, or the lumped and diagonal
 mass matrix ML computed as
-    ones = Function(V)
-    ones.vector()[:] = 1.
-    ML = M * ones.vector()
+  ones = Function(V)
+  ones.vector()[:] = 1.
+  ML = M * ones.vector()
 
 """
 ################### Problem dependent parameters ####################
-### Should import a mesh and a dictionary called NS_parameters    ###
 
 #from DrivenCavity import *
 from Channel import *
@@ -123,8 +120,10 @@ from Channel import *
 #from TaylorGreen3D import *
 
 #####################################################################
+### Should import a mesh and a dictionary called NS_parameters    ###
 assert(isinstance(NS_parameters, dict))
 assert(isinstance(mesh, Mesh))
+
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
 vars().update(NS_parameters)  # Put NS_parameters in global namespace
@@ -291,8 +290,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             b[ui].axpy(-1., P[ui]*x_['p'])       # Add pressure gradient
             [bc.apply(b[ui]) for bc in bcs[ui]]
             work[:] = x_[ui][:]
-            if inner_iter == 1 and print_solve_info:
-                info_blue('Solving tentative velocity '+ui)
+            info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
             #################################
             velocity_tentative_hook(**vars())
             #################################
@@ -310,8 +308,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         b['p'].axpy(1., Ap*x_['p'])
         [bc.apply(b['p']) for bc in bcs['p']]
         rp = residual(Ap, x_['p'], b['p'])
-        if inner_iter == 1 and print_solve_info:
-            info_blue('Solving pressure')
+        info_blue('Solving pressure', inner_iter == 1 and print_solve_info)
         #######################
         pressure_hook(**vars())
         #######################
@@ -336,8 +333,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             b[ui][:] = M*x_[ui][:]        
             b[ui].axpy(-dt, P[ui]*dp_.vector())
             [bc.apply(b[ui]) for bc in bcs[ui]]        
-            if print_solve_info:
-                info_blue('Updating velocity '+ui)
+            info_blue('Updating velocity '+ui, print_solve_info)
             ##############################
             velocity_update_hook(**vars())
             ##############################

@@ -39,15 +39,14 @@ RED   = "\033[1;37;31m%s\033[0m"
 BLUE  = "\033[1;37;34m%s\033[0m"
 GREEN = "\033[1;37;32m%s\033[0m"
 
-def info_blue(s):
-    if MPI.process_number()==0:
+def info_blue(s, check=True):
+    if MPI.process_number()==0 and check:
         print BLUE % s
 
-def info_green(s):
-    if MPI.process_number()==0:
+def info_green(s, check=True):
+    if MPI.process_number()==0 and check:
         print GREEN % s
     
-def info_red(s):
-    if MPI.process_number()==0:
+def info_red(s, check=True):
+    if MPI.process_number()==0 and check:
         print RED % s
-        

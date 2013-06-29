@@ -62,7 +62,7 @@ else:
     NS_parameters.update(dict(statsfolder = path.join(newfolder, "Stats"),
                               h5folder = path.join(newfolder, "HDF5")))
 
-#################### restart #######################################
+##############################################################
 
 mesh = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
 # Create stretched mesh in y-direction
@@ -100,9 +100,6 @@ constrained_domain = PeriodicDomain()
 utau = nu * Re_tau
 def body_force(**NS_namespace):
     return Constant((utau**2, 0., 0.))
-
-# Normalize pressure or not? 
-#normalize = False
 
 def pre_solve_hook(Vv, V, **NS_namespace):    
     """Called prior to time loop"""
