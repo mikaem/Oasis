@@ -40,7 +40,7 @@ else:
     NS_parameters.update(dict(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz))
 
     # Override some problem specific parameters and put the variables in DC_dict
-    T = 1.
+    T = 10.
     dt = 0.05
     nu = 2.e-5
     Re_tau = 395.

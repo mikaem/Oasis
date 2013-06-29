@@ -104,13 +104,14 @@ def save_checkpoint_solution(tstep, q_, q_1, params):
             cfile_1 = File(path.join(checkpointfolder, ui + '_1.xml.gz'))
             cfile_1 << q_1[ui]
 
-def check_if_kill(tstep, t, q_, q_1, params):
-    params.update(t=t, tstep=tstep)
-    if 'killoasis' in listdir(params['folder']):
-        save_checkpoint_solution(tstep, q_, q_1, params)
+def check_if_kill(tstep, t, q_, q_1, NS_parameters, folder, info_red, **NS_namespace):
+    NS_parameters.update(t=t, tstep=tstep)
+    if 'killoasis' in listdir(folder):
+        info_red('killoasis Found! Stopping simulations cleanly...')
+        save_checkpoint_solution(tstep, q_, q_1, NS_parameters)
         MPI.barrier()
         if MPI.process_number() == 0: 
-            remove(path.join(params['folder'], 'killoasis'))        
+            remove(path.join(folder, 'killoasis'))
         return True
     else:
         return False

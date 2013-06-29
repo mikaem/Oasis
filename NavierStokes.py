@@ -354,7 +354,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         t1 = time.time(); old_tstep = tstep
     #####################################################
     temporal_hook(**vars())
-    stop = check_if_kill(tstep, t, q_, q_1, NS_parameters)
+    stop = check_if_kill(**vars())
     ######################################################
         
 info_red('Total computing time = {0:f}'.format(time.time() - tin))
