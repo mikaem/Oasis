@@ -30,7 +30,6 @@ if not restart_folder is None:
     globals().update(NS_parameters)
     
 else:
-    # Create a mesh here
     Lx = 2.*pi
     Ly = 2.
     Lz = pi
@@ -74,9 +73,6 @@ class PeriodicDomain(SubDomain):
 
     def inside(self, x, on_boundary):
         # return True if on left or bottom boundary AND NOT on one of the two slave edges
-        #return bool((near(x[0], 0) or near(x[2], -Lz/2.)) and 
-                #(not ((near(x[0], Lx) and near(x[2], -Lz/2.)) or 
-                      #(near(x[0], 0) and near(x[2], Lz/2.)))) and on_boundary)
         return bool((near(x[0], 0) or near(x[2], -Lz/2.)) and 
                 (not (near(x[0], Lx) or near(x[2], Lz/2.))) and on_boundary)
                       
@@ -151,8 +147,7 @@ def initialize(V, Vv, q_, q_1, q_2, bcs, restart_folder, **NS_namespace):
         q_1['u2'].vector()[:] = q_['u2'].vector()[:]
         q_2['u2'].vector()[:] = q_['u2'].vector()[:]
     
-def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, 
-                                 **NS_namespace):
+def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     if use_krylov_solvers:
         if ui == "u0":
             u_sol.parameters['preconditioner']['reuse'] = False

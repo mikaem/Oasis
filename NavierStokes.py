@@ -112,8 +112,8 @@ mass matrix ML computed as
 """
 ################### Problem dependent parameters ####################
 
-#from DrivenCavity import *
-from Channel import *
+from DrivenCavity import *
+#from Channel import *
 #from LaminarChannel import *
 #from Lshape import *
 #from TaylorGreen2D import *

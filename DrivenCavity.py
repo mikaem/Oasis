@@ -4,13 +4,14 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from Oasis import *
-from numpy import ceil, cos, pi
+from numpy import ceil, cos, pi, arctan
 
 # Create a mesh here
-mesh = UnitSquareMesh(91, 91)
+mesh = UnitSquareMesh(51, 51)
 x = mesh.coordinates()
 x[:, :] = (x[:, :] - 0.5)*2
 x[:, :] = 0.5*(cos(pi*(x[:, :]-1.) / 2.) + 1.)
+#x[:, :] = ( arctan(0.025*pi*x[:, :])/arctan(0.025*pi) +1. ) / 2.
 del x
 
 # Override some problem specific parameters
@@ -23,7 +24,6 @@ NS_parameters.update(dict(
     T = T,
     dt = dt,
     folder = folder,
-    max_iter = 1,
     plot_interval = 10,
     save_step = 1000,
     checkpoint = 1000,
@@ -36,7 +36,7 @@ NS_parameters.update(dict(
 NS_parameters['krylov_solvers']['monitor_convergence'] = True
 
 def pre_solve_hook(Vv, p_, **NS_namespace):    
-    uv = Function(Vv) 
+    uv = Function(Vv)  # For plotting in temporal_hook
     return dict(uv=uv)
 
 def lid(x, on_boundary):

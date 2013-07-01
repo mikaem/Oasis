@@ -1,16 +1,10 @@
 """
 Optimized And StrIpped Solvers
 """
-from dolfin import *
-from NSCommon import *
+from NSdefault_hooks import *
 
 from commands import getoutput
 import time, copy
-
-#parameters["linear_algebra_backend"] = "Epetra"
-parameters["linear_algebra_backend"] = "PETSc"
-parameters["form_compiler"]["optimize"]     = True
-parameters["form_compiler"]["cpp_optimize"] = True
 
 def getMyMemoryUsage():
     mypid = getpid()

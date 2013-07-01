@@ -3,9 +3,14 @@ __date__ = "2013-06-25"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
-from dolfin import MPI, File, Constant, KrylovSolver, LUSolver
+from dolfin import *
 import cPickle
 from os import getpid, path, makedirs, getcwd, listdir, remove, system
+
+#parameters["linear_algebra_backend"] = "Epetra"
+parameters["linear_algebra_backend"] = "PETSc"
+parameters["form_compiler"]["optimize"]     = True
+parameters["form_compiler"]["cpp_optimize"] = True
 
 # Default parameters
 NS_parameters = dict(
@@ -36,7 +41,6 @@ NS_parameters = dict(
     absolute_tolerance = 1e-8)  
 )
 
-# Specify contrained_domain if any
 constrained_domain = None
 
 def create_initial_folders(folder, dt):
@@ -60,7 +64,6 @@ def create_initial_folders(folder, dt):
         
     return newfolder
 
-#def save_solution(tstep, t, q_, q_1, params):
 def save_solution(tstep, t, q_, q_1, NS_parameters, save_step, checkpoint, 
                   **NS_namespace):
     NS_parameters.update(t=t, tstep=tstep)
@@ -122,7 +125,8 @@ def body_force(mesh, **NS_namespace):
 
 def initialize(**NS_namespace):
     """Initialize solution. Could also be used to create new variables 
-    or parameters that can be used in, e.g., postprocessing"""
+    or parameters that can be placed in the NS_namespace and then be
+    used for, e.g., postprocessing"""
     return {}
 
 def create_bcs(sys_comp, **NS_namespace):
