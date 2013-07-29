@@ -26,6 +26,15 @@ def Strain(u):
 
 def QC(u):
     return Omega(u) - Strain(u)
+
+def recursive_update(dst, src):
+    """Update dict dst with items from src deeply ("deep update")."""
+    for key, val in src.items():
+        if key in dst and isinstance(val, dict) and isinstance(dst[key], dict):
+            dst[key] = recursive_update(dst[key], val)
+        else:
+            dst[key] = val
+    return dst
             
 # The following helper functions are available in dolfin
 # They are redefined here for printing only on process 0. 

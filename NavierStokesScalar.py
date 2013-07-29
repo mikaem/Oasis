@@ -132,15 +132,19 @@ Ta might differ from A due to Dirichlet boundary conditions.
 ################### Problem dependent parameters ####################
 ### Should import a mesh and a dictionary called NS_parameters    ###
 
-#from DrivenCavityScalar import *
-from ChannelScalar import *
+from DrivenCavity import *
+#from ChannelScalar import *
 
 #####################################################################
 assert(isinstance(NS_parameters, dict))
 assert(isinstance(mesh, Mesh))
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
-vars().update(NS_parameters)  # Put NS_parameters in global namespace
+
+# Put NS_parameters in global namespace
+vars().update(NS_parameters)  
+
+# Update dolfins parameters with NS_parameters
 parameters['krylov_solver'].update(krylov_solvers)
 
 # Check how much memory is actually used by dolfin before we allocate anything
@@ -161,8 +165,8 @@ q = TestFunction(Q)
 
 dim = mesh.geometry().dim()
 u_components = map(lambda x: 'u'+str(x), range(dim))
-sys_comp =  u_components + ['p'] + ['c']
-uc_comp  =  u_components + ['c']
+sys_comp =  u_components + ['p'] + scalar_components
+uc_comp  =  u_components + scalar_components
 
 # Use dictionaries to hold all Functions and FunctionSpaces
 VV = dict((ui, V) for ui in uc_comp); VV['p'] = Q
@@ -188,9 +192,12 @@ x_  = dict((ui, q_ [ui].vector()) for ui in sys_comp)     # Solution vectors t
 x_1 = dict((ui, q_1[ui].vector()) for ui in uc_comp)      # Solution vectors t - dt
 x_2 = dict((ui, q_2[ui].vector()) for ui in u_components) # Solution vectors t - 2*dt
 
+# Short forms pressure and scalars
 p_  = q_['p']               # pressure at t - dt/2
 dp_ = Function(Q)           # pressure correction
-c_, c_1 = q_['c'], q_1['c'] # Short names for scalars
+for ci in scalar_components:
+    exec("{}_   = q_ ['{}']".format(ci, ci))
+    exec("{}_1  = q_1['{}']".format(ci, ci))
 
 ###################  Boundary conditions  ###########################
 
@@ -223,7 +230,13 @@ if velocity_degree == pressure_degree and bcs['p'] == []:
 else:
     Ap = assemble(inner(grad(q), grad(p))*dx)   # Pressure Laplacian
 A = Matrix()                                    # Coefficient matrix (needs reassembling)
-Ta = Matrix(M)                                  # Coefficient matrix for scalar. Differs from velocity in boundary conditions only
+if len(scalar_components) > 0:
+    Ta = Matrix(M)                              # Coefficient matrix for scalar. Differs from velocity in boundary conditions only
+    if len(scalar_components) > 1:
+        # For more than one scalar use additional tensors for solver
+        Tb = Matrix(M)
+        bb = Vector(x_[scalar_components[0]])
+        bx = Vector(x_[scalar_components[0]])
 
 # Velocity update uses lumping of the mass matrix for P1-elements
 # Compute inverse of the lumped diagonal mass matrix 
@@ -256,7 +269,8 @@ f = body_force(**vars())
 # Preassemble constant body force
 assert(isinstance(f, Constant))
 b0 = dict((ui, assemble(v*f[i]*dx)) for i, ui in enumerate(u_components))
-b0['c'] = assemble(Constant(0)*v*dx)
+for ci in scalar_components:
+    b0[ci] = assemble(Constant(0)*v*dx)
 
 b   = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vectors
 bold= dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs temp storage vectors
@@ -302,9 +316,10 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             A._scale(-1.)
             A.axpy(2./dt, M, True)
             
-            # Set scalar matrix
-            Ta._scale(0.)
-            Ta.axpy(1., A, True)
+            if len(scalar_components) > 0:
+                # Set scalar matrix (may differ from A due to bcs)            
+                Ta._scale(0.)
+                Ta.axpy(1., A, True)
 
             [bc.apply(A) for bc in bcs['u0']]
         
@@ -312,12 +327,12 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         for ui in u_components:
             bold[ui][:] = b[ui][:] 
             b[ui].axpy(-1., P[ui]*x_['p'])       # Add pressure gradient
-            [bc.apply(b[ui]) for bc in bcs[ui]]
-            work[:] = x_[ui][:]
-            info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
             #################################
             velocity_tentative_hook(**vars())
             #################################
+            [bc.apply(b[ui]) for bc in bcs[ui]]
+            work[:] = x_[ui][:]
+            info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
             u_sol.solve(A, x_[ui], b[ui])
             b[ui][:] = bold[ui][:]  # store preassemble part
             err += norm(work - x_[ui])
@@ -330,14 +345,23 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         for ui in u_components:
             b['p'].axpy(-1./dt, Rx[ui]*x_[ui]) # Divergence of u_
         b['p'].axpy(1., Ap*x_['p'])
-        [bc.apply(b['p']) for bc in bcs['p']]
-        rp = residual(Ap, x_['p'], b['p'])
-        info_blue('Solving pressure', inner_iter == 1 and print_solve_info)
         #######################
         pressure_hook(**vars())
         #######################
+        [bc.apply(b['p']) for bc in bcs['p']]
+        rp = residual(Ap, x_['p'], b['p'])
+        info_blue('Solving pressure', inner_iter == 1 and print_solve_info)
+        
+        # KrylovSolvers use nullspace for normalization of pressure
+        if hasattr(p_sol, 'null_space'):
+            p_sol.null_space.orthogonalize(b['p']);
+
         p_sol.solve(Ap, x_['p'], b['p'])
-        if normalize: normalize(x_['p'])
+        
+        # LUSolver use normalize directly for normalization of pressure
+        if hasattr(p_sol, 'normalize'):
+            normalize(x_['p'])
+
         dp_.vector()[:] = x_['p'][:] - dp_.vector()[:]
         if num_iter > 1:
             if inner_iter == 1: 
@@ -358,27 +382,40 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         for ui in u_components:
             b[ui][:] = Mu*x_[ui][:]        
             b[ui].axpy(-dt, P[ui]*dp_.vector())
-            [bc.apply(b[ui]) for bc in bcs[ui]]
-            info_blue('Updating velocity '+ui, print_solve_info)
             ##############################
             velocity_update_hook(**vars())
             ##############################
+            [bc.apply(b[ui]) for bc in bcs[ui]]
+            info_blue('Updating velocity '+ui, print_solve_info)
             du_sol.solve(Mu, x_[ui], b[ui])
         du_sol.t += (time.time()-t0)
         
-    # Solve for scalar
-    info_blue('Solving scalar field', print_solve_info)
-    [bc.apply(Ta, b['c']) for bc in bcs['c']]
+    # Solve for scalars
     #####################
     scalar_hook(**vars())
     #####################
-    c_sol.solve(Ta, x_['c'], b['c'])
+    for ci in scalar_components:    
+        info_blue('Solving scalar {}'.format(ci), print_solve_info)
+        # Reuse solver for all scalars. This requires the same matrix and vectors to be used by c_sol.
+        if len(scalar_components) > 1: 
+            Tb._scale(0.)
+            Tb.axpy(1., Ta, True)
+            bb[:] = b[ci][:]
+            bx[:] = x_[ci][:]
+            [bc.apply(Tb, bb) for bc in bcs[ci]]
+            c_sol.solve(Tb, bx, bb)
+            x_[ci][:] = bx[:]
+        else:
+            [bc.apply(Ta, b[ci]) for bc in bcs[ci]]
+            c_sol.solve(Ta, x_[ci], b[ci])
     
     # Update to a new timestep
     for ui in u_components:
         x_2[ui][:] = x_1[ui][:]
         x_1[ui][:] = x_ [ui][:]
-    x_1['c'][:] = x_['c'][:]
+    
+    for ci in scalar_components:
+        x_1[ci][:] = x_[ci][:]
         
     # Print some information
     if tstep % save_step == 0 or tstep % checkpoint == 0:
@@ -399,4 +436,6 @@ mymem = eval(getMyMemoryUsage())-eval(dolfin_memory_use)
 info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
 list_timings()
         
+###### Final hook ######        
 theend(**vars())
+########################

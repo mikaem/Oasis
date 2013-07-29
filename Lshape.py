@@ -20,7 +20,7 @@ del mesh_, mf1, subm
 
 # Override some problem specific parameters
 T = 10
-dt = 0.01
+dt = 0.1
 Re = 200.
 nu = 1./Re
 folder = "Lshape_results"
@@ -32,11 +32,11 @@ NS_parameters.update(dict(
     Re = Re,
     folder = folder,
     max_iter = 1,
-    plot_interval = 10,
+    plot_interval = 1,
     newfolder = newfolder,
-    velocity_degree = 1,
+    velocity_degree = 2,
     use_lumping_of_mass_matrix = True,
-    use_krylov_solvers = False
+    use_krylov_solvers = True
   )
 )
 

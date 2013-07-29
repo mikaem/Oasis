@@ -38,10 +38,13 @@ NS_parameters = dict(
     nonzero_initial_guess = True,
     maximum_iterations = 100,
     relative_tolerance = 1e-8,
-    absolute_tolerance = 1e-8)  
+    absolute_tolerance = 1e-8)
 )
 
 constrained_domain = None
+
+# To solve for scalars provide a list like ['scalar1', 'scalar2']
+scalar_components = []
 
 def create_initial_folders(folder, dt):
     # To avoid writing over old data create a new folder for each run
@@ -134,7 +137,7 @@ def create_bcs(sys_comp, **NS_namespace):
     return dict((ui, []) for ui in sys_comp)
 
 def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix, 
-                krylov_solvers, sys_comp, **NS_namespace):
+                krylov_solvers, sys_comp, bcs, x_, Q, **NS_namespace):
     """Return solvers for all fields we are solving for.
     In case of lumping return None for velocity update."""
     if use_krylov_solvers:
@@ -149,10 +152,12 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             du_sol.parameters.update(krylov_solvers)
             du_sol.parameters['preconditioner']['reuse'] = True
             du_sol.t = 0            
-        p_sol = KrylovSolver('gmres', 'hypre_amg')
+        p_sol = KrylovSolver('gmres', 'petsc_amg')
         p_sol.parameters['preconditioner']['reuse'] = True
         p_sol.parameters.update(krylov_solvers)
         p_sol.t = 0
+        if bcs['p'] == []:
+            attach_pressure_nullspace(p_sol, x_, Q)
     else:
         u_sol = LUSolver()
         u_sol.t = 0
@@ -164,8 +169,21 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             du_sol.t = 0
         p_sol = LUSolver()
         p_sol.parameters['reuse_factorization'] = True
-        p_sol.t = 0        
+        p_sol.t = 0  
+        if bcs['p'] == []:
+            p_sol.normalize = True
+            
     return [u_sol, p_sol, du_sol] 
+
+def attach_pressure_nullspace(p_sol, x_, Q):
+    # Create vector that spans the null space
+    null_vec = Vector(x_['p'])
+    Q.dofmap().set(null_vec, 1.0)
+    null_vec *= 1.0/null_vec.norm("l2")
+    # Create null space basis object and attach to Krylov solver
+    null_space = VectorSpaceBasis([null_vec])
+    p_sol.set_nullspace(null_space)
+    p_sol.null_space = null_space
 
 def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, 
                                  **NS_namespace):

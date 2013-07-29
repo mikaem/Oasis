@@ -126,7 +126,11 @@ assert(isinstance(mesh, Mesh))
 
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
-vars().update(NS_parameters)  # Put NS_parameters in global namespace
+
+# Put NS_parameters in global namespace
+vars().update(NS_parameters)  
+
+# Update dolfins parameters with NS_parameters
 parameters['krylov_solver'].update(krylov_solvers)
 
 # Check how much memory is actually used by dolfin before we allocate anything
@@ -212,10 +216,11 @@ A = Matrix()                                    # Coefficient matrix (needs reas
 # Compute inverse of the lumped diagonal mass matrix 
 if use_lumping_of_mass_matrix:
     # Create vectors used for lumping mass matrix
-    ones = Function(V)
-    ones.vector()[:] = 1.
-    ML = M * ones.vector()
+    ones = Vector(q_['u0'].vector())
+    ones[:] = 1.
+    ML = M * ones
     ML.set_local(1. / ML.array())
+    del ones
 else:
     # Use regular mass matrix for velocity update
     [bc.apply(M) for bc in bcs['u0']]
@@ -288,12 +293,12 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         for ui in u_components:
             bold[ui][:] = b[ui][:] 
             b[ui].axpy(-1., P[ui]*x_['p'])       # Add pressure gradient
-            [bc.apply(b[ui]) for bc in bcs[ui]]
-            work[:] = x_[ui][:]
-            info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
             #################################
             velocity_tentative_hook(**vars())
             #################################
+            [bc.apply(b[ui]) for bc in bcs[ui]]
+            work[:] = x_[ui][:]
+            info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
             u_sol.solve(A, x_[ui], b[ui])
             b[ui][:] = bold[ui][:]  # store preassemble part
             err += norm(work - x_[ui])
@@ -306,14 +311,23 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         for ui in u_components:
             b['p'].axpy(-1./dt, Rx[ui]*x_[ui]) # Divergence of u_
         b['p'].axpy(1., Ap*x_['p'])
-        [bc.apply(b['p']) for bc in bcs['p']]
-        rp = residual(Ap, x_['p'], b['p'])
-        info_blue('Solving pressure', inner_iter == 1 and print_solve_info)
         #######################
         pressure_hook(**vars())
         #######################
+        [bc.apply(b['p']) for bc in bcs['p']]
+        rp = residual(Ap, x_['p'], b['p'])
+        info_blue('Solving pressure', inner_iter == 1 and print_solve_info)
+        
+        # KrylovSolvers use nullspace for normalization of pressure
+        if hasattr(p_sol, 'null_space'):
+            p_sol.null_space.orthogonalize(b['p']);
+        
         p_sol.solve(Ap, x_['p'], b['p'])
-        if normalize: normalize(x_['p'])
+        
+        # LUSolver use normalize directly for normalization of pressure
+        if hasattr(p_sol, 'normalize'):
+            normalize(x_['p'])
+        
         dp_.vector()[:] = x_['p'][:] - dp_.vector()[:]
         if num_iter > 1:
             if inner_iter == 1: 
@@ -332,11 +346,11 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         for ui in u_components:
             b[ui][:] = M*x_[ui][:]        
             b[ui].axpy(-dt, P[ui]*dp_.vector())
-            [bc.apply(b[ui]) for bc in bcs[ui]]        
-            info_blue('Updating velocity '+ui, print_solve_info)
             ##############################
             velocity_update_hook(**vars())
             ##############################
+            [bc.apply(b[ui]) for bc in bcs[ui]]        
+            info_blue('Updating velocity '+ui, print_solve_info)
             du_sol.solve(M, x_[ui], b[ui])
         du_sol.t += (time.time()-t0)
     
@@ -365,3 +379,5 @@ list_timings()
 
 ###### Final hook ######        
 theend(**vars())
+########################
+

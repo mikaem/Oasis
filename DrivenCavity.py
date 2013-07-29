@@ -19,21 +19,20 @@ T = 0.5
 dt = 0.01
 folder = "drivencavity_results"
 newfolder = create_initial_folders(folder, dt)
-NS_parameters.update(dict(
-    nu = 0.001,
-    T = T,
-    dt = dt,
-    folder = folder,
-    plot_interval = 10,
-    save_step = 1000,
-    checkpoint = 1000,
-    newfolder = newfolder,
-    velocity_degree = 1,
-    use_lumping_of_mass_matrix = True,
-    use_krylov_solvers = True    
-  )
+recursive_update(NS_parameters,
+   dict(nu = 0.001,
+        T = T,
+        dt = dt,
+        folder = folder,
+        plot_interval = 10,
+        save_step = 1000,
+        checkpoint = 1000,
+        newfolder = newfolder,
+        velocity_degree = 1,
+        use_lumping_of_mass_matrix = True,
+        use_krylov_solvers = True,
+        krylov_solvers = dict(monitor_convergence = True))
 )
-NS_parameters['krylov_solvers']['monitor_convergence'] = True
 
 def pre_solve_hook(Vv, p_, **NS_namespace):    
     uv = Function(Vv)  # For plotting in temporal_hook

@@ -18,17 +18,20 @@ NS_parameters.update(dict(
     folder = folder,
     newfolder = newfolder,
     velocity_degree = 1,
-    use_lumping_of_mass_matrix = False,
-    use_krylov_solvers = False
+    use_lumping_of_mass_matrix = True,
+    use_krylov_solvers = True
   )
 )
-NS_parameters['krylov_solvers']['monitor_convergence'] = False
+NS_parameters['krylov_solvers']['monitor_convergence'] = True
+
+scalar_components = ['c', 'k']
 
 pre_solve_hook_0 = pre_solve_hook
-def pre_solve_hook(Vv, p_, c_, **NS_namespace):    
+def pre_solve_hook(Vv, p_, c_, k_, **NS_namespace):    
     d = pre_solve_hook_0(Vv, p_, **NS_namespace)
     c_plotter = VTKPlotter(c_) 
-    d.update(dict(c_plotter=c_plotter))
+    k_plotter = VTKPlotter(k_) 
+    d.update(dict(c_plotter=c_plotter, k_plotter=k_plotter))
     return d
 
 # Specify boundary conditions
@@ -36,13 +39,15 @@ create_bcs_0 = create_bcs
 def create_bcs(V, sys_comp, **NS_namespace):
     bcs = create_bcs_0(V, sys_comp, **NS_namespace)
     bcs['c'] = [DirichletBC(V, 1., lid)]
+    bcs['k'] = [DirichletBC(V, 2., lid)]
     return bcs
 
 temporal_hook0 = temporal_hook    
-def temporal_hook(tstep, u_, Vv, uv, p_, c_plotter, plot_interval, **NS_namespace):
+def temporal_hook(tstep, u_, Vv, uv, p_, c_plotter, k_plotter, plot_interval, **NS_namespace):
     temporal_hook0(tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace)
     if tstep % plot_interval == 0:
         c_plotter.plot()
+        k_plotter.plot()
 
 get_solvers_0 = get_solvers
 def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix, 
@@ -50,7 +55,7 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
     sols = get_solvers_0(use_krylov_solvers, use_lumping_of_mass_matrix, 
                 krylov_solvers, sys_comp, **NS_namespace)
     if use_krylov_solvers:
-        c_sol = KrylovSolver('bicgstab', 'jacobi')
+        c_sol = KrylovSolver('bicgstab', 'ilu')
         c_sol.parameters.update(krylov_solvers)
         c_sol.parameters['preconditioner']['reuse'] = False
         c_sol.t = 0
