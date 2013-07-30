@@ -6,8 +6,10 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from Oasis import *
 from numpy import ceil, cos, pi, arctan
 
-# Create a mesh here
-mesh = UnitSquareMesh(51, 51)
+# Create a mesh
+Nx = 51
+Ny = 51
+mesh = UnitSquareMesh(Nx, Ny)
 x = mesh.coordinates()
 x[:, :] = (x[:, :] - 0.5)*2
 x[:, :] = 0.5*(cos(pi*(x[:, :]-1.) / 2.) + 1.)
@@ -15,19 +17,14 @@ x[:, :] = 0.5*(cos(pi*(x[:, :]-1.) / 2.) + 1.)
 del x
 
 # Override some problem specific parameters
-T = 2.5
-dt = 0.001
-folder = "drivencavity_results"
-newfolder = create_initial_folders(folder, dt)
 recursive_update(NS_parameters,
    dict(nu = 0.001,
-        T = T,
-        dt = dt,
-        folder = folder,
+        T = 2.5,
+        dt = 0.001,
+        folder = "drivencavity_results",
         plot_interval = 10,
         save_step = 1000,
         checkpoint = 1000,
-        newfolder = newfolder,
         velocity_degree = 1,
         use_lumping_of_mass_matrix = True,
         use_krylov_solvers = True,

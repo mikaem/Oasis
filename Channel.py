@@ -16,9 +16,16 @@ import random
 # folders only one. Both can be used, but only with two previous
 # timesteps can one achieve a clean restart.
 
-#restart_folder = 'channel_results/data/5/Checkpoint'
+restart_folder = 'channelscalar_results/data/1/Checkpoint'
 #restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
-restart_folder = None
+#restart_folder = None
+
+def create_stretched_mesh(Nx, Ny, Nz, Lx, Ly, Lz):
+    # Function for creating stretched mesh in y-direction
+    mesh = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
+    x = mesh.coordinates() 
+    x[:, 1] = cos(pi*(x[:, 1]-1.) / 2.)  
+    return mesh
 
 ### If restarting from previous solution then read in parameters ########
 if not restart_folder is None:
@@ -26,7 +33,7 @@ if not restart_folder is None:
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
     NS_parameters['restart_folder'] = restart_folder
-    #NS_parameters['T'] = 2.0 # Set new end time otherwise it just stops
+    NS_parameters['T'] = 2.0 # Set new end time otherwise it just stops
     globals().update(NS_parameters)
     
 else:
@@ -39,11 +46,10 @@ else:
     NS_parameters.update(dict(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz))
 
     # Override some problem specific parameters
-    T = 10.
+    T = 1.
     dt = 0.05
     nu = 2.e-5
     Re_tau = 395.
-    folder = "channel_results"
     NS_parameters.update(dict(
         update_statistics = 10,
         check_save_h5 = 10,
@@ -51,19 +57,14 @@ else:
         Re_tau = Re_tau,
         T = T,
         dt = dt,
-        folder = folder,
+        folder = "channel_results",
         use_krylov_solvers = True,
         use_lumping_of_mass_matrix = False
       )
     )
+mesh = create_stretched_mesh(Nx, Ny, Nz, Lx, Ly, Lz)
 
 ##############################################################
-
-mesh = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
-# Create stretched mesh in y-direction
-x = mesh.coordinates() 
-x[:, 1] = cos(pi*(x[:, 1]-1.) / 2.)  
-del x
 
 class PeriodicDomain(SubDomain):
 

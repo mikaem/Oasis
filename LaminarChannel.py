@@ -27,17 +27,14 @@ class PeriodicDomain(SubDomain):
 constrained_domain = PeriodicDomain()
 
 # Override some problem specific parameters
-T = 10
-dt = 0.01
 nu = 0.01
 Re = 1./nu
-folder = "laminarchannel_results"
 NS_parameters.update(dict(
     nu = nu,
-    T = T,
-    dt = dt,
+    T = 10,
+    dt = 0.01,
     Re = Re,
-    folder = folder,
+    folder = "laminarchannel_results",
     max_iter = 1,
     velocity_degree = 1,
     use_lumping_of_mass_matrix = True,

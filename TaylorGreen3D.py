@@ -47,16 +47,11 @@ class PeriodicDomain(SubDomain):
 constrained_domain = PeriodicDomain()
 
 # Override some problem specific parameters
-T = 4.
-dt = 0.01
-folder = "taylorgreen3D_results"
-newfolder = create_initial_folders(folder, dt)
 NS_parameters.update(dict(
-    nu = 0.01,
-    T = T,
-    dt = dt,
-    folder = folder,
-    newfolder = newfolder,
+    nu = 0.005,
+    T = 4.,
+    dt = 0.01,
+    folder = "taylorgreen3D_results",
     max_iter = 1,
     velocity_degree = 1,
     use_krylov_solvers = True,

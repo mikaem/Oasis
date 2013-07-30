@@ -33,26 +33,18 @@ class PeriodicDomain(SubDomain):
 constrained_domain = PeriodicDomain()
 
 # Override some problem specific parameters and put the variables in DC_dict
-T = 10.
-dt = 0.1
-folder = "taylorgreen2D_results"
-newfolder = create_initial_folders(folder, dt)
 NS_parameters.update(dict(
     nu = 0.01,
-    T = T,
-    dt = dt,
-    folder = folder,
-    max_iter = 5,
-    newfolder = newfolder,
+    T = 10,
+    dt = 0.1,
+    folder = "taylorgreen2D_results",
+    max_iter = 1,
     use_krylov_solvers = True,
     use_lumping_of_mass_matrix = False,
     monitor_convergence = False,
     krylov_report = False    
   )
 )
-
-if NS_parameters['velocity_degree'] > 1:
-    NS_parameters['use_lumping_of_mass_matrix'] = False
 
 def pre_solve_hook(q_, p_, **NS_namespace):    
     velocity_plotter0 = VTKPlotter(q_['u0'])

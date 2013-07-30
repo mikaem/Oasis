@@ -6,24 +6,18 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from DrivenCavity import *
 
 # Override some problem specific parameters 
-T = 4.5
-dt = 0.01
-folder = "drivencavityscalar_results"
-newfolder = create_initial_folders(folder, dt)
 NS_parameters.update(dict(
     nu = 0.01,
-    T = T,
-    dt = dt,
+    T = 2.5,
+    dt = 0.01,
+    folder = "drivencavityscalar_results",
     convection = 'Skew',
     plot_interval = 10,
-    folder = folder,
-    newfolder = newfolder,
     velocity_degree = 1,
     use_lumping_of_mass_matrix = True,
-    use_krylov_solvers = True
+    use_krylov_solvers = False
   )
 )
-NS_parameters['krylov_solvers']['monitor_convergence'] = True
 
 # Declare two scalar fields with different diffusivities
 scalar_components = ['c', 'k']
@@ -38,25 +32,15 @@ def create_bcs(V, sys_comp, **NS_namespace):
     bcs['k'] = [DirichletBC(V, 2., lid)]
     return bcs
 
+initialize_0 = initialize
+def initialize(q_, **NS_namespace):
+    initialize_0(q_, **NS_namespace)
+    q_['c'].vector()[:] = 1e-12 # To help Krylov solver on first timestep
+    q_['k'].vector()[:] = 1e-12
+    
 temporal_hook0 = temporal_hook    
 def temporal_hook(tstep, u_, Vv, uv, p_, c_, k_, plot_interval, **NS_namespace):
     temporal_hook0(tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace)
     if tstep % plot_interval == 0:
         plot(c_, title="First scalar ['c']")
         plot(k_, title="Second scalar ['k']")
-
-get_solvers_0 = get_solvers
-def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix, 
-                krylov_solvers, sys_comp, **NS_namespace):
-    sols = get_solvers_0(use_krylov_solvers, use_lumping_of_mass_matrix, 
-                krylov_solvers, sys_comp, **NS_namespace)
-    if use_krylov_solvers:
-        c_sol = KrylovSolver('bicgstab', 'hypre_euclid')
-        c_sol.parameters.update(krylov_solvers)
-        c_sol.parameters['preconditioner']['reuse'] = False
-        c_sol.t = 0
-    else:
-        c_sol = LUSolver()
-        c_sol.t = 0
-    sols.append(c_sol)
-    return sols

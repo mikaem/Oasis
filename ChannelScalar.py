@@ -3,48 +3,19 @@ __date__ = "2013-06-25"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
+# This is a possible extension of the channel case using one additional scalar
+# You don't have to use two separate files to use scalars, I just resuse
+# as much as possible of the 'clean' Navier Stokes setup here.
+
 from Channel import *
 
-# restart_folder in Channel.py must be set to None
-assert(restart_folder==None) 
-
-#restart_folder = 'channelscalar_results/data/5/Checkpoint'
-#restart_folder = 'channelscalar_results/data/3/timestep=20'
-restart_folder = None
-
-### If restarting previous solution then read in parameters ########
-if not restart_folder is None:
-    restart_folder = path.join(getcwd(), restart_folder)
-    f = open(path.join(restart_folder, 'params.dat'), 'r')
-    NS_parameters.update(cPickle.load(f))
-    NS_parameters['restart_folder'] = restart_folder
-    NS_parameters['T'] = 2.0
-    globals().update(NS_parameters)
-#################### restart #######################################
-
-if restart_folder is None:
-    # Override some problem specific parameters and put the variables in DC_dict
-    T = 1.
-    dt = 0.05
-    folder = "channelscalar_results"
-    NS_parameters.update(dict(
-        update_statistics = 10,
-        check_save_h5 = 10,
-        nu = 2.e-5,
-        Re_tau = 395.,
-        T = T,
-        dt = dt,
-        folder = folder,
-        use_krylov_solvers = True,
-        use_lumping_of_mass_matrix = False
-      )
-    )
+NS_parameters['folder'] = 'channelscalar_results'
 
 # Declare two scalar fields with different diffusivities
 scalar_components = ['c']
 Schmidt['c'] = 1.
     
-# Specify boundary conditions
+# Specify additional boundary conditions for scalar
 create_bcs0 = create_bcs
 def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, **NS_namespace):
     bcs = create_bcs0(V, q_, q_1, q_2, sys_comp, u_components, **NS_namespace)
@@ -70,19 +41,3 @@ def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats,
         voluviz.probes.clear()
         
         plot(q_['c'], title='scalar')
-
-get_solvers_0 = get_solvers
-def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix, 
-                krylov_solvers, sys_comp, **NS_namespace):
-    sols = get_solvers_0(use_krylov_solvers, use_lumping_of_mass_matrix, 
-                krylov_solvers, sys_comp, **NS_namespace)
-    if use_krylov_solvers:
-        c_sol = KrylovSolver('bicgstab', 'jacobi')
-        c_sol.parameters.update(krylov_solvers)
-        c_sol.parameters['preconditioner']['reuse'] = False
-        c_sol.t = 0
-    else:
-        c_sol = LUSolver()
-        c_sol.t = 0
-    sols.append(c_sol)
-    return sols

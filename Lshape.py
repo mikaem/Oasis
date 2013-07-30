@@ -19,22 +19,17 @@ mesh = SubMesh(mesh_, mf1, 0)
 del mesh_, mf1, subm
 
 # Override some problem specific parameters
-T = 10
-dt = 0.1
 Re = 200.
 nu = 1./Re
-folder = "Lshape_results"
-newfolder = create_initial_folders(folder, dt)
 NS_parameters.update(dict(
     nu = nu,
-    T = T,
-    dt = dt,
+    T = 10,
+    dt = 0.1,
     Re = Re,
-    folder = folder,
+    folder = "Lshape_results",
     max_iter = 1,
     plot_interval = 1,
-    newfolder = newfolder,
-    velocity_degree = 2,
+    velocity_degree = 1,
     use_lumping_of_mass_matrix = True,
     use_krylov_solvers = True
   )
