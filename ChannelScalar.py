@@ -8,8 +8,8 @@ from Channel import *
 # restart_folder in Channel.py must be set to None
 assert(restart_folder==None) 
 
-#restart_folder = 'channel_results/data/dt=5.0000e-02/4/Checkpoint'
-#restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
+#restart_folder = 'channelscalar_results/data/5/Checkpoint'
+#restart_folder = 'channelscalar_results/data/3/timestep=20'
 restart_folder = None
 
 ### If restarting previous solution then read in parameters ########
@@ -27,7 +27,6 @@ if restart_folder is None:
     T = 1.
     dt = 0.05
     folder = "channelscalar_results"
-    newfolder = create_initial_folders(folder, dt)
     NS_parameters.update(dict(
         update_statistics = 10,
         check_save_h5 = 10,
@@ -36,14 +35,14 @@ if restart_folder is None:
         T = T,
         dt = dt,
         folder = folder,
-        newfolder = newfolder,
         use_krylov_solvers = True,
         use_lumping_of_mass_matrix = False
       )
     )
-    NS_parameters.update(dict(statsfolder = path.join(newfolder, "Stats"),
-                              h5folder = path.join(newfolder, "HDF5")))
 
+# Declare two scalar fields with different diffusivities
+scalar_components = ['c']
+Schmidt['c'] = 1.
     
 # Specify boundary conditions
 create_bcs0 = create_bcs
@@ -60,14 +59,17 @@ def initialize(V, Vv, q_, q_1, q_2, bcs, restart_folder, **NS_namespace):
     return kw
 
 temporal_hook0 = temporal_hook
-def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats, statsfolder, h5folder, 
-                  update_statistics, check_save_h5, **NS_namespace):
-    temporal_hook0(q_, u_, V, Vv, tstep, uv, voluviz, stats, statsfolder, h5folder, 
-                   update_statistics, check_save_h5, **NS_namespace)
+def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats,
+                  update_statistics, check_save_h5, newfolder, **NS_namespace):
+    temporal_hook0(q_, u_, V, Vv, tstep, uv, voluviz, stats,
+                   update_statistics, check_save_h5, newfolder, **NS_namespace)
     if tstep % check_save_h5 == 0:
         voluviz(q_['c'])
+        h5folder = path.join(newfolder, "HDF5")
         voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_c_{}.h5".format(tstep))
         voluviz.probes.clear()
+        
+        plot(q_['c'], title='scalar')
 
 get_solvers_0 = get_solvers
 def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix, 

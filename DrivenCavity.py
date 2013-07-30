@@ -15,8 +15,8 @@ x[:, :] = 0.5*(cos(pi*(x[:, :]-1.) / 2.) + 1.)
 del x
 
 # Override some problem specific parameters
-T = 0.5
-dt = 0.01
+T = 2.5
+dt = 0.001
 folder = "drivencavity_results"
 newfolder = create_initial_folders(folder, dt)
 recursive_update(NS_parameters,
@@ -35,7 +35,8 @@ recursive_update(NS_parameters,
 )
 
 def pre_solve_hook(Vv, p_, **NS_namespace):    
-    uv = Function(Vv)  # For plotting in temporal_hook
+    # Declare a Function used for plotting in temporal_hook
+    uv = Function(Vv)  
     return dict(uv=uv)
 
 def lid(x, on_boundary):
@@ -60,19 +61,19 @@ def start_timestep_hook(t, **NS_namespace):
     #u_top.assign(cos(t))
     
 def initialize(q_, **NS_namespace):
-    q_['u0'].vector()[:] = 1e-12
+    q_['u0'].vector()[:] = 1e-12 # To help Krylov solver on first timestep
 
 def temporal_hook(tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace):
     if tstep % plot_interval == 0:
         uv.assign(project(u_, Vv))
-        plot(uv)
-        plot(p_)
+        plot(uv, title='Velocity')
+        plot(p_, title='Pressure')
 
 def theend(u_, **NS_namespace):
     try:
         from cbc.cfd.tools.Streamfunctions import StreamFunction
         psi = StreamFunction(u_, [], use_strong_bc=True)
-        plot(psi)
+        plot(psi, title='Streamfunction')
         interactive()
     except:
         pass

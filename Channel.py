@@ -16,7 +16,7 @@ import random
 # folders only one. Both can be used, but only with two previous
 # timesteps can one achieve a clean restart.
 
-#restart_folder = 'channel_results/data/dt=5.0000e-02/12/Checkpoint'
+#restart_folder = 'channel_results/data/5/Checkpoint'
 #restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
 restart_folder = None
 
@@ -26,7 +26,7 @@ if not restart_folder is None:
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
     NS_parameters['restart_folder'] = restart_folder
-    NS_parameters['T'] = 2.0
+    #NS_parameters['T'] = 2.0 # Set new end time otherwise it just stops
     globals().update(NS_parameters)
     
 else:
@@ -38,13 +38,12 @@ else:
     Nz = 12
     NS_parameters.update(dict(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz))
 
-    # Override some problem specific parameters and put the variables in DC_dict
+    # Override some problem specific parameters
     T = 10.
     dt = 0.05
     nu = 2.e-5
     Re_tau = 395.
     folder = "channel_results"
-    newfolder = create_initial_folders(folder, dt)
     NS_parameters.update(dict(
         update_statistics = 10,
         check_save_h5 = 10,
@@ -53,13 +52,10 @@ else:
         T = T,
         dt = dt,
         folder = folder,
-        newfolder = newfolder,
         use_krylov_solvers = True,
         use_lumping_of_mass_matrix = False
       )
     )
-    NS_parameters.update(dict(statsfolder = path.join(newfolder, "Stats"),
-                              h5folder = path.join(newfolder, "HDF5")))
 
 ##############################################################
 
@@ -158,12 +154,14 @@ def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
             u_sol.parameters['relative_tolerance'] = 1e-8
             u_sol.parameters['absolute_tolerance'] = 1e-8
 
-def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats, statsfolder, h5folder, 
-                  update_statistics, check_save_h5, **NS_namespace):
+def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats, update_statistics,
+                  check_save_h5, newfolder, **NS_namespace):
     if tstep % update_statistics == 0:
         stats(q_['u0'], q_['u1'], q_['u2'])
         
     if tstep % check_save_h5 == 0:
+        statsfolder = path.join(newfolder, "Stats")
+        h5folder = path.join(newfolder, "HDF5")
         stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
         voluviz(q_['u0'])
         voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_u0_{}.h5".format(tstep))

@@ -11,6 +11,12 @@ def getMyMemoryUsage():
     mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
     return mymemory
 
+def dolfin_memory_usage(s):
+    # Check how much memory is actually used by dolfin before we allocate anything
+    dolfin_memory_use = getMyMemoryUsage()
+    info_red('Memory use {} = '.format(s) + dolfin_memory_use)
+    return dolfin_memory_use
+
 # Convenience functions
 def strain(u):
     return 0.5*(grad(u)+ grad(u).T)

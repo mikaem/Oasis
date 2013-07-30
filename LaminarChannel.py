@@ -32,7 +32,6 @@ dt = 0.01
 nu = 0.01
 Re = 1./nu
 folder = "laminarchannel_results"
-newfolder = create_initial_folders(folder, dt)
 NS_parameters.update(dict(
     nu = nu,
     T = T,
@@ -40,7 +39,6 @@ NS_parameters.update(dict(
     Re = Re,
     folder = folder,
     max_iter = 1,
-    newfolder = newfolder,
     velocity_degree = 1,
     use_lumping_of_mass_matrix = True,
     use_krylov_solvers = True
@@ -74,5 +72,9 @@ def temporal_hook(tstep, q_, t, Re, **NS_namespace):
     if tstep % 20 == 0:        
         plot(q_['u0'])
     u_exact = reference(Re, t)
-    u_computed = q_['u0'](array([1.0, 0.]))
-    print "Error = ", (u_exact-u_computed)/u_exact
+    try:
+        u_computed = q_['u0'](array([1.0, 0.]))
+        print "Error = ", (u_exact-u_computed)/u_exact
+    except:
+        pass
+    

@@ -112,13 +112,13 @@ mass matrix ML computed as
 A scalar equation is solved through
   C = 0.5*(u + q_1['c'])
   F = (1/dt)*inner(u - q_1['c'], v)*dx + inner(grad(C)*U1, v)*dx \
-     nu/Pr*inner(grad(C), grad(v))*dx
+     nu/Sc*inner(grad(C), grad(v))*dx
      
-where Pr is the constant Prandtl number. The scalar is using the same
+where Sc is the constant Schmidt number. The scalar is using the same
 FunctionSpace as the velocity components and it is computed by reusing 
 much of the velocity matrices
 
-    A_rhs = 1/dt*M - 0.5*Ac - 0.5*nu/Pr*K
+    A_rhs = 1/dt*M - 0.5*Ac - 0.5*nu/Sc*K
     b['c']  = A_rhs*q_1['c'].vector()
     Ta = -A_rhs + 2/dt*M
 
@@ -131,25 +131,32 @@ Ta might differ from A due to Dirichlet boundary conditions.
 """
 ################### Problem dependent parameters ####################
 ### Should import a mesh and a dictionary called NS_parameters    ###
+### See NS_default_hooks for possible parameters                  ###
 
-from DrivenCavity import *
+#from DrivenCavityScalar import *
 #from ChannelScalar import *
+from LaminarChannel import *
+#from Lshape import *
+#from TaylorGreen2D import *
+#from TaylorGreen3D import *
 
-#####################################################################
 assert(isinstance(NS_parameters, dict))
 assert(isinstance(mesh, Mesh))
+#####################################################################
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
 
 # Put NS_parameters in global namespace
 vars().update(NS_parameters)  
 
-# Update dolfins parameters with NS_parameters
+# Update dolfins parameters
 parameters['krylov_solver'].update(krylov_solvers)
 
-# Check how much memory is actually used by dolfin before we allocate anything
-dolfin_memory_use = getMyMemoryUsage()
-info_red('Memory use of plain dolfin = ' + dolfin_memory_use)
+# Set up initial folders for storing results
+newfolder = create_initial_folders(folder, restart_folder)
+
+# Print memory use up til now
+initial_memory_use = dolfin_memory_usage('plain dolfin')
 
 # Declare solution Functions and FunctionSpaces
 V = FunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
@@ -233,7 +240,8 @@ A = Matrix()                                    # Coefficient matrix (needs reas
 if len(scalar_components) > 0:
     Ta = Matrix(M)                              # Coefficient matrix for scalar. Differs from velocity in boundary conditions only
     if len(scalar_components) > 1:
-        # For more than one scalar use additional tensors for solver
+        # For more than one scalar we use the same linear algebra solver for all.
+        # For this to work we need some additional tensors
         Tb = Matrix(M)
         bb = Vector(x_[scalar_components[0]])
         bx = Vector(x_[scalar_components[0]])
@@ -246,9 +254,13 @@ if use_lumping_of_mass_matrix:
     ones.vector()[:] = 1.
     ML = M * ones.vector()
     ML.set_local(1. / ML.array())
+    del ones
 else:
     # Use regular mass matrix for velocity update
-    Mu = Matrix(M)
+    if len(scalar_components) > 0:
+        Mu = Matrix(M)             # Since bcs may differ between scalars and velocity
+    else:
+        Mu = M                     # Can safely use regular mass matrix
     [bc.apply(Mu) for bc in bcs['u0']]
 
 # Apply boundary conditions on Ap that is used directly in solve
@@ -260,7 +272,17 @@ if bcs['p']:
 U_ = 1.5*u_1 - 0.5*u_2
 
 # Convection form
-a  = 0.5*inner(v, dot(U_, nabla_grad(u)))*dx
+a  = convection_form(convection, **vars())*dx
+
+# A scalar always use the Standard convection form
+a_scalar = None
+if convection != 'Standard':    
+    a_scalar = convection_form('Standard', **vars())*dx
+    
+b   = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vectors (final)
+b0  = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vector holding body_force
+bold= dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs temp storage vectors
+work = Vector(x_['u0'])
 
 #### Get any constant body forces ####
 f = body_force(**vars())
@@ -268,13 +290,8 @@ f = body_force(**vars())
 
 # Preassemble constant body force
 assert(isinstance(f, Constant))
-b0 = dict((ui, assemble(v*f[i]*dx)) for i, ui in enumerate(u_components))
-for ci in scalar_components:
-    b0[ci] = assemble(Constant(0)*v*dx)
-
-b   = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vectors
-bold= dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs temp storage vectors
-work = Vector(x_['u0'])
+for i, ui in enumerate(u_components):
+    b0[ui] = assemble(v*f[i]*dx)
 
 tin = time.time()
 stop = False
@@ -282,9 +299,9 @@ reset_sparsity = True
 t1 = time.time(); old_tstep = tstep
 print_solve_info = use_krylov_solvers and krylov_solvers['monitor_convergence']
 
-############ Do something problem specific ####
+#### Do something problem specific ####
 vars().update(pre_solve_hook(**vars()))
-###############################################
+#######################################
 while t < (T - tstep*DOLFIN_EPS) and not stop:
     t += dt
     tstep += 1
@@ -302,27 +319,42 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             # Only on the first iteration because nothing here is changing in time
             # Set up coefficient matrix for computing the rhs:
             A = assemble(a, tensor=A, reset_sparsity=reset_sparsity) 
-            reset_sparsity = False   
             A._scale(-1.)            # Negative convection on the rhs 
             A.axpy(1./dt, M, True)   # Add mass
-            A.axpy(-0.5*nu, K, True) # Add diffusion
             
-            # Compute rhs for all velocity components and scalar
-            for ui in uc_comp:
-                b[ui][:] = b0[ui][:]
-                b[ui].axpy(1., A*x_1[ui])
+            # Set up scalar matrix for rhs
+            if len(scalar_components) > 0:                
+                if not a_scalar: # Use the same convection as velocity
+                    Ta._scale(0.)
+                    Ta.axpy(1., A, True)
+                else:
+                    Ta = assemble(a_scalar, tensor=Ta, reset_sparsity=reset_sparsity)
+                    Ta._scale(-1.)            # Negative convection on the rhs 
+                    Ta.axpy(1./dt, M, True)   # Add mass
 
+            reset_sparsity = False   
+            A.axpy(-0.5*nu, K, True) # Add diffusion 
+            
+            # Compute rhs for all velocity components
+            for ui in u_components:
+                b[ui][:] = b0[ui][:]         # start with body force
+                b[ui].axpy(1., A*x_1[ui])    # Add transient, convection and diffusion
+                
             # Reset matrix for lhs
             A._scale(-1.)
             A.axpy(2./dt, M, True)
-            
-            if len(scalar_components) > 0:
-                # Set scalar matrix (may differ from A due to bcs)            
-                Ta._scale(0.)
-                Ta.axpy(1., A, True)
-
             [bc.apply(A) for bc in bcs['u0']]
-        
+
+            # Compute rhs for all scalars
+            if len(scalar_components) > 0:
+                for ci in scalar_components:
+                    Ta.axpy(-0.5*nu/Schmidt[ci], K, True) # Add diffusion
+                    b[ci][:] = Ta*x_1[ci]                 # Compute rhs
+                    Ta.axpy(0.5*nu/Schmidt[ci], K, True)  # Subtract diffusion
+                # Reset matrix for lhs - Note scalar matrix does not contain diffusion
+                Ta._scale(-1.)
+                Ta.axpy(2./dt, M, True)
+                   
         t0 = time.time()
         for ui in u_components:
             bold[ui][:] = b[ui][:] 
@@ -391,12 +423,13 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         du_sol.t += (time.time()-t0)
         
     # Solve for scalars
-    #####################
-    scalar_hook(**vars())
-    #####################
     for ci in scalar_components:    
         info_blue('Solving scalar {}'.format(ci), print_solve_info)
         # Reuse solver for all scalars. This requires the same matrix and vectors to be used by c_sol.
+        Ta.axpy(0.5*nu/Schmidt[ci], K, True) # Add diffusion
+        #####################
+        scalar_hook(**vars())
+        #####################
         if len(scalar_components) > 1: 
             Tb._scale(0.)
             Tb.axpy(1., Ta, True)
@@ -408,7 +441,8 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         else:
             [bc.apply(Ta, b[ci]) for bc in bcs[ci]]
             c_sol.solve(Ta, x_[ci], b[ci])
-    
+        Ta.axpy(-0.5*nu/Schmidt[ci], K, True) # Subtract diffusion
+        
     # Update to a new timestep
     for ui in u_components:
         x_2[ui][:] = x_1[ui][:]
@@ -422,17 +456,20 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         info_green('Time = {0:2.4e}, timestep = {1:6d}, End time = {2:2.4e}'.format(t, tstep, T)) 
         tottime= time.time() - t1    
         info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(tstep - old_tstep, tottime))
-        save_solution(**vars())
         t1 = time.time(); old_tstep = tstep
+        
     ##############################
     temporal_hook(**vars())
-    stop = check_if_kill(**vars())
     ##############################
+    
+    # Save solution if required and check for killoasis file
+    stop = save_solution(**vars())
     tend = time.time()
         
 info_red('Total computing time = {0:f}'.format(tend - tin))
-print 'Additional memory use of processor = {0}'.format(eval(getMyMemoryUsage()) - eval(dolfin_memory_use))
-mymem = eval(getMyMemoryUsage())-eval(dolfin_memory_use)
+final_memory_use = dolfin_memory_usage('at end')
+mymem = eval(final_memory_use)-eval(initial_memory_use)
+print 'Additional memory use of processor = {0}'.format(mymem)
 info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
 list_timings()
         

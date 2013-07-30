@@ -112,9 +112,9 @@ mass matrix ML computed as
 """
 ################### Problem dependent parameters ####################
 
-from DrivenCavity import *
+#from DrivenCavity import *
 #from Channel import *
-#from LaminarChannel import *
+from LaminarChannel import *
 #from Lshape import *
 #from TaylorGreen2D import *
 #from TaylorGreen3D import *
@@ -130,9 +130,12 @@ if NS_parameters['velocity_degree'] > 1:
 # Put NS_parameters in global namespace
 vars().update(NS_parameters)  
 
-# Update dolfins parameters with NS_parameters
+# Update dolfins parameters
 parameters['krylov_solver'].update(krylov_solvers)
 
+# Set up initial folders for storing results
+newfolder = create_initial_folders(folder, restart_folder)
+    
 # Check how much memory is actually used by dolfin before we allocate anything
 dolfin_memory_use = getMyMemoryUsage()
 info_red('Memory use of plain dolfin = ' + dolfin_memory_use)
@@ -190,7 +193,7 @@ initialize(**vars())
 
 ################### Fetch linear solvers  ###########################
 
-u_sol, p_sol, du_sol = get_solvers(**vars())
+u_sol, p_sol, du_sol, c_sol = get_solvers(**vars())
 
 #####################################################################
 
@@ -234,7 +237,7 @@ if bcs['p']:
 U_ = 1.5*u_1 - 0.5*u_2
 
 # Convection form
-a  = 0.5*inner(v, dot(U_, nabla_grad(u)))*dx
+a  = convection_form(convection, **vars())*dx
 
 #### Get any constant body forces ####
 f = body_force(**vars())
@@ -359,17 +362,18 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         x_2[ui][:] = x_1[ui][:]
         x_1[ui][:] = x_ [ui][:]
         
-    # Print some information and save solution
+    # Print some intermediate information
     if tstep % save_step == 0 or tstep % checkpoint == 0:
         info_green('Time = {0:2.4e}, timestep = {1:6d}, End time = {2:2.4e}'.format(t, tstep, T)) 
         tottime = time.time() - t1    
         info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(tstep - old_tstep, tottime))
-        save_solution(**vars())
         t1 = time.time(); old_tstep = tstep
     #####################################################
     temporal_hook(**vars())
-    stop = check_if_kill(**vars())
     ######################################################
+    
+    # Save solution if required and check for killoasis file
+    stop = save_solution(**vars())    
         
 info_red('Total computing time = {0:f}'.format(time.time() - tin))
 print 'Additional memory use of processor = {0}'.format(eval(getMyMemoryUsage()) - eval(dolfin_memory_use))

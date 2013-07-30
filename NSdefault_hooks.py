@@ -5,6 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import *
 import cPickle
+from collections import defaultdict
 from os import getpid, path, makedirs, getcwd, listdir, remove, system
 
 #parameters["linear_algebra_backend"] = "Epetra"
@@ -31,6 +32,9 @@ NS_parameters = dict(
   use_krylov_solvers = False,
   velocity_degree = 2,
   pressure_degree = 1,  
+  convection = "Standard", 
+  update_statistics = False,
+  check_save_h5 = False,
   krylov_solvers = dict(
     monitor_convergence = False,
     report = False,
@@ -45,63 +49,68 @@ constrained_domain = None
 
 # To solve for scalars provide a list like ['scalar1', 'scalar2']
 scalar_components = []
+# With diffusivities given here. We use a Schmidt number defined as
+# Schmidt = nu / D (= momentum diffusivity / mass diffusivity)
+Schmidt = defaultdict(lambda: 1.)
 
-def create_initial_folders(folder, dt):
+def create_initial_folders(folder, restart_folder):
     # To avoid writing over old data create a new folder for each run
-    newfolder = path.join(folder, 'data', 'dt={0:2.4e}'.format(dt))
-    if not path.exists(newfolder):
-        newfolder = path.join(newfolder, '1')
+    newfolder = path.join(folder, 'data')
+    if restart_folder:
+        newfolder = path.join(newfolder, restart_folder.split('/')[-2])       
     else:
-        previous = listdir(newfolder)
-        newfolder = path.join(newfolder, str(max(map(eval, previous)) + 1))
+        if not path.exists(newfolder):
+            newfolder = path.join(newfolder, '1')
+        else:
+            previous = listdir(newfolder)
+            newfolder = path.join(newfolder, str(max(map(eval, previous)) + 1))
 
     MPI.barrier()
-    h5folder = path.join(newfolder, "HDF5")
-    statsfolder = path.join(newfolder, "Stats")
-    checkpointfolder = path.join(newfolder, "Checkpoint")
-
     if MPI.process_number() == 0:
-        makedirs(h5folder)
-        makedirs(statsfolder)
-        makedirs(checkpointfolder)
+        if not restart_folder:
+            makedirs(path.join(newfolder, "HDF5"))
+            makedirs(path.join(newfolder, "Stats"))
+            makedirs(path.join(newfolder, "Checkpoint"))
         
     return newfolder
 
-def save_solution(tstep, t, q_, q_1, NS_parameters, save_step, checkpoint, 
-                  **NS_namespace):
+def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint, 
+                  NS_parameters, **NS_namespace):
     NS_parameters.update(t=t, tstep=tstep)
     if tstep % save_step == 0: 
-        save_tstep_solution(tstep, q_, NS_parameters)
-    if tstep % checkpoint == 0:
-        save_checkpoint_solution(tstep, q_, q_1, NS_parameters)
+        save_tstep_solution(tstep, q_, newfolder, NS_parameters)
+    killoasis = check_if_kill(folder)
+    if tstep % checkpoint == 0 or killoasis:
+        save_checkpoint_solution(tstep, q_, q_1, newfolder, NS_parameters)
+    return killoasis
 
-def save_tstep_solution(tstep, q_, params):        
-    newfolder = path.join(params['newfolder'], 'timestep='+str(tstep))
+def save_tstep_solution(tstep, q_, newfolder, NS_parameters):  
+    timefolder = path.join(newfolder, 'timestep='+str(tstep))
     if MPI.process_number() == 0:
         try:
-            makedirs(newfolder)
+            makedirs(timefolder)
         except OSError:
             pass
     MPI.barrier()
     if MPI.process_number() == 0:
-        f = open(path.join(newfolder, 'params.dat'), 'w')
-        cPickle.dump(params,  f)
+        f = open(path.join(timefolder, 'params.dat'), 'w')
+        cPickle.dump(NS_parameters,  f)
 
     for ui in q_.keys():
-        newfile = File(path.join(newfolder, ui + '.xml.gz'))
+        newfile = File(path.join(timefolder, ui + '.xml.gz'))
         newfile << q_[ui]
 
-def save_checkpoint_solution(tstep, q_, q_1, params):
-    newfolder = path.join(params['newfolder'], 'timestep='+str(tstep))
-    checkpointfolder = path.join(params['newfolder'], "Checkpoint")
+def save_checkpoint_solution(tstep, q_, q_1, newfolder, NS_parameters):
+    timefolder = path.join(newfolder, 'timestep='+str(tstep))
+    checkpointfolder = path.join(newfolder, "Checkpoint")
     if MPI.process_number() == 0:
         f = open(path.join(checkpointfolder, 'params.dat'), 'w')
-        cPickle.dump(params, f)
+        cPickle.dump(NS_parameters, f)
         
     for ui in q_.keys():
         # Check if solution has already been stored in timestep folder
-        if 'timestep='+str(tstep) in listdir(params['newfolder']):
-            system('cp {0} {1}'.format(path.join(newfolder, ui + '.xml.gz'), 
+        if 'timestep='+str(tstep) in listdir(newfolder):
+            system('cp {0} {1}'.format(path.join(timefolder, ui + '.xml.gz'), 
                                        path.join(checkpointfolder, ui + '.xml.gz')))
         else:
             cfile = File(path.join(checkpointfolder, ui + '.xml.gz'))
@@ -110,12 +119,9 @@ def save_checkpoint_solution(tstep, q_, q_1, params):
             cfile_1 = File(path.join(checkpointfolder, ui + '_1.xml.gz'))
             cfile_1 << q_1[ui]
 
-def check_if_kill(tstep, t, q_, q_1, NS_parameters, folder, info_red, **NS_namespace):
-    NS_parameters.update(t=t, tstep=tstep)
+def check_if_kill(folder):
     if 'killoasis' in listdir(folder):
         info_red('killoasis Found! Stopping simulations cleanly...')
-        save_checkpoint_solution(tstep, q_, q_1, NS_parameters)
-        MPI.barrier()
         if MPI.process_number() == 0: 
             remove(path.join(folder, 'killoasis'))
         return True
@@ -125,6 +131,23 @@ def check_if_kill(tstep, t, q_, q_1, NS_parameters, folder, info_red, **NS_names
 def body_force(mesh, **NS_namespace):
     """Specify body force"""
     return Constant((0,)*mesh.geometry().dim())
+
+def convection_form(conv, u, v, U_, **NS_namespace):
+    if conv == 'Standard':
+        return inner(v, dot(U_, nabla_grad(u)))
+        
+    elif conv == 'Divergence':
+        return inner(v, nabla_div(outer(U_, u)))
+        
+    elif conv == 'Divergence by parts':
+        # Use with care. ds term could be important
+        return -inner(grad(v), outer(U_, u))
+        
+    elif conv == 'Skew':
+        return 0.5*(inner(v, dot(U_, nabla_grad(u))) + inner(v, nabla_div(outer(U_, u))))
+
+    else:
+        raise TypeError("Wrong convection form {}".format(conv))
 
 def initialize(**NS_namespace):
     """Initialize solution. Could also be used to create new variables 
@@ -137,7 +160,8 @@ def create_bcs(sys_comp, **NS_namespace):
     return dict((ui, []) for ui in sys_comp)
 
 def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix, 
-                krylov_solvers, sys_comp, bcs, x_, Q, **NS_namespace):
+                krylov_solvers, sys_comp, bcs, x_, Q, 
+                scalar_components, **NS_namespace):
     """Return solvers for all fields we are solving for.
     In case of lumping return None for velocity update."""
     if use_krylov_solvers:
@@ -152,12 +176,21 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             du_sol.parameters.update(krylov_solvers)
             du_sol.parameters['preconditioner']['reuse'] = True
             du_sol.t = 0            
-        p_sol = KrylovSolver('gmres', 'petsc_amg')
+        p_sol = KrylovSolver('gmres', 'hypre_amg')
         p_sol.parameters['preconditioner']['reuse'] = True
         p_sol.parameters.update(krylov_solvers)
         p_sol.t = 0
         if bcs['p'] == []:
             attach_pressure_nullspace(p_sol, x_, Q)
+        sols = [u_sol, p_sol, du_sol]
+        if len(scalar_components) > 0:
+            c_sol = KrylovSolver('bicgstab', 'jacobi')
+            c_sol.parameters.update(krylov_solvers)
+            c_sol.parameters['preconditioner']['reuse'] = False
+            c_sol.t = 0
+            sols.append(c_sol)
+        else:
+            sols.append(None)
     else:
         u_sol = LUSolver()
         u_sol.t = 0
@@ -172,8 +205,15 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         p_sol.t = 0  
         if bcs['p'] == []:
             p_sol.normalize = True
-            
-    return [u_sol, p_sol, du_sol] 
+        sols = [u_sol, p_sol, du_sol]    
+        if len(scalar_components) > 0:
+            c_sol = LUSolver()
+            c_sol.t = 0
+            sols.append(c_sol)
+        else:
+            sols.append(None)
+        
+    return sols
 
 def attach_pressure_nullspace(p_sol, x_, Q):
     # Create vector that spans the null space
