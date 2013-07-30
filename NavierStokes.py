@@ -135,12 +135,12 @@ Ta might differ from A due to Dirichlet boundary conditions.
 
 #from DrivenCavity import *
 #from DrivenCavityScalar import *
-#from Channel import *
+from Channel import *
 #from ChannelScalar import *
 #from LaminarChannel import *
 #from Lshape import *
 #from TaylorGreen2D import *
-from TaylorGreen3D import *
+#from TaylorGreen3D import *
 
 assert(isinstance(NS_parameters, dict))
 assert(isinstance(mesh, Mesh))
@@ -274,16 +274,16 @@ if bcs['p']:
 U_ = 1.5*u_1 - 0.5*u_2
 
 # Convection form
-a  = convection_form(convection, **vars())*dx
+a = convection_form(convection, **vars())*dx
 
-# A scalar always use the Standard convection form
+# A scalar always uses the Standard convection form
 a_scalar = None
 if convection != 'Standard':    
     a_scalar = convection_form('Standard', **vars())*dx
     
-b   = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vectors (final)
-b0  = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vector holding body_force
-bold= dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs temp storage vectors
+b    = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vectors (final)
+b0   = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vector holding body_force
+bold = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs temp storage vectors
 work = Vector(x_['u0'])
 
 #### Get any constant body forces ####
