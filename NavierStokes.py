@@ -135,11 +135,11 @@ Ta might differ from A due to Dirichlet boundary conditions.
 
 #from DrivenCavity import *
 #from DrivenCavityScalar import *
-from Channel import *
+#from ChannelTest import *
 #from ChannelScalar import *
 #from LaminarChannel import *
 #from Lshape import *
-#from TaylorGreen2D import *
+from TaylorGreen2D import *
 #from TaylorGreen3D import *
 
 assert(isinstance(NS_parameters, dict))
@@ -274,12 +274,12 @@ if bcs['p']:
 U_ = 1.5*u_1 - 0.5*u_2
 
 # Convection form
-a = convection_form(convection, **vars())*dx
+a = 0.5*convection_form(convection, **vars())*dx
 
 # A scalar always uses the Standard convection form
 a_scalar = None
 if convection != 'Standard':    
-    a_scalar = convection_form('Standard', **vars())*dx
+    a_scalar = 0.5*convection_form('Standard', **vars())*dx
     
 b    = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vectors (final)
 b0   = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vector holding body_force

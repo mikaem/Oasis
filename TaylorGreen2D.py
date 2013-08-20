@@ -6,8 +6,8 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from Oasis import *
 
 # Create a mesh here
-mesh = UnitSquareMesh(50, 50)
-scale = 2*(mesh.coordinates() - 0.5)*pi
+mesh = UnitSquareMesh(4, 4)
+scale = 2.*mesh.coordinates()
 mesh.coordinates()[:, :] = scale
 del scale
 
@@ -15,32 +15,36 @@ class PeriodicDomain(SubDomain):
     
     def inside(self, x, on_boundary):
         # return True if on left or bottom boundary AND NOT on one of the two corners (0, 1) and (1, 0)
-        return bool((near(x[0], -pi) or near(x[1], -pi)) and 
-                (not ((near(x[0], -pi) and near(x[1], pi)) or 
-                        (near(x[0], pi) and near(x[1], -pi)))) and on_boundary)
+        return bool((near(x[0], 0) or near(x[1], 0)) and 
+                (not ((near(x[0], 0) and near(x[1], 2)) or 
+                        (near(x[0], 2) and near(x[1], 0)))) and on_boundary)
 
     def map(self, x, y):
-        if near(x[0], pi) and near(x[1], pi):
-            y[0] = x[0] - 2.0*pi
-            y[1] = x[1] - 2.0*pi
-        elif near(x[0], pi):
-            y[0] = x[0] - 2.0*pi
+        if near(x[0], 2) and near(x[1], 2):
+            y[0] = x[0] - 2.0
+            y[1] = x[1] - 2.0
+        elif near(x[0], 2):
+            y[0] = x[0] - 2.0
             y[1] = x[1]
-        else: #near(x[1], pi)
+        else: #near(x[1], 2)
             y[0] = x[0]
-            y[1] = x[1] - 2.0*pi
+            y[1] = x[1] - 2.0
 
 constrained_domain = PeriodicDomain()
 
-# Override some problem specific parameters and put the variables in DC_dict
+# Override some problem specific parameters
 NS_parameters.update(dict(
     nu = 0.01,
-    T = 10,
-    dt = 0.1,
+    T = 1,
+    dt = 0.001,
     folder = "taylorgreen2D_results",
-    max_iter = 1,
-    use_krylov_solvers = True,
-    use_lumping_of_mass_matrix = False,
+    max_iter = 3,
+    iters_on_first_timestep = 2,
+    convection = "Standard",
+    use_krylov_solvers = False,
+    use_lumping_of_mass_matrix = True,
+    velocity_degree = 7,
+    pressure_degree = 6,
     monitor_convergence = False,
     krylov_report = False    
   )
@@ -55,20 +59,28 @@ def pre_solve_hook(q_, p_, **NS_namespace):
                 pressure_plotter=pressure_plotter)
 
 initial_fields = dict(
-        u0='2./sqrt(3.)*sin(2.*pi/3.)*sin(x[0])*cos(x[1])',
-        u1='2./sqrt(3.)*sin(-2.*pi/3.)*cos(x[0])*sin(x[1])', 
-        p='0')
+    u0='-sin(pi*x[1])*cos(pi*x[0])*exp(-2.*pi*pi*nu*t)',
+    u1='sin(pi*x[0])*cos(pi*x[1])*exp(-2.*pi*pi*nu*t)',
+    p='-(cos(2*pi*x[0])+cos(2*pi*x[1]))*exp(-4.*pi*pi*nu*t)/4.')
     
-def initialize(q_, q_1, q_2, VV, sys_comp, **NS_namespace):
-    for ui in sys_comp:
-        vv = project(Expression((initial_fields[ui])), VV[ui])
+def initialize(q_, q_1, q_2, VV, t, nu, dt, **NS_namespace):
+    for ui in q_.keys():
+        deltat = dt/2. if ui is 'p' else 0.
+        vv = project(Expression((initial_fields[ui]), t=t+deltat, nu=nu), VV[ui])
         q_[ui].vector()[:] = vv.vector()[:]
         if not ui == 'p':
             q_1[ui].vector()[:] = q_[ui].vector()[:]
             q_2[ui].vector()[:] = q_[ui].vector()[:]
 
-def temporal_hook(velocity_plotter0, velocity_plotter1,
+def temporal_hook(q_, t, nu, VV, dt, velocity_plotter0, velocity_plotter1,
                            pressure_plotter, **NS_namespace):
     pressure_plotter.plot()
     velocity_plotter0.plot()
     velocity_plotter1.plot()
+    err = {}
+    for ui in q_.keys():
+        deltat = dt/2. if ui is 'p' else 0.
+        vv = project(Expression((initial_fields[ui]), t=t-deltat, nu=nu), VV[ui])
+        vv.vector().axpy(-1., q_[ui].vector())
+        err[ui] = norm(vv.vector())
+    print "Error at time = ", t, " is ", err

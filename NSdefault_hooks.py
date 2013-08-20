@@ -122,6 +122,7 @@ def save_checkpoint_solution(tstep, q_, q_1, newfolder, NS_parameters):
 def check_if_kill(folder):
     if 'killoasis' in listdir(folder):
         info_red('killoasis Found! Stopping simulations cleanly...')
+        MPI.barrier()
         if MPI.process_number() == 0: 
             remove(path.join(folder, 'killoasis'))
         return True
@@ -153,7 +154,7 @@ def initialize(**NS_namespace):
     """Initialize solution. Could also be used to create new variables 
     or parameters that can be placed in the NS_namespace and then be
     used for, e.g., postprocessing"""
-    return {}
+    pass
 
 def create_bcs(sys_comp, **NS_namespace):
     """Return dictionary of Dirichlet boundary conditions."""

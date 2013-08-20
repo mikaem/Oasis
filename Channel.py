@@ -16,9 +16,9 @@ import random
 # folders only one. Both can be used, but only with two previous
 # timesteps can one achieve a clean restart.
 
-restart_folder = 'channelscalar_results/data/1/Checkpoint'
+#restart_folder = 'channelscalar_results/data/1/Checkpoint'
 #restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
-#restart_folder = None
+restart_folder = None
 
 def create_stretched_mesh(Nx, Ny, Nz, Lx, Ly, Lz):
     # Function for creating stretched mesh in y-direction
