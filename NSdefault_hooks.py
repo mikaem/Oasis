@@ -53,7 +53,8 @@ scalar_components = []
 # Schmidt = nu / D (= momentum diffusivity / mass diffusivity)
 Schmidt = defaultdict(lambda: 1.)
 
-def create_initial_folders(folder, restart_folder):
+def create_initial_folders(folder, restart_folder, sys_comp, tstep):
+    """Create necessary folders."""
     # To avoid writing over old data create a new folder for each run
     newfolder = path.join(folder, 'data')
     if restart_folder:
@@ -68,23 +69,39 @@ def create_initial_folders(folder, restart_folder):
     MPI.barrier()
     if MPI.process_number() == 0:
         if not restart_folder:
-            makedirs(path.join(newfolder, "HDF5"))
+            makedirs(path.join(newfolder, "Voluviz"))
             makedirs(path.join(newfolder, "Stats"))
+            makedirs(path.join(newfolder, "Timeseries"))
             makedirs(path.join(newfolder, "Checkpoint"))
-        
-    return newfolder
+            
+    tstepfolder = path.join(newfolder, "Timeseries")
+    tstepfiles = {}
+    for ui in sys_comp:
+        tstepfiles[ui] = XDMFFile(path.join(tstepfolder, ui+'_from_tstep_{}.xdmf'.format(tstep)))
+        tstepfiles[ui].parameters["rewrite_function_mesh"] = False
+    return newfolder, tstepfiles
 
 def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint, 
-                  NS_parameters, **NS_namespace):
+                  NS_parameters, tstepfiles, **NS_namespace):
+    """Called at end of timestep. Check for kill and save solution if required."""
     NS_parameters.update(t=t, tstep=tstep)
     if tstep % save_step == 0: 
+        t0 = time()
         save_tstep_solution(tstep, q_, newfolder, NS_parameters)
+        if MPI.process_number()==0:
+            info_red("Time save step    = {}".format(time()-t0))
+        t0 = time()
+        save_tstep_solution_h5(tstep, q_, newfolder, tstepfiles, NS_parameters)
+        if MPI.process_number()==0:
+            info_red("Time save step h5 = {}".format(time()-t0))
     killoasis = check_if_kill(folder)
     if tstep % checkpoint == 0 or killoasis:
         save_checkpoint_solution(tstep, q_, q_1, newfolder, NS_parameters)
+        save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters)
     return killoasis
 
 def save_tstep_solution(tstep, q_, newfolder, NS_parameters):  
+    """Create a new folder and store solution on current timestep."""
     timefolder = path.join(newfolder, 'timestep='+str(tstep))
     if MPI.process_number() == 0:
         try:
@@ -96,11 +113,22 @@ def save_tstep_solution(tstep, q_, newfolder, NS_parameters):
         f = open(path.join(timefolder, 'params.dat'), 'w')
         cPickle.dump(NS_parameters,  f)
 
-    for ui in q_.keys():
+    for ui in q_:
         newfile = File(path.join(timefolder, ui + '.xml.gz'))
         newfile << q_[ui]
 
+def save_tstep_solution_h5(tstep, q_, newfolder, tstepfiles, NS_parameters):  
+    """Store solution on current timestep to XDMF file."""
+    timefolder = path.join(newfolder, 'Timeseries')
+    if MPI.process_number() == 0:
+        f = open(path.join(timefolder, 'params_{}.dat'.format(tstep)), 'w')
+        cPickle.dump(NS_parameters,  f)
+
+    for ui in q_:
+        tstepfiles[ui] << (q_[ui], float(tstep))
+
 def save_checkpoint_solution(tstep, q_, q_1, newfolder, NS_parameters):
+    """Overwrite solution in Checkpoint folder."""
     timefolder = path.join(newfolder, 'timestep='+str(tstep))
     checkpointfolder = path.join(newfolder, "Checkpoint")
     if MPI.process_number() == 0:
@@ -119,12 +147,65 @@ def save_checkpoint_solution(tstep, q_, q_1, newfolder, NS_parameters):
             cfile_1 = File(path.join(checkpointfolder, ui + '_1.xml.gz'))
             cfile_1 << q_1[ui]
 
-def check_if_kill(folder):
-    if 'killoasis' in listdir(folder):
-        info_red('killoasis Found! Stopping simulations cleanly...')
+def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters):
+    """Overwrite solution in Checkpoint folder. 
+    
+    For safety reasons, in case the solver is interrupted, take backup of 
+    solution first.
+    
+    """
+    checkpointfolder = path.join(newfolder, "Checkpoint")
+    if MPI.process_number() == 0:
+        if path.exists(path.join(checkpointfolder, "params.dat")):
+            system('cp {0} {1}'.format(path.join(checkpointfolder, "params.dat"),
+                                        path.join(checkpointfolder, "params_old.dat")))
+        f = open(path.join(checkpointfolder, "params.dat"), 'w')
+        cPickle.dump(NS_parameters,  f)
+        
+    MPI.barrier()
+    for ui in q_:
+        h5file = path.join(checkpointfolder, ui+'.h5')
+        oldfile = path.join(checkpointfolder, ui+'_old.h5')
+        # For safety reasons...
+        if path.exists(h5file):
+            if MPI.process_number() == 0:
+                system('cp {0} {1}'.format(h5file, oldfile))
         MPI.barrier()
-        if MPI.process_number() == 0: 
-            remove(path.join(folder, 'killoasis'))
+        ###
+        newfile = HDF5File(h5file, 'w')
+        newfile.flush()
+        newfile.write(q_[ui].vector(), '/current')
+        if not ui == 'p':
+            newfile.write(q_1[ui].vector(), '/previous')
+        if path.exists(oldfile):
+            if MPI.process_number() == 0:
+                system('rm {0}'.format(oldfile))
+        MPI.barrier()
+    if MPI.process_number() == 0:
+        system('rm {0}'.format(path.join(checkpointfolder, "params_old.dat")))
+        
+def check_if_kill(folder):
+    """Check if user has put a file named killoasis in folder."""
+    found = 0
+    if 'killoasis' in listdir(folder):
+        remove(path.join(folder, 'killoasis'))
+        found = 1
+    collective = MPI.sum(found)
+    if collective > 0:
+        info_red('killoasis Found! Stopping simulations cleanly...')
+        return True
+    else:
+        return False
+
+def check_if_reset_statistics(folder):
+    """Check if user has put a file named resetoasis in folder."""
+    found = 0
+    if 'resetoasis' in listdir(folder):
+        remove(path.join(folder, 'resetoasis'))
+        found = 1
+    collective = MPI.sum(found)    
+    if collective > 0:        
+        info_red('resetoasis Found!')
         return True
     else:
         return False
@@ -151,9 +232,7 @@ def convection_form(conv, u, v, U_, **NS_namespace):
         raise TypeError("Wrong convection form {}".format(conv))
 
 def initialize(**NS_namespace):
-    """Initialize solution. Could also be used to create new variables 
-    or parameters that can be placed in the NS_namespace and then be
-    used for, e.g., postprocessing"""
+    """Initialize solution. """
     pass
 
 def create_bcs(sys_comp, **NS_namespace):
@@ -163,13 +242,24 @@ def create_bcs(sys_comp, **NS_namespace):
 def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix, 
                 krylov_solvers, sys_comp, bcs, x_, Q, 
                 scalar_components, **NS_namespace):
-    """Return solvers for all fields we are solving for.
-    In case of lumping return None for velocity update."""
+    """Return linear solvers. 
+    
+    We are solving for
+       - tentative velocity
+       - pressure correction
+       - velocity update (unless lumping is switched on)
+       
+       and possibly:       
+       - scalars
+            
+    """
     if use_krylov_solvers:
+        ## tentative velocity solver ##
         u_sol = KrylovSolver('bicgstab', 'jacobi')
         u_sol.parameters.update(krylov_solvers)
         u_sol.parameters['preconditioner']['reuse'] = False
         u_sol.t = 0
+        ## velocity correction solver
         if use_lumping_of_mass_matrix:
             du_sol = None
         else:
@@ -177,6 +267,7 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             du_sol.parameters.update(krylov_solvers)
             du_sol.parameters['preconditioner']['reuse'] = True
             du_sol.t = 0            
+        ## pressure solver ##
         p_sol = KrylovSolver('gmres', 'hypre_amg')
         p_sol.parameters['preconditioner']['reuse'] = True
         p_sol.parameters.update(krylov_solvers)
@@ -184,6 +275,7 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         if bcs['p'] == []:
             attach_pressure_nullspace(p_sol, x_, Q)
         sols = [u_sol, p_sol, du_sol]
+        ## scalar solver ##
         if len(scalar_components) > 0:
             c_sol = KrylovSolver('bicgstab', 'jacobi')
             c_sol.parameters.update(krylov_solvers)
@@ -193,20 +285,24 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         else:
             sols.append(None)
     else:
+        ## tentative velocity solver ##
         u_sol = LUSolver()
         u_sol.t = 0
+        ## velocity correction ##
         if use_lumping_of_mass_matrix:
             du_sol = None
         else:
             du_sol = LUSolver()
             du_sol.parameters['reuse_factorization'] = True
             du_sol.t = 0
+        ## pressure solver ##
         p_sol = LUSolver()
         p_sol.parameters['reuse_factorization'] = True
         p_sol.t = 0  
         if bcs['p'] == []:
             p_sol.normalize = True
-        sols = [u_sol, p_sol, du_sol]    
+        sols = [u_sol, p_sol, du_sol]
+        ## scalar solver ##
         if len(scalar_components) > 0:
             c_sol = LUSolver()
             c_sol.t = 0
@@ -217,18 +313,16 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
     return sols
 
 def attach_pressure_nullspace(p_sol, x_, Q):
-    # Create vector that spans the null space
+    """Create null space basis object and attach to Krylov solver."""
     null_vec = Vector(x_['p'])
     Q.dofmap().set(null_vec, 1.0)
     null_vec *= 1.0/null_vec.norm("l2")
-    # Create null space basis object and attach to Krylov solver
     null_space = VectorSpaceBasis([null_vec])
     p_sol.set_nullspace(null_space)
     p_sol.null_space = null_space
 
-def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, 
-                                 **NS_namespace):
-    """Called just prior to solving tentative velocity"""
+def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
+    """Called just prior to solving for tentative velocity."""
     if use_krylov_solvers:
         if ui == "u0":
             u_sol.parameters['preconditioner']['reuse'] = False

@@ -14,7 +14,7 @@ NS_parameters.update(dict(
     T = 1,
     dt = 0.001,
     folder = "taylorgreen2D_results",
-    max_iter = 3,
+    max_iter = 1,
     iters_on_first_timestep = 2,
     convection = "Standard",
     use_krylov_solvers = False,
@@ -53,7 +53,12 @@ initial_fields = dict(
     p='-(cos(2*pi*x[0])+cos(2*pi*x[1]))*exp(-4.*pi*pi*nu*t)/4.')
     
 def initialize(q_, q_1, q_2, VV, t, nu, dt, **NS_namespace):
-    for ui in q_.keys():
+    """Initialize solution. 
+    
+    Use t=dt/2 for pressure since pressure is computed in between timesteps.
+    
+    """
+    for ui in q_:
         deltat = dt/2. if ui is 'p' else 0.
         vv = project(Expression((initial_fields[ui]), t=t+deltat, nu=nu), VV[ui])
         q_[ui].vector()[:] = vv.vector()[:]
@@ -61,14 +66,22 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, **NS_namespace):
             q_1[ui].vector()[:] = q_[ui].vector()[:]
             q_2[ui].vector()[:] = q_[ui].vector()[:]
 
-def temporal_hook(q_, t, nu, VV, dt, **NS_namespace):
-    plot(q_['u0'], title='u')
-    plot(q_['u1'], title='v')
-    plot(q_['p'], title='p')
+def temporal_hook(q_, t, nu, VV, dt, plot_interval, tstep, **NS_namespace):
+    """Function called at end of timestep.    
+
+    Plot solution and compute error by comparing to analytical solution.
+    Remember pressure is computed in between timesteps.
+    
+    """
+
+    if tstep % plot_interval == 0:
+        plot(q_['u0'], title='u')
+        plot(q_['u1'], title='v')
+        plot(q_['p'], title='p')
     err = {}
-    for ui in q_.keys():
+    for ui in q_:
         deltat = dt/2. if ui is 'p' else 0.
         vv = project(Expression((initial_fields[ui]), t=t-deltat, nu=nu), VV[ui])
         vv.vector().axpy(-1., q_[ui].vector())
-        err[ui] = norm(vv.vector())
+        err[ui] = "{0:2.6f}".format(norm(vv.vector()))
     print "Error at time = ", t, " is ", err
