@@ -151,11 +151,17 @@ if NS_parameters['velocity_degree'] > 1:
 # Put NS_parameters in global namespace
 vars().update(NS_parameters)  
 
+# Create lists of components solved for
+dim = mesh.geometry().dim()
+u_components = map(lambda x: 'u'+str(x), range(dim))
+sys_comp =  u_components + ['p'] + scalar_components
+uc_comp  =  u_components + scalar_components
+
 # Update dolfins parameters
 parameters['krylov_solver'].update(krylov_solvers)
 
 # Set up initial folders for storing results
-newfolder = create_initial_folders(folder, restart_folder)
+newfolder, tstepfiles = create_initial_folders(folder, restart_folder, sys_comp, tstep)
 
 # Print memory use up til now
 #initial_memory_use = dolfin_memory_usage('plain dolfin')
@@ -172,31 +178,31 @@ v = TestFunction(V)
 p = TrialFunction(Q)
 q = TestFunction(Q)
 
-dim = mesh.geometry().dim()
-u_components = map(lambda x: 'u'+str(x), range(dim))
-sys_comp =  u_components + ['p'] + scalar_components
-uc_comp  =  u_components + scalar_components
-
 # Use dictionaries to hold all Functions and FunctionSpaces
 VV = dict((ui, V) for ui in uc_comp); VV['p'] = Q
 
 # Start from previous solution if restart_folder is given
+q_  = dict((ui, Function(VV[ui], name=ui)) for ui in sys_comp)
+q_1 = dict((ui, Function(V, name=ui+"_1")) for ui in uc_comp)
+q_2 = dict((ui, Function(V, name=ui+"_2")) for ui in u_components)
 if restart_folder:
-    q_  = dict((ui, Function(VV[ui], path.join(restart_folder, ui + '.xml.gz'))) for ui in sys_comp)    
-    q_1 = dict((ui, Function(V)) for ui in uc_comp)    
-    for ui in uc_comp:
-        q_1[ui].vector()[:] = q_[ui].vector()[:]
-    # Check if there's a previous solution stored as well
-    if path.isfile(path.join(restart_folder, 'u0_1.xml.gz')):
-        q_2 = dict((ui, Function(V, path.join(restart_folder, ui + '_1.xml.gz'))) for ui in u_components)
-    else:
-        q_2 = dict((ui, Function(V)) for ui in u_components)
-        for ui in u_components:
-            q_2[ui].vector()[:] = q_[ui].vector()[:]
-else:
-    q_  = dict((ui, Function(VV[ui])) for ui in sys_comp)
-    q_1 = dict((ui, Function(V)) for ui in uc_comp)
-    q_2 = dict((ui, Function(V)) for ui in u_components)
+    for ui in sys_comp:
+        filename = path.join(restart_folder, ui + '.h5')
+        hdf5_file = HDF5File(filename, "r")
+        hdf5_file.read(q_[ui].vector(), "/current")      
+        q_[ui].vector().apply('insert')
+        if ui in uc_comp:
+            try:
+                hdf5_file.read(q_1[ui].vector(), "/previous")
+                q_1[ui].vector().apply('insert')
+            except:
+                q_1[ui].vector()[:] = q_[ui].vector()[:]
+                q_1[ui].vector().apply('insert')
+        if ui in u_components:
+            q_2[ui].vector()[:] = q_1[ui].vector()[:]
+            q_2[ui].vector().apply('insert')
+            
+        del hdf5_file
     
 u_  = as_vector([q_[ui]  for ui in u_components]) # Velocity vector at t
 u_1 = as_vector([q_1[ui] for ui in u_components]) # Velocity vector at t - dt

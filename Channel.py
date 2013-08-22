@@ -36,7 +36,7 @@ if not restart_folder is None:
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
     NS_parameters['restart_folder'] = restart_folder
-    NS_parameters['T'] = 2.0 # Set new end time otherwise it just stops
+    NS_parameters['T'] = 3.0 # Set new end time otherwise it just stops
     globals().update(NS_parameters)
     
 else:
@@ -185,7 +185,7 @@ def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats, update_statistics,
         
     if tstep % check_save_h5 == 0:
         statsfolder = path.join(newfolder, "Stats")
-        h5folder = path.join(newfolder, "HDF5")
+        h5folder = path.join(newfolder, "Voluviz")
         stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
         voluviz(q_['u0'])
         voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_u0_{}.h5".format(tstep))

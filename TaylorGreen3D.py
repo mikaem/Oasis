@@ -54,6 +54,7 @@ NS_parameters.update(dict(
     folder = "taylorgreen3D_results",
     max_iter = 1,
     velocity_degree = 1,
+    plot_interval = 10,
     use_krylov_solvers = True,
     use_lumping_of_mass_matrix = True,
   )
@@ -65,16 +66,16 @@ initial_fields = dict(
         u2='0',
         p='0')
     
-def initialize(q_, q_1, q_2, VV, sys_comp, **NS_namespace):
-    for ui in sys_comp:
+def initialize(q_, q_1, q_2, VV, **NS_namespace):
+    for ui in q_:
         vv = project(Expression((initial_fields[ui])), VV[ui])
         q_[ui].vector()[:] = vv.vector()[:]
         if not ui == 'p':
             q_1[ui].vector()[:] = q_[ui].vector()[:]
             q_2[ui].vector()[:] = q_[ui].vector()[:]
 
-def temporal_hook(q_, p_, tstep, **NS_namespace):
-    if tstep % 10 == 0:
-        plot(p_)
-        plot(q_['u0'])
-        plot(q_['u1'])
+def temporal_hook(q_, tstep, plot_interval, **NS_namespace):
+    if tstep % plot_interval == 0:
+        plot(q_['p'], title='pressure')
+        plot(q_['u0'], title='velocity-x')
+        plot(q_['u1'], title='velocity-y')
