@@ -135,7 +135,7 @@ Ta might differ from A due to Dirichlet boundary conditions.
 
 #from DrivenCavity import *
 #from DrivenCavityScalar import *
-from Channel import *
+from Channel180_atan import *
 #from ChannelScalar import *
 #from LaminarChannel import *
 #from Lshape import *
@@ -158,7 +158,7 @@ parameters['krylov_solver'].update(krylov_solvers)
 newfolder = create_initial_folders(folder, restart_folder)
 
 # Print memory use up til now
-initial_memory_use = dolfin_memory_usage('plain dolfin')
+#initial_memory_use = dolfin_memory_usage('plain dolfin')
 
 # Declare solution Functions and FunctionSpaces
 V = FunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
@@ -182,12 +182,17 @@ VV = dict((ui, V) for ui in uc_comp); VV['p'] = Q
 
 # Start from previous solution if restart_folder is given
 if restart_folder:
-    q_  = dict((ui, Function(VV[ui], path.join(restart_folder, ui + '.xml.gz'))) for ui in sys_comp)
-    q_1 = dict((ui, Function(V, path.join(restart_folder, ui + '.xml.gz'))) for ui in uc_comp)
-    try: # Check if there's a previous solution stored as well
+    q_  = dict((ui, Function(VV[ui], path.join(restart_folder, ui + '.xml.gz'))) for ui in sys_comp)    
+    q_1 = dict((ui, Function(V)) for ui in uc_comp)    
+    for ui in uc_comp:
+        q_1[ui].vector()[:] = q_[ui].vector()[:]
+    # Check if there's a previous solution stored as well
+    if path.isfile(path.join(restart_folder, 'u0_1.xml.gz')):
         q_2 = dict((ui, Function(V, path.join(restart_folder, ui + '_1.xml.gz'))) for ui in u_components)
-    except:
-        q_2 = dict((ui, Function(V, path.join(restart_folder, ui + '.xml.gz'))) for ui in u_components)
+    else:
+        q_2 = dict((ui, Function(V)) for ui in u_components)
+        for ui in u_components:
+            q_2[ui].vector()[:] = q_[ui].vector()[:]
 else:
     q_  = dict((ui, Function(VV[ui])) for ui in sys_comp)
     q_1 = dict((ui, Function(V)) for ui in uc_comp)
@@ -274,12 +279,12 @@ if bcs['p']:
 U_ = 1.5*u_1 - 0.5*u_2
 
 # Convection form
-a = convection_form(convection, **vars())*dx
+a = 0.5*convection_form(convection, **vars())*dx
 
 # A scalar always uses the Standard convection form
 a_scalar = None
 if convection != 'Standard':    
-    a_scalar = convection_form('Standard', **vars())*dx
+    a_scalar = 0.5*convection_form('Standard', **vars())*dx
     
 b    = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vectors (final)
 b0   = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vector holding body_force
@@ -452,27 +457,29 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     
     for ci in scalar_components:
         x_1[ci][:] = x_[ci][:]
-        
-    # Print some information
-    if tstep % save_step == 0 or tstep % checkpoint == 0:
-        info_green('Time = {0:2.4e}, timestep = {1:6d}, End time = {2:2.4e}'.format(t, tstep, T)) 
-        tottime= time.time() - t1    
-        info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(tstep - old_tstep, tottime))
-        t1 = time.time(); old_tstep = tstep
-        
+                
     ##############################
     temporal_hook(**vars())
     ##############################
     
     # Save solution if required and check for killoasis file
     stop = save_solution(**vars())
+
+    # Print some information
+    if tstep % print_intermediate_info == 0:
+        info_green('Time = {0:2.4e}, timestep = {1:6d}, End time = {2:2.4e}'.format(t, tstep, T)) 
+        tottime= time.time() - t1    
+        info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(tstep - old_tstep, tottime))
+        list_timings(True)
+        t1 = time.time(); old_tstep = tstep
+
     tend = time.time()
         
 info_red('Total computing time = {0:f}'.format(tend - tin))
-final_memory_use = dolfin_memory_usage('at end')
-mymem = eval(final_memory_use)-eval(initial_memory_use)
-print 'Additional memory use of processor = {0}'.format(mymem)
-info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
+#final_memory_use = dolfin_memory_usage('at end')
+#mymem = eval(final_memory_use)-eval(initial_memory_use)
+#print 'Additional memory use of processor = {0}'.format(mymem)
+#info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
 list_timings()
         
 ###### Final hook ######        

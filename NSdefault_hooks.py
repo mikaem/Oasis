@@ -12,6 +12,7 @@ from os import getpid, path, makedirs, getcwd, listdir, remove, system
 parameters["linear_algebra_backend"] = "PETSc"
 parameters["form_compiler"]["optimize"]     = True
 parameters["form_compiler"]["cpp_optimize"] = True
+parameters['mesh_partitioner'] = "ParMETIS"
 
 # Default parameters
 NS_parameters = dict(
@@ -33,8 +34,7 @@ NS_parameters = dict(
   velocity_degree = 2,
   pressure_degree = 1,  
   convection = "Standard", 
-  update_statistics = False,
-  check_save_h5 = False,
+  print_intermediate_info = 10,
   krylov_solvers = dict(
     monitor_convergence = False,
     report = False,
@@ -55,9 +55,15 @@ Schmidt = defaultdict(lambda: 1.)
 
 def create_initial_folders(folder, restart_folder):
     # To avoid writing over old data create a new folder for each run
+    if MPI.process_number() == 0:
+        try:
+            makedirs(folder)
+        except OSError:
+            pass
+
     newfolder = path.join(folder, 'data')
     if restart_folder:
-        newfolder = path.join(newfolder, restart_folder.split('/')[-2])       
+        newfolder = path.join(newfolder, restart_folder.split('/')[-2])
     else:
         if not path.exists(newfolder):
             newfolder = path.join(newfolder, '1')
@@ -67,10 +73,18 @@ def create_initial_folders(folder, restart_folder):
 
     MPI.barrier()
     if MPI.process_number() == 0:
-        if not restart_folder:
+        try:
             makedirs(path.join(newfolder, "HDF5"))
+        except OSError:
+            pass
+        try:
             makedirs(path.join(newfolder, "Stats"))
+        except OSError:
+            pass
+        try:
             makedirs(path.join(newfolder, "Checkpoint"))
+        except OSError:
+            pass
         
     return newfolder
 
@@ -79,9 +93,10 @@ def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint,
     NS_parameters.update(t=t, tstep=tstep)
     if tstep % save_step == 0: 
         save_tstep_solution(tstep, q_, newfolder, NS_parameters)
-    killoasis = check_if_kill(folder)
+    killoasis = check_if_kill(folder)    
     if tstep % checkpoint == 0 or killoasis:
         save_checkpoint_solution(tstep, q_, q_1, newfolder, NS_parameters)
+    
     return killoasis
 
 def save_tstep_solution(tstep, q_, newfolder, NS_parameters):  
@@ -121,9 +136,20 @@ def save_checkpoint_solution(tstep, q_, q_1, newfolder, NS_parameters):
 
 def check_if_kill(folder):
     if 'killoasis' in listdir(folder):
-        info_red('killoasis Found! Stopping simulations cleanly...')
+        MPI.barrier()
         if MPI.process_number() == 0: 
+            info_red('killoasis Found! Stopping simulations cleanly...')
             remove(path.join(folder, 'killoasis'))
+        return True
+    else:
+        return False
+
+def check_if_reset_statistics(folder):
+    if 'resetoasis' in listdir(folder):
+        MPI.barrier()
+        if MPI.process_number() == 0: 
+            info_red('resetoasis Found!')
+            remove(path.join(folder, 'resetoasis'))
         return True
     else:
         return False
@@ -184,7 +210,7 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             attach_pressure_nullspace(p_sol, x_, Q)
         sols = [u_sol, p_sol, du_sol]
         if len(scalar_components) > 0:
-            c_sol = KrylovSolver('bicgstab', 'jacobi')
+            c_sol = KrylovSolver('bicgstab', 'hypre_euclid')
             c_sol.parameters.update(krylov_solvers)
             c_sol.parameters['preconditioner']['reuse'] = False
             c_sol.t = 0
