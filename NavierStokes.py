@@ -133,9 +133,9 @@ Ta might differ from A due to Dirichlet boundary conditions.
 ### Should import a mesh and a dictionary called NS_parameters    ###
 ### See NS_default_hooks for possible parameters                  ###
 
-#from DrivenCavity import *
+from DrivenCavity import *
 #from DrivenCavityScalar import *
-from Channel import *
+#from Channel import *
 #from ChannelScalar import *
 #from LaminarChannel import *
 #from Lshape import *
@@ -297,12 +297,12 @@ if bcs['p']:
 U_ = 1.5*u_1 - 0.5*u_2
 
 # Convection form
-a = 0.5*convection_form(convection, **vars())*dx
+a_conv = 0.5*convection_form(convection, **vars())*dx
 
 # A scalar always uses the Standard convection form
-a_scalar = None
-if convection != 'Standard':    
-    a_scalar = 0.5*convection_form('Standard', **vars())*dx
+a_scalar = a_conv
+if not convection == "Standard":     
+    a_scalar = 0.5*convection_form("Standard", **vars())*dx
     
 b    = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vectors (final)
 b0   = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vector holding body_force
@@ -343,13 +343,13 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         if inner_iter == 1:
             # Only on the first iteration because nothing here is changing in time
             # Set up coefficient matrix for computing the rhs:
-            A = assemble(a, tensor=A, reset_sparsity=reset_sparsity) 
+            A = assemble(a_conv, tensor=A, reset_sparsity=reset_sparsity) 
             A._scale(-1.)            # Negative convection on the rhs 
             A.axpy(1./dt, M, True)   # Add mass
             
             # Set up scalar matrix for rhs
             if len(scalar_components) > 0:                
-                if not a_scalar: # Use the same convection as velocity
+                if a_scalar is a_conv:        # Use the same convection as velocity
                     Ta._scale(0.)
                     Ta.axpy(1., A, True)
                 else:
