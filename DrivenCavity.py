@@ -15,6 +15,7 @@ x[:, :] = (x[:, :] - 0.5)*2
 x[:, :] = 0.5*(cos(pi*(x[:, :]-1.) / 2.) + 1.)
 #x[:, :] = ( arctan(0.025*pi*x[:, :])/arctan(0.025*pi) +1. ) / 2.
 del x
+#set_log_level(10)
 
 # Override some problem specific parameters
 recursive_update(NS_parameters,
@@ -22,13 +23,13 @@ recursive_update(NS_parameters,
         T = 2.5,
         dt = 0.001,
         folder = "drivencavity_results",
-        plot_interval = 10,
+        plot_interval = 100,
         save_step = 1000,
         checkpoint = 1000,
         velocity_degree = 1,
         use_lumping_of_mass_matrix = True,
         use_krylov_solvers = True,
-        krylov_solvers = dict(monitor_convergence = True))
+        krylov_solvers = dict(monitor_convergence=True))
 )
 
 def pre_solve_hook(Vv, p_, **NS_namespace):    
@@ -59,7 +60,7 @@ def start_timestep_hook(t, **NS_namespace):
     
 def initialize(q_, **NS_namespace):
     q_['u0'].vector()[:] = 1e-12 # To help Krylov solver on first timestep
-
+    
 def temporal_hook(tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace):
     if tstep % plot_interval == 0:
         uv.assign(project(u_, Vv))

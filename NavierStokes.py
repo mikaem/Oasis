@@ -131,16 +131,16 @@ Ta might differ from A due to Dirichlet boundary conditions.
 """
 ################### Problem dependent parameters ####################
 ### Should import a mesh and a dictionary called NS_parameters    ###
-### See NS_default_hooks for possible parameters                  ###
+### See NSdefault_hooks for possible parameters                   ###
 
-from DrivenCavity import *
+#from DrivenCavity import *
 #from DrivenCavityScalar import *
 #from Channel import *
 #from ChannelScalar import *
 #from LaminarChannel import *
 #from Lshape import *
 #from TaylorGreen2D import *
-#from TaylorGreen3D import *
+from TaylorGreen3D import *
 
 assert(isinstance(NS_parameters, dict))
 assert(isinstance(mesh, Mesh))
@@ -181,48 +181,30 @@ q = TestFunction(Q)
 # Use dictionaries to hold all Functions and FunctionSpaces
 VV = dict((ui, V) for ui in uc_comp); VV['p'] = Q
 
-# Start from previous solution if restart_folder is given
-#if restart_folder:
-    #q_  = dict((ui, Function(VV[ui], path.join(restart_folder, ui + '.xml.gz'))) for ui in sys_comp)
-    #q_1 = dict((ui, Function(V, path.join(restart_folder, ui + '.xml.gz'))) for ui in uc_comp)
-    #try: # Check if there's a previous solution stored as well
-        #q_2 = dict((ui, Function(V, path.join(restart_folder, ui + '_1.xml.gz'))) for ui in u_components)
-    #except:
-        #q_2 = dict((ui, Function(V, path.join(restart_folder, ui + '.xml.gz'))) for ui in u_components)
-#else:
-    #q_  = dict((ui, Function(VV[ui])) for ui in sys_comp)
-    #q_1 = dict((ui, Function(V)) for ui in uc_comp)
-    #q_2 = dict((ui, Function(V)) for ui in u_components)
-
+# Create dictionaries for the solutions at three timesteps
 q_  = dict((ui, Function(VV[ui], name=ui)) for ui in sys_comp)
 q_1 = dict((ui, Function(V, name=ui+"_1")) for ui in uc_comp)
 q_2 = dict((ui, Function(V, name=ui+"_2")) for ui in u_components)
-if restart_folder:
-    for ui in sys_comp:
-        filename = path.join(restart_folder, ui + '.h5')
-        hdf5_file = HDF5File(filename, "r")
-        hdf5_file.read(q_[ui].vector(), "/current")      
-        q_[ui].vector().apply('insert')
-        if ui in uc_comp:
-            try:
-                hdf5_file.read(q_1[ui].vector(), "/previous")
-                q_1[ui].vector().apply('insert')
-            except:
-                q_1[ui].vector()[:] = q_[ui].vector()[:]
-                q_1[ui].vector().apply('insert')
-        if ui in u_components:
-            q_2[ui].vector()[:] = q_1[ui].vector()[:]
-            q_2[ui].vector().apply('insert')
-            
-        del hdf5_file
-    
+
+# Read in previous solution if restarting
+init_from_restart(**vars())
+
+# Create vectors of the segregated velocity components    
 u_  = as_vector([q_[ui]  for ui in u_components]) # Velocity vector at t
 u_1 = as_vector([q_1[ui] for ui in u_components]) # Velocity vector at t - dt
 u_2 = as_vector([q_2[ui] for ui in u_components]) # Velocity vector at t - 2*dt
 
+# Adams Bashforth projection of velocity at t - dt/2
+U_AB = 1.5*u_1 - 0.5*u_2
+
+# Create short forms for accessing the solution vectors
 x_  = dict((ui, q_ [ui].vector()) for ui in sys_comp)     # Solution vectors t
 x_1 = dict((ui, q_1[ui].vector()) for ui in uc_comp)      # Solution vectors t - dt
 x_2 = dict((ui, q_2[ui].vector()) for ui in u_components) # Solution vectors t - 2*dt
+
+# Create vectors to hold rhs of equations
+b     = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vectors (final)
+b_tmp = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs temp storage vectors
 
 # Short forms pressure and scalars
 p_  = q_['p']               # pressure at t - dt/2
@@ -231,39 +213,62 @@ for ci in scalar_components:
     exec("{}_   = q_ ['{}']".format(ci, ci))
     exec("{}_1  = q_1['{}']".format(ci, ci))
 
-###################  Boundary conditions  ###########################
+###################   Boundary conditions   #########################
 
 bcs = create_bcs(**vars())
 
-###################  Initialize solution ############################
+###################   Initialize solution   #########################
 
 initialize(**vars())
 
-###################  Fetch linear solvers ###########################
+###################  Fetch linear solvers   #########################
 
 u_sol, p_sol, du_sol, c_sol = get_solvers(**vars())
 
-#####################################################################
+################### Get constant body forces ########################
 
-# Preassemble constant pressure gradient matrix
-P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
+f = body_force(**vars())
 
-# Preassemble velocity divergence matrix
-if velocity_degree == pressure_degree:
-    Rx = P
+################### Preassemble and allocate ########################
+
+# Constant body force
+assert(isinstance(f, Constant))
+b0 = dict((ui, assemble(v*f[i]*dx)) for i, ui in enumerate(u_components))
+
+# Constant pressure gradient matrix
+if low_memory_version:
+    P = None
+    Rx = None
+    
 else:
-    Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
+    P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))    
+    # Constant velocity divergence matrix
+    if velocity_degree == pressure_degree and P:
+        Rx = P
+    else:
+        Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
 
-# Preassemble some constant in time matrices
-M = assemble(inner(u, v)*dx)                    # Mass matrix
-K = assemble(inner(grad(u), grad(v))*dx)        # Diffusion matrix without viscosity coefficient
+# Mass matrix
+M = assemble(inner(u, v)*dx)                    
+
+# Stiffness matrix (without viscosity coefficient)
+K = assemble(inner(grad(u), grad(v))*dx)        
+
+# Pressure Laplacian
 if velocity_degree == pressure_degree and bcs['p'] == []:
     Ap = K
+    
 else:
     Ap = assemble(inner(grad(q), grad(p))*dx)   # Pressure Laplacian
-A = Matrix()                                    # Coefficient matrix (needs reassembling)
+    [bc.apply(Ap) for bc in bcs['p']]
+    Ap.compress()
+
+# Allocate coefficient matrix (needs reassembling)
+A = Matrix(M)
+
+# Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
 if len(scalar_components) > 0:
-    Ta = Matrix(M)                              # Coefficient matrix for scalar. Differs from velocity in boundary conditions only
+    Ta = Matrix(M)                              
     if len(scalar_components) > 1:
         # For more than one scalar we use the same linear algebra solver for all.
         # For this to work we need some additional tensors
@@ -271,32 +276,25 @@ if len(scalar_components) > 0:
         bb = Vector(x_[scalar_components[0]])
         bx = Vector(x_[scalar_components[0]])
 
-# Velocity update uses lumping of the mass matrix for P1-elements
+# Velocity update may use lumping of the mass matrix for P1-elements
 # Compute inverse of the lumped diagonal mass matrix 
 if use_lumping_of_mass_matrix:
-    # Create vectors used for lumping mass matrix
     ones = Function(V)
     ones.vector()[:] = 1.
     ML = M * ones.vector()
     ML.set_local(1. / ML.array())
     del ones
-else:
-    # Use regular mass matrix for velocity update
+    
+else:  # Use regular mass matrix for velocity update
     if len(scalar_components) > 0:
         Mu = Matrix(M)             # Since bcs may differ between scalars and velocity
     else:
         Mu = M                     # Can safely use regular mass matrix
     [bc.apply(Mu) for bc in bcs['u0']]
 
-# Apply boundary conditions on Ap that is used directly in solve
-if bcs['p']:
-    [bc.apply(Ap) for bc in bcs['p']]
-    Ap.compress()
-    
-# Adams Bashforth projection of velocity at t - dt/2
-U_ = 1.5*u_1 - 0.5*u_2
+#####################################################################
 
-# Convection form
+# Set convection form
 a_conv = 0.5*convection_form(convection, **vars())*dx
 
 # A scalar always uses the Standard convection form
@@ -304,23 +302,8 @@ a_scalar = a_conv
 if not convection == "Standard":     
     a_scalar = 0.5*convection_form("Standard", **vars())*dx
     
-b    = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vectors (final)
-b0   = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vector holding body_force
-bold = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs temp storage vectors
-work = Vector(x_['u0'])
-
-#### Get any constant body forces ####
-f = body_force(**vars())
-######################################
-
-# Preassemble constant body force
-assert(isinstance(f, Constant))
-for i, ui in enumerate(u_components):
-    b0[ui] = assemble(v*f[i]*dx)
-
 tin = time.time()
 stop = False
-reset_sparsity = True
 t1 = time.time(); old_tstep = tstep
 print_solve_info = use_krylov_solvers and krylov_solvers['monitor_convergence']
 
@@ -343,7 +326,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         if inner_iter == 1:
             # Only on the first iteration because nothing here is changing in time
             # Set up coefficient matrix for computing the rhs:
-            A = assemble(a_conv, tensor=A, reset_sparsity=reset_sparsity) 
+            A = assemble(a_conv, tensor=A, reset_sparsity=False) 
             A._scale(-1.)            # Negative convection on the rhs 
             A.axpy(1./dt, M, True)   # Add mass
             
@@ -352,12 +335,12 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
                 if a_scalar is a_conv:        # Use the same convection as velocity
                     Ta._scale(0.)
                     Ta.axpy(1., A, True)
+                    
                 else:
-                    Ta = assemble(a_scalar, tensor=Ta, reset_sparsity=reset_sparsity)
+                    Ta = assemble(a_scalar, tensor=Ta, reset_sparsity=False)
                     Ta._scale(-1.)            # Negative convection on the rhs 
                     Ta.axpy(1./dt, M, True)   # Add mass
 
-            reset_sparsity = False   
             A.axpy(-0.5*nu, K, True) # Add diffusion 
             
             # Compute rhs for all velocity components
@@ -381,98 +364,71 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
                 Ta.axpy(2./dt, M, True)
                    
         t0 = time.time()
-        for ui in u_components:
-            bold[ui][:] = b[ui][:] 
-            b[ui].axpy(-1., P[ui]*x_['p'])       # Add pressure gradient
+        for i, ui in enumerate(u_components):
+            info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
+            b_tmp[ui][:] = b[ui][:] 
+            add_pressure_gradient_rhs(**vars())
             #################################
             velocity_tentative_hook(**vars())
             #################################
             [bc.apply(b[ui]) for bc in bcs[ui]]
-            work[:] = x_[ui][:]
-            info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
+            x_2[ui][:] = x_[ui][:]               # x_2 only used on inner_iter 1, so use here as work vector
             u_sol.solve(A, x_[ui], b[ui])
-            b[ui][:] = bold[ui][:]  # store preassemble part
-            err += norm(work - x_[ui])
+            b[ui][:] = b_tmp[ui][:]
+            err += norm(x_2[ui] - x_[ui])
         u_sol.t += (time.time()-t0)
         
         ### Solve pressure ###
+        info_blue('Solving pressure', inner_iter == 1 and print_solve_info)
         t0 = time.time()
-        dp_.vector()[:] = x_['p'][:]
-        b['p'][:] = 0.
-        for ui in u_components:
-            b['p'].axpy(-1./dt, Rx[ui]*x_[ui]) # Divergence of u_
-        b['p'].axpy(1., Ap*x_['p'])
+        assemble_pressure_rhs(**vars())
         #######################
         pressure_hook(**vars())
         #######################
-        [bc.apply(b['p']) for bc in bcs['p']]
-        rp = residual(Ap, x_['p'], b['p'])
-        info_blue('Solving pressure', inner_iter == 1 and print_solve_info)
-        
-        # KrylovSolvers use nullspace for normalization of pressure
-        if hasattr(p_sol, 'null_space'):
-            p_sol.null_space.orthogonalize(b['p']);
-
-        p_sol.solve(Ap, x_['p'], b['p'])
-        
-        # LUSolver use normalize directly for normalization of pressure
-        if hasattr(p_sol, 'normalize'):
-            normalize(x_['p'])
-
-        dp_.vector()[:] = x_['p'][:] - dp_.vector()[:]
+        [bc.apply(b['p']) for bc in bcs['p']]        
+        solve_pressure(**vars())
+                
         if num_iter > 1:
             if inner_iter == 1: 
                 info_blue('  Inner iterations velocity pressure:')
                 info_blue('                 error u  error p')
-            info_blue('    Iter = {0:4d}, {1:2.2e} {2:2.2e}'.format(inner_iter, err, rp))
+            info_blue('    Iter = {0:4d}, {1:2.2e} {2:2.2e}'.format(inner_iter, err, norm(dp_.vector())))
+
         p_sol.t += (time.time()-t0)
-        
-    ### Update velocity ###
-    if use_lumping_of_mass_matrix:
-        # Update velocity using lumped mass matrix
-        for ui in u_components:
-            x_[ui].axpy(-dt, (P[ui] * dp_.vector()) * ML)
+
+    ### Update velocity if noniterative scheme is used ###
+    if inner_iter == 1:
+        if use_lumping_of_mass_matrix:
             [bc.apply(x_[ui]) for bc in bcs[ui]]
-    else:
-        # Otherwise use regular mass matrix
-        t0 = time.time()
-        for ui in u_components:
-            b[ui][:] = Mu*x_[ui][:]        
-            b[ui].axpy(-dt, P[ui]*dp_.vector())
-            ##############################
-            velocity_update_hook(**vars())
-            ##############################
-            [bc.apply(b[ui]) for bc in bcs[ui]]
-            info_blue('Updating velocity '+ui, print_solve_info)
-            du_sol.solve(Mu, x_[ui], b[ui])
-        du_sol.t += (time.time()-t0)
+            
+        else: # Use regular mass matrix
+            t0 = time.time()
+            for ui in u_components:
+                b[ui][:] = Mu*x_[ui][:]                        
+                add_pressure_gradient_rhs_update(**vars())
+                ##############################
+                velocity_update_hook(**vars())
+                ##############################
+                [bc.apply(b[ui]) for bc in bcs[ui]]
+                info_blue('Updating velocity '+ui, print_solve_info)
+                du_sol.solve(Mu, x_[ui], b[ui])
+            du_sol.t += (time.time()-t0)
         
     # Solve for scalars
     for ci in scalar_components:    
         info_blue('Solving scalar {}'.format(ci), print_solve_info)
-        # Reuse solver for all scalars. This requires the same matrix and vectors to be used by c_sol.
         Ta.axpy(0.5*nu/Schmidt[ci], K, True) # Add diffusion
         #####################
         scalar_hook(**vars())
         #####################
-        if len(scalar_components) > 1: 
-            Tb._scale(0.)
-            Tb.axpy(1., Ta, True)
-            bb[:] = b[ci][:]
-            bx[:] = x_[ci][:]
-            [bc.apply(Tb, bb) for bc in bcs[ci]]
-            c_sol.solve(Tb, bx, bb)
-            x_[ci][:] = bx[:]
-        else:
-            [bc.apply(Ta, b[ci]) for bc in bcs[ci]]
-            c_sol.solve(Ta, x_[ci], b[ci])
+        solve_scalar(**vars())
         Ta.axpy(-0.5*nu/Schmidt[ci], K, True) # Subtract diffusion
         
     # Update to a new timestep
     for ui in u_components:
         x_2[ui][:] = x_1[ui][:]
         x_1[ui][:] = x_ [ui][:]
-    
+        
     for ci in scalar_components:
         x_1[ci][:] = x_[ci][:]
         
@@ -489,6 +445,11 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     
     # Save solution if required and check for killoasis file
     stop = save_solution(**vars())
+    
+    # AB projection for pressure on next timestep
+    if AB_projection_pressure:
+        x_['p'].axpy(0.5, dp_.vector())
+
     tend = time.time()
         
 info_red('Total computing time = {0:f}'.format(tend - tin))
