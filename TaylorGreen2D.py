@@ -12,14 +12,18 @@ mesh = RectangleMesh(0, 0, 2, 2, 20, 20)
 NS_parameters.update(dict(
     nu = 0.01,
     T = 1,
-    dt = 0.001,
+    dt = 0.025,
     folder = "taylorgreen2D_results",
-    max_iter = 1,
+    max_iter = 5,
     iters_on_first_timestep = 2,
     convection = "Standard",
+    plot_interval = 100,
+    save_step = 100,
+    checkpoint = 100,
     use_krylov_solvers = False,
+    low_memory_version = True,
     use_lumping_of_mass_matrix = True,
-    velocity_degree = 2,
+    velocity_degree = 1,
     pressure_degree = 1,
     monitor_convergence = False,
     krylov_report = False    
@@ -29,7 +33,7 @@ NS_parameters.update(dict(
 class PeriodicDomain(SubDomain):
     
     def inside(self, x, on_boundary):
-        # return True if on left or bottom boundary AND NOT on one of the two corners (0, 1) and (1, 0)
+        # return True if on left or bottom boundary AND NOT on one of the two corners (0, 2) and (2, 0)
         return bool((near(x[0], 0) or near(x[1], 0)) and 
               (not ((near(x[0], 0) and near(x[1], 2)) or 
                     (near(x[0], 2) and near(x[1], 0)))) and on_boundary)
@@ -73,7 +77,6 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, tstep, **NS_namespace):
     Remember pressure is computed in between timesteps.
     
     """
-
     if tstep % plot_interval == 0:
         plot(q_['u0'], title='u')
         plot(q_['u1'], title='v')

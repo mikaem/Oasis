@@ -31,10 +31,13 @@ NS_parameters = dict(
   restart_folder = None, # If restarting solution, set the folder holder the solution to start from here
   use_lumping_of_mass_matrix = False,
   use_krylov_solvers = False,
+  low_memory_version = False,
   velocity_degree = 2,
   pressure_degree = 1,  
   convection = "Standard", 
   print_intermediate_info = 10,
+  AB_projection_pressure = False,
+  update_statistics = False,
   krylov_solvers = dict(
     monitor_convergence = False,
     report = False,
@@ -49,8 +52,9 @@ constrained_domain = None
 
 # To solve for scalars provide a list like ['scalar1', 'scalar2']
 scalar_components = []
-# With diffusivities given here. We use a Schmidt number defined as
-# Schmidt = nu / D (= momentum diffusivity / mass diffusivity)
+
+# With diffusivities given as a Schmidt number defined by:
+#   Schmidt = nu / D (= momentum diffusivity / mass diffusivity)
 Schmidt = defaultdict(lambda: 1.)
 
 def create_initial_folders(folder, restart_folder, sys_comp, tstep):
@@ -70,7 +74,8 @@ def create_initial_folders(folder, restart_folder, sys_comp, tstep):
             newfolder = path.join(newfolder, '1')
         else:
             previous = listdir(newfolder)
-            newfolder = path.join(newfolder, str(max(map(eval, previous)) + 1))
+            previous = max(map(eval, previous)) if previous else 0
+            newfolder = path.join(newfolder, str(previous + 1))
 
     MPI.barrier()
     if MPI.process_number() == 0:
@@ -214,19 +219,19 @@ def body_force(mesh, **NS_namespace):
     """Specify body force"""
     return Constant((0,)*mesh.geometry().dim())
 
-def convection_form(conv, u, v, U_, **NS_namespace):
+def convection_form(conv, u, v, U_AB, **NS_namespace):
     if conv == 'Standard':
-        return inner(v, dot(U_, nabla_grad(u)))
+        return inner(v, dot(U_AB, nabla_grad(u)))
         
     elif conv == 'Divergence':
-        return inner(v, nabla_div(outer(U_, u)))
+        return inner(v, nabla_div(outer(U_AB, u)))
         
     elif conv == 'Divergence by parts':
         # Use with care. ds term could be important
-        return -inner(grad(v), outer(U_, u))
+        return -inner(grad(v), outer(U_AB, u))
         
     elif conv == 'Skew':
-        return 0.5*(inner(v, dot(U_, nabla_grad(u))) + inner(v, nabla_div(outer(U_, u))))
+        return 0.5*(inner(v, dot(U_AB, nabla_grad(u))) + inner(v, nabla_div(outer(U_AB, u))))
 
     else:
         raise TypeError("Wrong convection form {}".format(conv))
@@ -234,6 +239,27 @@ def convection_form(conv, u, v, U_, **NS_namespace):
 def initialize(**NS_namespace):
     """Initialize solution. """
     pass
+
+def init_from_restart(restart_folder, sys_comp, uc_comp, u_components, 
+               q_, q_1, q_2, **NS_namespace):
+    """Initialize solution from checkpoint files """
+    if restart_folder:
+        for ui in sys_comp:
+            filename = path.join(restart_folder, ui + '.h5')
+            hdf5_file = HDF5File(filename, "r")
+            hdf5_file.read(q_[ui].vector(), "/current")      
+            q_[ui].vector().apply('insert')
+            # Check for the solution at a previous timestep as well
+            if ui in uc_comp:
+                try:
+                    hdf5_file.read(q_1[ui].vector(), "/previous")
+                    q_1[ui].vector().apply('insert')
+                except:
+                    q_1[ui].vector()[:] = q_[ui].vector()[:]
+                    q_1[ui].vector().apply('insert')
+            if ui in u_components:
+                q_2[ui].vector()[:] = q_1[ui].vector()[:]
+                q_2[ui].vector().apply('insert')            
 
 def create_bcs(sys_comp, **NS_namespace):
     """Return dictionary of Dirichlet boundary conditions."""
@@ -321,6 +347,67 @@ def attach_pressure_nullspace(p_sol, x_, Q):
     p_sol.set_nullspace(null_space)
     p_sol.null_space = null_space
 
+def add_pressure_gradient_rhs(b, x_, P, p_, v, i, ui, **NS_namespace):
+    """Add pressure gradient on rhs of tentative velocity equation."""
+    if P:
+        b[ui].axpy(-1., P[ui]*x_['p'])
+    else:
+        b[ui].axpy(-1., assemble(v*p_.dx(i)*dx))
+
+def add_pressure_gradient_rhs_update(b, dt, P, dp_, v, i, ui, **NS_namespace):
+    """Add pressure gradient on rhs of velocity update equation."""
+    if P:
+        b[ui].axpy(-dt, P[ui]*dp_.vector())
+    else:
+        b[ui].axpy(-dt, assemble(v*dp_.dx(i)*dx))
+        
+def assemble_pressure_rhs(b, Rx, x_, dt, q, u_, Ap, **NS_namespace):
+    """Assemble rhs of pressure equation."""
+    b['p'][:] = 0.
+    if Rx:
+        for ui in Rx:
+            b['p'].axpy(-1./dt, Rx[ui]*x_[ui])
+    else:
+        b['p'].axpy(-1./dt, assemble(div(u_)*q*dx))
+    b['p'].axpy(1., Ap*x_['p'])
+    
+def solve_pressure(dp_, x_, Ap, b, p_sol, **NS_namespace):
+    """Solve pressure equation."""
+    dp_.vector()[:] = x_['p'][:]
+    # KrylovSolvers use nullspace for normalization of pressure
+    if hasattr(p_sol, 'null_space'):
+        p_sol.null_space.orthogonalize(b['p']);
+
+    p_sol.solve(Ap, x_['p'], b['p'])
+    
+    # LUSolver use normalize directly for normalization of pressure
+    if hasattr(p_sol, 'normalize'):
+        normalize(x_['p'])
+
+    dp_.vector()[:] = x_['p'][:] - dp_.vector()[:]
+
+def solve_scalar(ci, scalar_components, Ta, Tb, b, x_, bb, bx, bcs, c_sol, 
+                  **NS_namespace):
+    if len(scalar_components) > 1: 
+        # Reuse solver for all scalars. This requires the same matrix and vectors to be used by c_sol.
+        Tb._scale(0.)
+        Tb.axpy(1., Ta, True)
+        bb[:] = b[ci][:]
+        bx[:] = x_[ci][:]
+        [bc.apply(Tb, bb) for bc in bcs[ci]]
+        c_sol.solve(Tb, bx, bb)
+        x_[ci][:] = bx[:]
+    else:
+        [bc.apply(Ta, b[ci]) for bc in bcs[ci]]
+        c_sol.solve(Ta, x_[ci], b[ci])    
+
+def update_velocity_lumping(ui, P, dp_, ML, dt, x_, v, u_components, **NS_namespace):
+    for i, ui in enumerate(u_components):
+        if P:
+            x_[ui].axpy(-dt, (P[ui] * dp_.vector()) * ML)
+        else:
+            x_[ui].axpy(-dt, (assemble(v*dp_.dx(i)*dx)) * ML)
+            
 def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     """Called just prior to solving for tentative velocity."""
     if use_krylov_solvers:
@@ -356,3 +443,4 @@ def pre_solve_hook(**NS_namespace):
 def theend(**NS_namespace):
     """Called at the very end."""
     pass
+

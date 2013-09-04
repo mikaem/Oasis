@@ -13,9 +13,9 @@ NS_parameters.update(dict(
     folder = "drivencavityscalar_results",
     convection = 'Skew',
     plot_interval = 10,
-    velocity_degree = 1,
+    velocity_degree = 2,
     use_lumping_of_mass_matrix = True,
-    use_krylov_solvers = False
+    use_krylov_solvers = True
   )
 )
 
