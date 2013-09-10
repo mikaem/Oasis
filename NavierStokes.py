@@ -135,22 +135,22 @@ Ta might differ from A due to Dirichlet boundary conditions.
 
 #from DrivenCavity import *
 #from DrivenCavityScalar import *
-<<<<<<< HEAD
-from Channel180_atan import *
-=======
+#from Channel180_atan import *
+from CSF_Bryn import *
 #from Channel import *
->>>>>>> e2c8bc08e12c8747a1dce844a05e0c1433ba67cc
 #from ChannelScalar import *
 #from LaminarChannel import *
 #from Lshape import *
 #from TaylorGreen2D import *
-from TaylorGreen3D import *
+#from TaylorGreen3D import *
 
 assert(isinstance(NS_parameters, dict))
 assert(isinstance(mesh, Mesh))
 #####################################################################
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
+
+parameters["form_compiler"].add("no_ferari", True)
 
 # Put NS_parameters in global namespace
 vars().update(NS_parameters)  
@@ -167,9 +167,6 @@ parameters['krylov_solver'].update(krylov_solvers)
 # Set up initial folders for storing results
 newfolder, tstepfiles = create_initial_folders(folder, restart_folder, sys_comp, tstep)
 
-# Print memory use up til now
-#initial_memory_use = dolfin_memory_usage('plain dolfin')
-
 # Declare solution Functions and FunctionSpaces
 V = FunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
 Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
@@ -185,11 +182,7 @@ q = TestFunction(Q)
 # Use dictionaries to hold all Functions and FunctionSpaces
 VV = dict((ui, V) for ui in uc_comp); VV['p'] = Q
 
-<<<<<<< HEAD
-# Start from previous solution if restart_folder is given
-=======
 # Create dictionaries for the solutions at three timesteps
->>>>>>> e2c8bc08e12c8747a1dce844a05e0c1433ba67cc
 q_  = dict((ui, Function(VV[ui], name=ui)) for ui in sys_comp)
 q_1 = dict((ui, Function(V, name=ui+"_1")) for ui in uc_comp)
 q_2 = dict((ui, Function(V, name=ui+"_2")) for ui in u_components)
@@ -276,7 +269,8 @@ A = Matrix(M)
 
 # Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
 if len(scalar_components) > 0:
-    Ta = Matrix(M)                              
+    Ta = Matrix(M)                  
+    Tb, bb, bx = None, None, None            
     if len(scalar_components) > 1:
         # For more than one scalar we use the same linear algebra solver for all.
         # For this to work we need some additional tensors
@@ -446,7 +440,6 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     
     # Save solution if required and check for killoasis file
     stop = save_solution(**vars())
-<<<<<<< HEAD
 
     # Print some information
     if tstep % print_intermediate_info == 0:
@@ -455,22 +448,21 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(tstep - old_tstep, tottime))
         list_timings(True)
         t1 = time.time(); old_tstep = tstep
-=======
     
     # AB projection for pressure on next timestep
     if AB_projection_pressure:
         x_['p'].axpy(0.5, dp_.vector())
->>>>>>> e2c8bc08e12c8747a1dce844a05e0c1433ba67cc
 
     tend = time.time()
         
+list_timings()
 info_red('Total computing time = {0:f}'.format(tend - tin))
 #final_memory_use = dolfin_memory_usage('at end')
 #mymem = eval(final_memory_use)-eval(initial_memory_use)
 #print 'Additional memory use of processor = {0}'.format(mymem)
 #info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
-list_timings()
         
 ###### Final hook ######        
 theend(**vars())
 ########################
+
