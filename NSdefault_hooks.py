@@ -7,6 +7,7 @@ from dolfin import *
 import cPickle
 from collections import defaultdict
 from os import getpid, path, makedirs, getcwd, listdir, remove, system
+from numpy import array, maximum
 
 #parameters["linear_algebra_backend"] = "Epetra"
 parameters["linear_algebra_backend"] = "PETSc"
@@ -194,10 +195,11 @@ def check_if_kill(folder):
     """Check if user has put a file named killoasis in folder."""
     found = 0
     if 'killoasis' in listdir(folder):
-        remove(path.join(folder, 'killoasis'))
         found = 1
     collective = MPI.sum(found)
     if collective > 0:
+        if MPI.preocess_number() == 0:
+            remove(path.join(folder, 'killoasis'))
         info_red('killoasis Found! Stopping simulations cleanly...')
         return True
     else:
@@ -207,10 +209,11 @@ def check_if_reset_statistics(folder):
     """Check if user has put a file named resetoasis in folder."""
     found = 0
     if 'resetoasis' in listdir(folder):
-        remove(path.join(folder, 'resetoasis'))
         found = 1
     collective = MPI.sum(found)    
     if collective > 0:        
+        if MPI.preocess_number() == 0:
+            remove(path.join(folder, 'resetoasis'))
         info_red('resetoasis Found!')
         return True
     else:
@@ -304,7 +307,8 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         sols = [u_sol, p_sol, du_sol]
         ## scalar solver ##
         if len(scalar_components) > 0:
-            c_sol = KrylovSolver('bicgstab', 'hypre_euclid')
+            #c_sol = KrylovSolver('bicgstab', 'hypre_euclid')
+            c_sol = KrylovSolver('bicgstab', 'jacobi')
             c_sol.parameters.update(krylov_solvers)
             c_sol.parameters['preconditioner']['reuse'] = False
             c_sol.t = 0
