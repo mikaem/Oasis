@@ -17,6 +17,9 @@ def dolfin_memory_usage(s):
     info_red('Memory use {} = '.format(s) + dolfin_memory_use)
     return dolfin_memory_use
 
+# Print memory use up til now
+initial_memory_use = dolfin_memory_usage('plain dolfin')
+
 # Convenience functions
 def strain(u):
     return 0.5*(grad(u)+ grad(u).T)

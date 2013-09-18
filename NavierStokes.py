@@ -133,14 +133,15 @@ Ta might differ from A due to Dirichlet boundary conditions.
 ### Should import a mesh and a dictionary called NS_parameters    ###
 ### See NSdefault_hooks for possible parameters                   ###
 
-#from DrivenCavity import *
+from DrivenCavity import *
 #from DrivenCavityScalar import *
 #from Channel import *
 #from ChannelScalar import *
 #from LaminarChannel import *
 #from Lshape import *
 #from TaylorGreen2D import *
-from TaylorGreen3D import *
+#from TaylorGreen3D import *
+#from Cylinder import *
 
 assert(isinstance(NS_parameters, dict))
 assert(isinstance(mesh, Mesh))
@@ -148,8 +149,11 @@ assert(isinstance(mesh, Mesh))
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
 
+parameters["form_compiler"].add("no_ferari", True)
+
 # Put NS_parameters in global namespace
 vars().update(NS_parameters)  
+print_solve_info = use_krylov_solvers and krylov_solvers['monitor_convergence']
 
 # Create lists of components solved for
 dim = mesh.geometry().dim()
@@ -157,14 +161,11 @@ u_components = map(lambda x: 'u'+str(x), range(dim))
 sys_comp =  u_components + ['p'] + scalar_components
 uc_comp  =  u_components + scalar_components
 
-# Update dolfins parameters
+# Update dolfin parameters
 parameters['krylov_solver'].update(krylov_solvers)
 
 # Set up initial folders for storing results
 newfolder, tstepfiles = create_initial_folders(folder, restart_folder, sys_comp, tstep)
-
-# Print memory use up til now
-initial_memory_use = dolfin_memory_usage('plain dolfin')
 
 # Declare solution Functions and FunctionSpaces
 V = FunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
@@ -228,11 +229,11 @@ u_sol, p_sol, du_sol, c_sol = get_solvers(**vars())
 ################### Get constant body forces ########################
 
 f = body_force(**vars())
+assert(isinstance(f, Constant))
 
 ################### Preassemble and allocate ########################
 
 # Constant body force
-assert(isinstance(f, Constant))
 b0 = dict((ui, assemble(v*f[i]*dx)) for i, ui in enumerate(u_components))
 
 # Constant pressure gradient matrix
@@ -241,7 +242,7 @@ if low_memory_version:
     Rx = None
     
 else:
-    P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))    
+    P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
     # Constant velocity divergence matrix
     if velocity_degree == pressure_degree and P:
         Rx = P
@@ -259,7 +260,7 @@ if velocity_degree == pressure_degree and bcs['p'] == []:
     Ap = K
     
 else:
-    Ap = assemble(inner(grad(q), grad(p))*dx)   # Pressure Laplacian
+    Ap = assemble(inner(grad(q), grad(p))*dx) 
     [bc.apply(Ap) for bc in bcs['p']]
     Ap.compress()
 
@@ -268,7 +269,8 @@ A = Matrix(M)
 
 # Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
 if len(scalar_components) > 0:
-    Ta = Matrix(M)                              
+    Ta = Matrix(M)      
+    Tb, bb, bx = None, None, None
     if len(scalar_components) > 1:
         # For more than one scalar we use the same linear algebra solver for all.
         # For this to work we need some additional tensors
@@ -279,17 +281,10 @@ if len(scalar_components) > 0:
 # Velocity update may use lumping of the mass matrix for P1-elements
 # Compute inverse of the lumped diagonal mass matrix 
 if use_lumping_of_mass_matrix:
-    ones = Function(V)
-    ones.vector()[:] = 1.
-    ML = M * ones.vector()
-    ML.set_local(1. / ML.array())
-    del ones
+    ML = assemble_lumped_P1_diagonal(**vars())
     
 else:  # Use regular mass matrix for velocity update
-    if len(scalar_components) > 0:
-        Mu = Matrix(M)             # Since bcs may differ between scalars and velocity
-    else:
-        Mu = M                     # Can safely use regular mass matrix
+    Mu = Matrix(M) if len(scalar_components) > 0 else M # Copy if used by scalars
     [bc.apply(Mu) for bc in bcs['u0']]
 
 #####################################################################
@@ -301,11 +296,10 @@ a_conv = 0.5*convection_form(convection, **vars())*dx
 a_scalar = a_conv
 if not convection == "Standard":     
     a_scalar = 0.5*convection_form("Standard", **vars())*dx
-    
+
 tin = time.time()
 stop = False
 t1 = time.time(); old_tstep = tstep
-print_solve_info = use_krylov_solvers and krylov_solvers['monitor_convergence']
 
 #### Do something problem specific ####
 vars().update(pre_solve_hook(**vars()))
@@ -320,9 +314,8 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     start_timestep_hook(**vars())
     #############################
     while err > max_error and inner_iter < num_iter:
-        err = 0
         inner_iter += 1
-        ### Assemble matrices and compute rhs vector for tentative velocity and scalar ###
+        ### Assemble matrices and compute rhs vector for tentative velocity ###
         if inner_iter == 1:
             # Only on the first iteration because nothing here is changing in time
             # Set up coefficient matrix for computing the rhs:
@@ -336,11 +329,6 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
                     Ta._scale(0.)
                     Ta.axpy(1., A, True)
                     
-                else:
-                    Ta = assemble(a_scalar, tensor=Ta, reset_sparsity=False)
-                    Ta._scale(-1.)            # Negative convection on the rhs 
-                    Ta.axpy(1./dt, M, True)   # Add mass
-
             A.axpy(-0.5*nu, K, True) # Add diffusion 
             
             # Compute rhs for all velocity components
@@ -352,18 +340,9 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             A._scale(-1.)
             A.axpy(2./dt, M, True)
             [bc.apply(A) for bc in bcs['u0']]
-
-            # Compute rhs for all scalars
-            if len(scalar_components) > 0:
-                for ci in scalar_components:
-                    Ta.axpy(-0.5*nu/Schmidt[ci], K, True) # Add diffusion
-                    b[ci][:] = Ta*x_1[ci]                 # Compute rhs
-                    Ta.axpy(0.5*nu/Schmidt[ci], K, True)  # Subtract diffusion
-                # Reset matrix for lhs - Note scalar matrix does not contain diffusion
-                Ta._scale(-1.)
-                Ta.axpy(2./dt, M, True)
                    
         t0 = time.time()
+        err = 0
         for i, ui in enumerate(u_components):
             info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
             b_tmp[ui][:] = b[ui][:] 
@@ -388,7 +367,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         [bc.apply(b['p']) for bc in bcs['p']]        
         solve_pressure(**vars())
                 
-        if num_iter > 1:
+        if num_iter > 1 and print_velocity_pressure_convergence:
             if inner_iter == 1: 
                 info_blue('  Inner iterations velocity pressure:')
                 info_blue('                 error u  error p')
@@ -399,6 +378,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     ### Update velocity if noniterative scheme is used ###
     if inner_iter == 1:
         if use_lumping_of_mass_matrix:
+            update_velocity_lumping(**vars())
             [bc.apply(x_[ui]) for bc in bcs[ui]]
             
         else: # Use regular mass matrix
@@ -415,14 +395,29 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             du_sol.t += (time.time()-t0)
         
     # Solve for scalars
-    for ci in scalar_components:    
-        info_blue('Solving scalar {}'.format(ci), print_solve_info)
-        Ta.axpy(0.5*nu/Schmidt[ci], K, True) # Add diffusion
-        #####################
-        scalar_hook(**vars())
-        #####################
-        solve_scalar(**vars())
-        Ta.axpy(-0.5*nu/Schmidt[ci], K, True) # Subtract diffusion
+    if len(scalar_components) > 0:
+        if not a_scalar is a_conv:
+            Ta = assemble(a_scalar, tensor=Ta, reset_sparsity=False)
+            Ta._scale(-1.)            # Negative convection on the rhs 
+            Ta.axpy(1./dt, M, True)   # Add mass
+            
+        # Compute rhs for all scalars
+        for ci in scalar_components:
+            Ta.axpy(-0.5*nu/Schmidt[ci], K, True) # Add diffusion
+            b[ci][:] = Ta*x_1[ci]                 # Compute rhs
+            Ta.axpy(0.5*nu/Schmidt[ci], K, True)  # Subtract diffusion
+        # Reset matrix for lhs - Note scalar matrix does not contain diffusion
+        Ta._scale(-1.)
+        Ta.axpy(2./dt, M, True)
+
+        for ci in scalar_components:    
+            info_blue('Solving scalar {}'.format(ci), print_solve_info)
+            Ta.axpy(0.5*nu/Schmidt[ci], K, True) # Add diffusion
+            #####################
+            scalar_hook(**vars())
+            #####################
+            solve_scalar(**vars())
+            Ta.axpy(-0.5*nu/Schmidt[ci], K, True) # Subtract diffusion
         
     # Update to a new timestep
     for ui in u_components:
@@ -433,7 +428,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         x_1[ci][:] = x_[ci][:]
         
     # Print some information
-    if tstep % save_step == 0 or tstep % checkpoint == 0:
+    if tstep % print_intermediate_info == 0:
         info_green('Time = {0:2.4e}, timestep = {1:6d}, End time = {2:2.4e}'.format(t, tstep, T)) 
         tottime= time.time() - t1    
         info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(tstep - old_tstep, tottime))

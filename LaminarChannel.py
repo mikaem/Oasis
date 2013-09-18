@@ -13,7 +13,6 @@ mesh = RectangleMesh(0., -H, L, H, 40, 40)
 # Squeeze towards walls
 x = mesh.coordinates()        
 x[:, 1] = arctan(1.*pi*(x[:, 1]))/arctan(1.*pi) 
-del x
 
 class PeriodicDomain(SubDomain):
 

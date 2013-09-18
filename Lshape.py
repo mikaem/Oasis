@@ -24,12 +24,12 @@ nu = 1./Re
 NS_parameters.update(dict(
     nu = nu,
     T = 10,
-    dt = 0.1,
+    dt = 0.01,
     Re = Re,
     folder = "Lshape_results",
     max_iter = 1,
     plot_interval = 1,
-    velocity_degree = 1,
+    velocity_degree = 2,
     use_lumping_of_mass_matrix = True,
     use_krylov_solvers = True
   )

@@ -10,14 +10,14 @@ mesh = RectangleMesh(0, 0, 2, 2, 20, 20)
 
 # Override some problem specific parameters
 NS_parameters.update(dict(
-    nu = 0.01,
-    T = 1,
-    dt = 0.025,
+    nu = 0.001,
+    T = 100,
+    dt = 0.1,
     folder = "taylorgreen2D_results",
-    max_iter = 5,
+    max_iter = 1,
     iters_on_first_timestep = 2,
     convection = "Standard",
-    plot_interval = 100,
+    plot_interval = 10,
     save_step = 100,
     checkpoint = 100,
     use_krylov_solvers = False,

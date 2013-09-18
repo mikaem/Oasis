@@ -7,37 +7,47 @@ from dolfin import *
 import cPickle
 from collections import defaultdict
 from os import getpid, path, makedirs, getcwd, listdir, remove, system
+from numpy import array, maximum
 
 #parameters["linear_algebra_backend"] = "Epetra"
 parameters["linear_algebra_backend"] = "PETSc"
-parameters["form_compiler"]["optimize"]     = True
+parameters["form_compiler"]["optimize"] = False
 parameters["form_compiler"]["cpp_optimize"] = True
 parameters['mesh_partitioner'] = "ParMETIS"
 
 # Default parameters
 NS_parameters = dict(
-  nu = 0.01,
-  t = 0,
-  tstep = 0,
-  T = 1.0,
-  max_iter = 1,
-  max_error = 1e-6,
-  iters_on_first_timestep = 2,
-  dt = 0.01,
-  plot_interval = 10,
+  # Physical constants and solver parameters
+  nu = 0.01,             # Kinematic viscosity
+  t = 0,                 # Time
+  tstep = 0,             # Timestep
+  T = 1.0,               # End time
+  dt = 0.01,             # Time interval on each timestep
+  
+  # Some discretization options
+  convection = "Standard",  # "Standard", "Skew", "Divergence", "Divergence by parts"
+  AB_projection_pressure = False,  # Use Adams Bashforth projection as first estimate for pressure on new timestep
+  velocity_degree = 2,
+  pressure_degree = 1,  
+  
+  # Parameters used to tweek solver  
+  max_iter = 1,          # Number of inner pressure velocity iterations on timestep
+  max_error = 1e-6,      # Tolerance for inner iterations (pressure velocity iterations)
+  iters_on_first_timestep = 2,  # Number of iterations on first timestep
+  use_lumping_of_mass_matrix = False,  
+  use_krylov_solvers = False,  # Otherwise use LU-solver
+  low_memory_version = False,  # Use assembler and not preassembled matrices
+  print_intermediate_info = 10,
+  print_velocity_pressure_convergence = True,
+  
+  # Parameters used to tweek output  
+  plot_interval = 10,    
   checkpoint = 10,       # Overwrite solution in Checkpoint folder each checkpoint tstep
   save_step = 10,        # Store solution in new folder each save_step tstep
   folder = 'results',    # Relative folder for storing results 
-  restart_folder = None, # If restarting solution, set the folder holder the solution to start from here
-  use_lumping_of_mass_matrix = False,
-  use_krylov_solvers = False,
-  low_memory_version = False,
-  velocity_degree = 2,
-  pressure_degree = 1,  
-  convection = "Standard",
-  AB_projection_pressure = False,
-  update_statistics = False,
-  check_save_h5 = False,
+  restart_folder = None, # If restarting solution, set the folder holding the solution to start from here
+  
+  # Solver parameters that will be transferred to dolfins parameters['krylov_solver']
   krylov_solvers = dict(
     monitor_convergence = False,
     report = False,
@@ -193,10 +203,11 @@ def check_if_kill(folder):
     """Check if user has put a file named killoasis in folder."""
     found = 0
     if 'killoasis' in listdir(folder):
-        remove(path.join(folder, 'killoasis'))
         found = 1
     collective = MPI.sum(found)
     if collective > 0:
+        if MPI.process_number() == 0:
+            remove(path.join(folder, 'killoasis'))
         info_red('killoasis Found! Stopping simulations cleanly...')
         return True
     else:
@@ -206,10 +217,11 @@ def check_if_reset_statistics(folder):
     """Check if user has put a file named resetoasis in folder."""
     found = 0
     if 'resetoasis' in listdir(folder):
-        remove(path.join(folder, 'resetoasis'))
         found = 1
     collective = MPI.sum(found)    
     if collective > 0:        
+        if MPI.process_number() == 0:
+            remove(path.join(folder, 'resetoasis'))
         info_red('resetoasis Found!')
         return True
     else:
@@ -219,6 +231,10 @@ def body_force(mesh, **NS_namespace):
     """Specify body force"""
     return Constant((0,)*mesh.geometry().dim())
 
+def scalar_source(scalar_components, **NS_namespace):
+    fs = dict((ci, Constant(0)) for ci in scalar_components)
+    return fs
+    
 def convection_form(conv, u, v, U_AB, **NS_namespace):
     if conv == 'Standard':
         return inner(v, dot(U_AB, nabla_grad(u)))
@@ -236,6 +252,13 @@ def convection_form(conv, u, v, U_AB, **NS_namespace):
     else:
         raise TypeError("Wrong convection form {}".format(conv))
 
+def assemble_lumped_P1_diagonal(V, M, **NS_namespace):
+    ones = Function(V)
+    ones.vector()[:] = 1.
+    ML = M * ones.vector()
+    ML.set_local(1. / ML.array())
+    return ML
+    
 def initialize(**NS_namespace):
     """Initialize solution. """
     pass
@@ -401,8 +424,8 @@ def solve_scalar(ci, scalar_components, Ta, Tb, b, x_, bb, bx, bcs, c_sol,
         [bc.apply(Ta, b[ci]) for bc in bcs[ci]]
         c_sol.solve(Ta, x_[ci], b[ci])    
 
-def update_velocity_lumping(ui, P, dp_, ML, dt, x_, v, u_components, **NS_namespace):
-    for i, ui in enumerate(u_components):
+def update_velocity_lumping(P, dp_, ML, dt, x_, v, **NS_namespace):
+    for i, ui in enumerate(P):
         if P:
             x_[ui].axpy(-dt, (P[ui] * dp_.vector()) * ML)
         else:
