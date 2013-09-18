@@ -7,8 +7,8 @@ from Oasis import *
 from numpy import ceil, cos, pi, arctan
 
 # Create a mesh
-Nx = 51
-Ny = 51
+Nx = 41
+Ny = 41
 mesh = UnitSquareMesh(Nx, Ny)
 x = mesh.coordinates()
 x[:, :] = (x[:, :] - 0.5)*2
@@ -16,7 +16,7 @@ x[:, :] = 0.5*(cos(pi*(x[:, :]-1.) / 2.) + 1.)
 #x[:, :] = ( arctan(pi*x[:, :])/arctan(pi) +1. ) / 2.
 #set_log_level(10)
 
-T = 2.5
+T = 0.25
 #dt = 0.25*T/ceil(T/0.2/mesh.hmin())
 dt = 0.001
 # Override some problem specific parameters
@@ -26,8 +26,8 @@ recursive_update(NS_parameters,
         dt = dt,
         folder = "drivencavity_results",
         plot_interval = 100,
-        save_step = 10000,
-        checkpoint = 10000,
+        save_step = 10,
+        checkpoint = 10,
         velocity_degree = 1,
         max_iter = 1,
         use_lumping_of_mass_matrix = True,

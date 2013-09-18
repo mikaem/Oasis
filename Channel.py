@@ -19,7 +19,7 @@ import random
 #restart_folder = 'channelscalar_results/data/1/Checkpoint'
 #restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
 #restart_folder = '/usit/abel/u1/mikaem/data/channel_results/data/1/Checkpoint'
-restart_folder = 'channel_results/data/1/Checkpoint'
+restart_folder = 'channel_results/data/70/Checkpoint'
 #restart_folder = None
 
 def create_stretched_mesh(Nx, Ny, Nz, Lx, Ly, Lz):
@@ -36,7 +36,7 @@ if not restart_folder is None:
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
     NS_parameters['restart_folder'] = restart_folder
-    NS_parameters['T'] = 3.0 # Set new end time otherwise it just stops
+    NS_parameters['T'] = 4.0 # Set new end time otherwise it just stops
     globals().update(NS_parameters)
     
 else:

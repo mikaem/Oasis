@@ -426,11 +426,11 @@ def solve_scalar(ci, scalar_components, Ta, Tb, b, x_, bb, bx, bcs, c_sol,
         [bc.apply(Ta, b[ci]) for bc in bcs[ci]]
         c_sol.solve(Ta, x_[ci], b[ci])    
     #x_[ci][x_[ci] < 0] = 0.               # Bounded solution
-    x_[ci].set_local(maximum(0., x_[ci].array()))
-    x_[ci].apply("insert")
+    #x_[ci].set_local(maximum(0., x_[ci].array()))
+    #x_[ci].apply("insert")
 
-def update_velocity_lumping(P, dp_, ML, dt, x_, v, **NS_namespace):
-    for i, ui in enumerate(P):
+def update_velocity_lumping(P, dp_, ML, dt, x_, v, u_components, **NS_namespace):
+    for i, ui in enumerate(u_components):
         if P:
             x_[ui].axpy(-dt, (P[ui] * dp_.vector()) * ML)
         else:

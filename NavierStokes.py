@@ -140,13 +140,13 @@ Ta might differ from A due to Dirichlet boundary conditions.
 ### Should import a mesh and a dictionary called NS_parameters    ###
 ### See NSdefault_hooks for possible parameters                   ###
 
-from DrivenCavity import *
+#from DrivenCavity import *
 #from DrivenCavityScalar import *
 #from Channel import *
 #from ChannelScalar import *
 #from LaminarChannel import *
 #from Lshape import *
-#from TaylorGreen2D import *
+from TaylorGreen2D import *
 #from TaylorGreen3D import *
 
 assert(isinstance(NS_parameters, dict))
@@ -155,7 +155,7 @@ assert(isinstance(mesh, Mesh))
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
 
-parameters["form_compiler"].add("no_ferari", True)
+#parameters["form_compiler"].add("no_ferari", True)
 
 # Put NS_parameters in global namespace
 vars().update(NS_parameters)  
@@ -305,6 +305,7 @@ if not convection == "Standard":
     a_scalar = 0.5*convection_form("Standard", **vars())*dx
 
 tin = time.time()
+tend = tin
 stop = False
 t1 = time.time(); old_tstep = tstep
 
