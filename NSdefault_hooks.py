@@ -46,6 +46,7 @@ NS_parameters = dict(
   save_step = 10,        # Store solution in new folder each save_step tstep
   folder = 'results',    # Relative folder for storing results 
   restart_folder = None, # If restarting solution, set the folder holding the solution to start from here
+  output_timeseries_as_vector = True, # Store velocity as vector in Timeseries 
   
   # Solver parameters that will be transferred to dolfins parameters['krylov_solver']
   krylov_solvers = dict(
@@ -67,8 +68,10 @@ scalar_components = []
 #   Schmidt = nu / D (= momentum diffusivity / mass diffusivity)
 Schmidt = defaultdict(lambda: 1.)
 
-def create_initial_folders(folder, restart_folder, sys_comp, tstep):
+def create_initial_folders(folder, restart_folder, sys_comp, tstep, 
+                           scalar_components, output_timeseries_as_vector, **NS_namespace):
     """Create necessary folders."""
+    
     # To avoid writing over old data create a new folder for each run
     if MPI.process_number() == 0:
         try:
@@ -98,70 +101,63 @@ def create_initial_folders(folder, restart_folder, sys_comp, tstep):
             
     tstepfolder = path.join(newfolder, "Timeseries")
     tstepfiles = {}
-    for ui in sys_comp:
+    comps = sys_comp
+    if output_timeseries_as_vector:
+        comps = ['p', 'u'] + scalar_components 
+        
+    for ui in comps:
         tstepfiles[ui] = XDMFFile(path.join(tstepfolder, ui+'_from_tstep_{}.xdmf'.format(tstep)))
         tstepfiles[ui].parameters["rewrite_function_mesh"] = False
     return newfolder, tstepfiles
 
 def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint, 
-                  NS_parameters, tstepfiles, **NS_namespace):
+                  NS_parameters, tstepfiles, Vv, u_, u_components,
+                  output_timeseries_as_vector, **NS_namespace):
     """Called at end of timestep. Check for kill and save solution if required."""
     NS_parameters.update(t=t, tstep=tstep)
     if tstep % save_step == 0: 
-        #save_tstep_solution(tstep, q_, newfolder, NS_parameters)
-        save_tstep_solution_h5(tstep, q_, newfolder, tstepfiles, NS_parameters)
+        save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, Vv, 
+                               output_timeseries_as_vector, u_components)
+        
     killoasis = check_if_kill(folder)
     if tstep % checkpoint == 0 or killoasis:
-        #save_checkpoint_solution(tstep, q_, q_1, newfolder, NS_parameters)
         save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters)
+        
     return killoasis
 
-def save_tstep_solution(tstep, q_, newfolder, NS_parameters):  
-    """Create a new folder and store solution on current timestep."""
-    timefolder = path.join(newfolder, 'timestep='+str(tstep))
-    if MPI.process_number() == 0:
-        try:
-            makedirs(timefolder)
-        except OSError:
-            pass
-    MPI.barrier()
-    if MPI.process_number() == 0:
-        f = open(path.join(timefolder, 'params.dat'), 'w')
-        cPickle.dump(NS_parameters,  f)
-
-    for ui in q_:
-        newfile = File(path.join(timefolder, ui + '.xml.gz'))
-        newfile << q_[ui]
-
-def save_tstep_solution_h5(tstep, q_, newfolder, tstepfiles, NS_parameters):  
+def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, Vv,
+                           output_timeseries_as_vector, u_components):
     """Store solution on current timestep to XDMF file."""
     timefolder = path.join(newfolder, 'Timeseries')
-    #if MPI.process_number() == 0:
-    #    f = open(path.join(timefolder, 'params_{}.dat'.format(tstep)), 'w')
-    #    cPickle.dump(NS_parameters,  f)
+    if output_timeseries_as_vector:
+        # project or store velocity to vector function space
+        if not hasattr(tstepfiles['u'], 'uv'): # First time around only
+            tstepfiles['u'].uv = Function(Vv)
+            tstepfiles['u'].d = dict((ui, Vv.sub(i).dofmap().collapse(Vv.mesh())[1]) 
+                                     for i, ui in enumerate(u_components))
 
-    for ui in q_:
-        tstepfiles[ui] << (q_[ui], float(tstep))
-
-def save_checkpoint_solution(tstep, q_, q_1, newfolder, NS_parameters):
-    """Overwrite solution in Checkpoint folder."""
-    timefolder = path.join(newfolder, 'timestep='+str(tstep))
-    checkpointfolder = path.join(newfolder, "Checkpoint")
-    if MPI.process_number() == 0:
-        f = open(path.join(checkpointfolder, 'params.dat'), 'w')
-        cPickle.dump(NS_parameters, f)
+        # The short but timeconsuming way:
+        #tstepfiles['u'].uv.assign(project(u_, Vv))
         
-    for ui in q_.keys():
-        # Check if solution has already been stored in timestep folder
-        if 'timestep='+str(tstep) in listdir(newfolder):
-            system('cp {0} {1}'.format(path.join(timefolder, ui + '.xml.gz'), 
-                                       path.join(checkpointfolder, ui + '.xml.gz')))
-        else:
-            cfile = File(path.join(checkpointfolder, ui + '.xml.gz'))
-            cfile << q_[ui]   
-        if not ui == 'p':
-            cfile_1 = File(path.join(checkpointfolder, ui + '_1.xml.gz'))
-            cfile_1 << q_1[ui]
+        # Or the faster, but more comprehensive way:
+        for ui in u_components:
+            q_[ui].update()    
+            vals = tstepfiles['u'].d[ui].values()
+            keys = tstepfiles['u'].d[ui].keys()
+            tstepfiles['u'].uv.vector()[vals] = q_[ui].vector()[keys]
+        tstepfiles['u'] << (tstepfiles['u'].uv, float(tstep))
+        
+        # Store the rest of the solution functions
+        for ui in ['p']+scalar_components:
+            tstepfiles[ui] << (q_[ui], float(tstep))
+    else:
+        for ui in q_:
+            tstepfiles[ui] << (q_[ui], float(tstep))
+        
+    if MPI.process_number() == 0:
+        if not path.exists(path.join(timefolder, "params.dat")):
+            f = open(path.join(timefolder, 'params.dat'), 'w')
+            cPickle.dump(NS_parameters,  f)
 
 def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters):
     """Overwrite solution in Checkpoint folder. 

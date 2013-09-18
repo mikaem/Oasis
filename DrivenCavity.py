@@ -32,7 +32,7 @@ recursive_update(NS_parameters,
         max_iter = 1,
         use_lumping_of_mass_matrix = True,
         use_krylov_solvers = True,
-        krylov_solvers = dict(monitor_convergence=True,
+        krylov_solvers = dict(monitor_convergence=False,
                               relative_tolerance = 1e-7))
 )
 

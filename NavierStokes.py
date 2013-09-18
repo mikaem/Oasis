@@ -171,7 +171,7 @@ uc_comp  =  u_components + scalar_components
 parameters['krylov_solver'].update(krylov_solvers)
 
 # Set up initial folders for storing results
-newfolder, tstepfiles = create_initial_folders(folder, restart_folder, sys_comp, tstep)
+newfolder, tstepfiles = create_initial_folders(**vars())
 
 # Declare FunctionSpaces and arguments
 V = FunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
