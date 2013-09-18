@@ -8,7 +8,7 @@ This is a highly tuned and stripped down Navier-Stokes solver optimized
 for both speed and memory. The algorithm used is a second order in time 
 fractional step method (incremental pressure correction).
 
-Crank-Nicolson discretization is used in time of the Laplacian and 
+Crank-Nicolson discretization is used in time for the Laplacian and 
 the convected velocity. The convecting velocity is computed with an 
 Adams-Bashforth projection. The fractional step method can be used
 both non-iteratively or with iterations over the pressure velocity 
@@ -34,7 +34,7 @@ F = (1/dt)*inner(u - u_1, v)*dx + inner(grad(U)*U1, v)*dx + inner(p_.dx(0), v)*d
      nu*inner(grad(U), grad(v))*dx + inner(f[0], v)*dx
 
 where (q_['u0'], p_.dx(0), f[0]) is replaced by (q_1['u1'], p_.dx(1), f[1]) and 
-(q_1['u2'], p_.dx(2), f[3]) for the two other velocity components.
+(q_1['u2'], p_.dx(2), f[2]) for the two other velocity components.
 We solve an equation corresponding to lhs(F) == rhs(F) for all ui.
      
 The variables u_1 and u_2 are velocity vectors at time steps k-1 and k-2. We 
@@ -69,6 +69,10 @@ then computed as
 
   assemble(p_.dx(i)*v*dx) = P[ui] * p_.vector()
 
+If memory is an limiting factor, this term may be computed directly through
+only the lhs each timestep. Memory is then saved since P is not preassembled.
+Set parameter low_memory_version = True for lhs version.
+
 Ac needs to be reassembled each new timestep. Ac is assembled into A to 
 save memory. A and A_rhs are recreated each new timestep by assembling Ac, 
 setting up A_rhs and then using the following to create A:
@@ -89,6 +93,9 @@ Here we assemble the rhs by:
     bp.axpy(-1./dt, Rx[ui]*x_[ui])
   where the preassemble Rx is:
     Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
+  
+  Alternatively, if low_memory_version is set to True, then Rx is not preassembled
+  and assemble(q*u.dx(i)*dx is called each timestep.
 
 We then solve Ap * p = bp for p_.vector().
   
@@ -141,7 +148,6 @@ from DrivenCavity import *
 #from Lshape import *
 #from TaylorGreen2D import *
 #from TaylorGreen3D import *
-#from Cylinder import *
 
 assert(isinstance(NS_parameters, dict))
 assert(isinstance(mesh, Mesh))
@@ -167,7 +173,7 @@ parameters['krylov_solver'].update(krylov_solvers)
 # Set up initial folders for storing results
 newfolder, tstepfiles = create_initial_folders(folder, restart_folder, sys_comp, tstep)
 
-# Declare solution Functions and FunctionSpaces
+# Declare FunctionSpaces and arguments
 V = FunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
 Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
 if velocity_degree == pressure_degree:
@@ -236,13 +242,14 @@ assert(isinstance(f, Constant))
 # Constant body force
 b0 = dict((ui, assemble(v*f[i]*dx)) for i, ui in enumerate(u_components))
 
-# Constant pressure gradient matrix
 if low_memory_version:
     P = None
     Rx = None
     
 else:
-    P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
+    # Constant pressure gradient matrix
+    P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))    
+
     # Constant velocity divergence matrix
     if velocity_degree == pressure_degree and P:
         Rx = P
@@ -269,8 +276,8 @@ A = Matrix(M)
 
 # Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
 if len(scalar_components) > 0:
-    Ta = Matrix(M)      
-    Tb, bb, bx = None, None, None
+    Ta = Matrix(M)                  
+    Tb, bb, bx = None, None, None            
     if len(scalar_components) > 1:
         # For more than one scalar we use the same linear algebra solver for all.
         # For this to work we need some additional tensors
@@ -418,7 +425,14 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             #####################
             solve_scalar(**vars())
             Ta.axpy(-0.5*nu/Schmidt[ci], K, True) # Subtract diffusion
-        
+                        
+    ##############################
+    temporal_hook(**vars())
+    ##############################
+    
+    # Save solution if required and check for killoasis file
+    stop = save_solution(**vars())
+
     # Update to a new timestep
     for ui in u_components:
         x_2[ui][:] = x_1[ui][:]
@@ -426,20 +440,14 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         
     for ci in scalar_components:
         x_1[ci][:] = x_[ci][:]
-        
+
     # Print some information
     if tstep % print_intermediate_info == 0:
         info_green('Time = {0:2.4e}, timestep = {1:6d}, End time = {2:2.4e}'.format(t, tstep, T)) 
         tottime= time.time() - t1    
         info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(tstep - old_tstep, tottime))
+        list_timings(True)
         t1 = time.time(); old_tstep = tstep
-        
-    ##############################
-    temporal_hook(**vars())
-    ##############################
-    
-    # Save solution if required and check for killoasis file
-    stop = save_solution(**vars())
     
     # AB projection for pressure on next timestep
     if AB_projection_pressure:
@@ -447,13 +455,14 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
 
     tend = time.time()
         
-info_red('Total computing time = {0:f}'.format(tend - tin))
-final_memory_use = dolfin_memory_usage('at end')
-mymem = eval(final_memory_use)-eval(initial_memory_use)
-print 'Additional memory use of processor = {0}'.format(mymem)
-info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
 list_timings()
+info_red('Total computing time = {0:f}'.format(tend - tin))
+#final_memory_use = dolfin_memory_usage('at end')
+#mymem = eval(final_memory_use)-eval(initial_memory_use)
+#print 'Additional memory use of processor = {0}'.format(mymem)
+#info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
         
 ###### Final hook ######        
 theend(**vars())
 ########################
+

@@ -70,9 +70,15 @@ Schmidt = defaultdict(lambda: 1.)
 def create_initial_folders(folder, restart_folder, sys_comp, tstep):
     """Create necessary folders."""
     # To avoid writing over old data create a new folder for each run
+    if MPI.process_number() == 0:
+        try:
+            makedirs(folder)
+        except OSError:
+            pass
+
     newfolder = path.join(folder, 'data')
     if restart_folder:
-        newfolder = path.join(newfolder, restart_folder.split('/')[-2])       
+        newfolder = path.join(newfolder, restart_folder.split('/')[-2])
     else:
         if not path.exists(newfolder):
             newfolder = path.join(newfolder, '1')
@@ -86,6 +92,7 @@ def create_initial_folders(folder, restart_folder, sys_comp, tstep):
         if not restart_folder:
             makedirs(path.join(newfolder, "Voluviz"))
             makedirs(path.join(newfolder, "Stats"))
+            makedirs(path.join(newfolder, "VTK"))
             makedirs(path.join(newfolder, "Timeseries"))
             makedirs(path.join(newfolder, "Checkpoint"))
             
@@ -101,17 +108,11 @@ def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint,
     """Called at end of timestep. Check for kill and save solution if required."""
     NS_parameters.update(t=t, tstep=tstep)
     if tstep % save_step == 0: 
-        t0 = time()
-        save_tstep_solution(tstep, q_, newfolder, NS_parameters)
-        if MPI.process_number()==0:
-            info_red("Time save step    = {}".format(time()-t0))
-        t0 = time()
+        #save_tstep_solution(tstep, q_, newfolder, NS_parameters)
         save_tstep_solution_h5(tstep, q_, newfolder, tstepfiles, NS_parameters)
-        if MPI.process_number()==0:
-            info_red("Time save step h5 = {}".format(time()-t0))
     killoasis = check_if_kill(folder)
     if tstep % checkpoint == 0 or killoasis:
-        save_checkpoint_solution(tstep, q_, q_1, newfolder, NS_parameters)
+        #save_checkpoint_solution(tstep, q_, q_1, newfolder, NS_parameters)
         save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters)
     return killoasis
 
@@ -226,7 +227,7 @@ def check_if_reset_statistics(folder):
         return True
     else:
         return False
-        
+
 def body_force(mesh, **NS_namespace):
     """Specify body force"""
     return Constant((0,)*mesh.geometry().dim())
@@ -326,6 +327,7 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         sols = [u_sol, p_sol, du_sol]
         ## scalar solver ##
         if len(scalar_components) > 0:
+            #c_sol = KrylovSolver('bicgstab', 'hypre_euclid')
             c_sol = KrylovSolver('bicgstab', 'jacobi')
             c_sol.parameters.update(krylov_solvers)
             c_sol.parameters['preconditioner']['reuse'] = False
@@ -423,6 +425,9 @@ def solve_scalar(ci, scalar_components, Ta, Tb, b, x_, bb, bx, bcs, c_sol,
     else:
         [bc.apply(Ta, b[ci]) for bc in bcs[ci]]
         c_sol.solve(Ta, x_[ci], b[ci])    
+    #x_[ci][x_[ci] < 0] = 0.               # Bounded solution
+    x_[ci].set_local(maximum(0., x_[ci].array()))
+    x_[ci].apply("insert")
 
 def update_velocity_lumping(P, dp_, ML, dt, x_, v, **NS_namespace):
     for i, ui in enumerate(P):
@@ -466,3 +471,4 @@ def pre_solve_hook(**NS_namespace):
 def theend(**NS_namespace):
     """Called at the very end."""
     pass
+

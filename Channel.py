@@ -17,7 +17,9 @@ import random
 # timesteps can one achieve a clean restart.
 
 #restart_folder = 'channelscalar_results/data/1/Checkpoint'
-restart_folder = 'channel_results/data/69/Checkpoint'
+#restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
+#restart_folder = '/usit/abel/u1/mikaem/data/channel_results/data/1/Checkpoint'
+restart_folder = 'channel_results/data/1/Checkpoint'
 #restart_folder = None
 
 def create_stretched_mesh(Nx, Ny, Nz, Lx, Ly, Lz):
@@ -29,6 +31,7 @@ def create_stretched_mesh(Nx, Ny, Nz, Lx, Ly, Lz):
 
 ### If restarting from previous solution then read in parameters ########
 if not restart_folder is None:
+    #if False:
     restart_folder = path.join(getcwd(), restart_folder)
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
@@ -40,10 +43,11 @@ else:
     Lx = 2.*pi
     Ly = 2.
     Lz = pi
-    Nx = 20
-    Ny = 12
-    Nz = 12
+    Nx = 10
+    Ny = 10
+    Nz = 6    
     NS_parameters.update(dict(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz))
+    NS_parameters['restart_folder'] = restart_folder
 
     # Override some problem specific parameters
     T = 1.
@@ -51,20 +55,28 @@ else:
     nu = 2.e-5
     Re_tau = 395.
     NS_parameters.update(dict(
-        update_statistics = 10,
-        check_save_h5 = 10,
+        update_statistics = 1e8,
+        check_save_h5 = 1e8,
+        checkpoint = 10,
+        save_step = 10,
         nu = nu,
         Re_tau = Re_tau,
         T = T,
         dt = dt,
+        velocity_degree = 1,
+        check_flux = 10,
         folder = "channel_results",
         use_krylov_solvers = True,
-        use_lumping_of_mass_matrix = False
+        use_lumping_of_mass_matrix = True
       )
     )
+    NS_parameters['krylov_solvers']['monitor_convergence'] = True
 mesh = create_stretched_mesh(Nx, Ny, Nz, Lx, Ly, Lz)
 
 ##############################################################
+
+def near(x, y, tol=1e-12):
+    return (abs(x-y) < tol)
 
 class PeriodicDomain(SubDomain):
 
@@ -89,6 +101,9 @@ class PeriodicDomain(SubDomain):
             
 constrained_domain = PeriodicDomain()
 
+def inlet(x, on_bnd):
+    return on_bnd and near(x[0], 0)
+
 # Specify body force
 utau = nu * Re_tau
 def body_force(**NS_namespace):
@@ -100,7 +115,14 @@ def pre_solve_hook(Vv, V, **NS_namespace):
     tol = 1e-8
     voluviz = StructuredGrid(V, [Nx, Ny, Nz], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=False)
     stats = ChannelGrid(V, [Nx/5, Ny, Nz/5], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=True)
-    return dict(uv=uv, voluviz=voluviz, stats=stats)
+    
+    Inlet = AutoSubDomain(inlet)
+    facets = FacetFunction('size_t', mesh)
+    facets.set_all(0)
+    Inlet.mark(facets, 1)    
+    normal = FacetNormal(mesh)
+
+    return dict(uv=uv, voluviz=voluviz, stats=stats, facets=facets, normal=normal)
     
 def walls(x, on_bnd):
     return on_bnd and (near(x[1], -Ly/2.) or near(x[1], Ly/2.))
@@ -132,7 +154,7 @@ def initialize(V, Vv, q_, q_1, q_2, bcs, restart_folder, **NS_namespace):
         u1x = project(u0[1], V, bcs=bcs['u0'])
         u2x = project(u0[2], V, bcs=bcs['u0'])
         y = interpolate(Expression("x[1] > 0 ? 1-x[1] : 1+x[1]"), V)
-        uu = project(1.25*(utau/0.41*ln(conditional(y<1e-12, 1.e-12, y)*utau/nu)+5.*utau), V, bcs=bcs['u0'])
+        uu = project(1.01*(utau/0.41*ln(conditional(y<1e-12, 1.e-12, y)*utau/nu)+5.*utau), V, bcs=bcs['u0'])
         q_['u0'].vector()[:] = uu.vector()[:] 
         q_['u0'].vector().axpy(1.0, u0x.vector())
         q_['u1'].vector()[:] = u1x.vector()[:]
@@ -156,7 +178,8 @@ def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
             u_sol.parameters['absolute_tolerance'] = 1e-8
 
 def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats, update_statistics,
-                  check_save_h5, newfolder, **NS_namespace):
+                  check_save_h5, newfolder, check_flux,
+                  facets, normal, **NS_namespace):
     if tstep % update_statistics == 0:
         stats(q_['u0'], q_['u1'], q_['u2'])
         
@@ -182,7 +205,12 @@ def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats, update_statistics,
         voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_Q_{}.h5".format(tstep))
         voluviz.probes.clear()
         
-        uv.assign(project(u_, Vv))
-        plot(q_['p'])
-        plot(uv)
-    
+        #uv.assign(project(u_, Vv))
+        #plot(q_['p'])
+        #plot(uv)
+    if tstep % check_flux == 0:
+        u1 = assemble(dot(u_, normal)*ds(1), exterior_facet_domains=facets)
+        normv = norm(q_['u1'].vector())
+        normw = norm(q_['u2'].vector())
+        if MPI.process_number() == 0:
+            print "Flux = ", u1, " tstep = ", tstep, " norm = ", normv, normw
