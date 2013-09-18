@@ -16,7 +16,7 @@ x[:, :] = 0.5*(cos(pi*(x[:, :]-1.) / 2.) + 1.)
 #x[:, :] = ( arctan(pi*x[:, :])/arctan(pi) +1. ) / 2.
 #set_log_level(10)
 
-T = 0.25
+T = 2.5
 #dt = 0.25*T/ceil(T/0.2/mesh.hmin())
 dt = 0.001
 # Override some problem specific parameters

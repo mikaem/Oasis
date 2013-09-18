@@ -136,9 +136,9 @@ def save_tstep_solution(tstep, q_, newfolder, NS_parameters):
 def save_tstep_solution_h5(tstep, q_, newfolder, tstepfiles, NS_parameters):  
     """Store solution on current timestep to XDMF file."""
     timefolder = path.join(newfolder, 'Timeseries')
-    if MPI.process_number() == 0:
-        f = open(path.join(timefolder, 'params_{}.dat'.format(tstep)), 'w')
-        cPickle.dump(NS_parameters,  f)
+    #if MPI.process_number() == 0:
+    #    f = open(path.join(timefolder, 'params_{}.dat'.format(tstep)), 'w')
+    #    cPickle.dump(NS_parameters,  f)
 
     for ui in q_:
         tstepfiles[ui] << (q_[ui], float(tstep))

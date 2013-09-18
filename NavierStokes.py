@@ -140,13 +140,13 @@ Ta might differ from A due to Dirichlet boundary conditions.
 ### Should import a mesh and a dictionary called NS_parameters    ###
 ### See NSdefault_hooks for possible parameters                   ###
 
-#from DrivenCavity import *
+from DrivenCavity import *
 #from DrivenCavityScalar import *
 #from Channel import *
 #from ChannelScalar import *
 #from LaminarChannel import *
 #from Lshape import *
-from TaylorGreen2D import *
+#from TaylorGreen2D import *
 #from TaylorGreen3D import *
 
 assert(isinstance(NS_parameters, dict))
@@ -248,10 +248,10 @@ if low_memory_version:
     
 else:
     # Constant pressure gradient matrix
-    P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))    
+    P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
 
     # Constant velocity divergence matrix
-    if velocity_degree == pressure_degree and P:
+    if velocity_degree == pressure_degree:
         Rx = P
     else:
         Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
