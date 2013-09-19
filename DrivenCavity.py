@@ -18,7 +18,7 @@ def mesh(Nx, Ny, skewness, **params):
             x[:, :] = ( arctan(pi*x[:, :])/arctan(pi) +1. ) / 2.
     return m
 
-T = 0.001
+T = 0.25
 #dt = 0.25*T/ceil(T/0.2/mesh.hmin())
 dt = 0.001
 # Override some problem specific parameters
@@ -37,7 +37,7 @@ recursive_update(NS_parameters,
         max_iter = 1,
         use_lumping_of_mass_matrix = True,
         use_krylov_solvers = True,
-        krylov_solvers = dict(monitor_convergence=False,
+        krylov_solvers = dict(monitor_convergence=True,
                               relative_tolerance = 1e-7))
 )
 

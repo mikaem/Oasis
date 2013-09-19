@@ -7,9 +7,9 @@ from Oasis import *
 
 # Override some problem specific parameters
 NS_parameters.update(dict(
-    nu = 0.001,
-    T = 100,
-    dt = 0.1,
+    nu = 0.01,
+    T = 10,
+    dt = 0.01,
     Nx = 20,
     Ny = 20,
     folder = "taylorgreen2D_results",

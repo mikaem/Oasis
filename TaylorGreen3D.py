@@ -48,7 +48,7 @@ constrained_domain = PeriodicDomain()
 
 # Override some problem specific parameters
 NS_parameters.update(dict(
-    nu = 0.005,
+    nu = 0.01,
     T = 4.,
     dt = 0.01,
     Nx = 20,

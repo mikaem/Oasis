@@ -482,4 +482,3 @@ info_red('Total computing time = {0:f}'.format(tend - tin))
 ###### Final hook ######        
 theend(**vars())
 ########################
-
