@@ -5,8 +5,8 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from Oasis import *
 
-# Create a mesh here
-mesh = BoxMesh(-pi, -pi, -pi, pi, pi, pi, 32, 32, 32)
+def mesh(Nx, Ny, Nz, **params):
+    return BoxMesh(-pi, -pi, -pi, pi, pi, pi, Nx, Ny, Nz)
 
 class PeriodicDomain(SubDomain):
     
@@ -51,6 +51,9 @@ NS_parameters.update(dict(
     nu = 0.005,
     T = 4.,
     dt = 0.01,
+    Nx = 20,
+    Ny = 20, 
+    Nz = 20,
     folder = "taylorgreen3D_results",
     max_iter = 1,
     velocity_degree = 1,

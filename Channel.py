@@ -19,50 +19,44 @@ import random
 #restart_folder = 'channelscalar_results/data/1/Checkpoint'
 #restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
 #restart_folder = '/usit/abel/u1/mikaem/data/channel_results/data/1/Checkpoint'
-restart_folder = 'channel_results/data/70/Checkpoint'
+restart_folder = 'channel_results/data/5/Checkpoint'
 #restart_folder = None
 
-def create_stretched_mesh(Nx, Ny, Nz, Lx, Ly, Lz):
+Lx = 2.*pi
+Ly = 2.
+Lz = pi
+def mesh(Nx, Ny, Nz, **params):
     # Function for creating stretched mesh in y-direction
-    mesh = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
-    x = mesh.coordinates() 
+    m = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
+    x = m.coordinates() 
     x[:, 1] = cos(pi*(x[:, 1]-1.) / 2.)  
-    return mesh
+    return m
 
 ### If restarting from previous solution then read in parameters ########
 if not restart_folder is None:
-    #if False:
     restart_folder = path.join(getcwd(), restart_folder)
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
     NS_parameters['restart_folder'] = restart_folder
-    NS_parameters['T'] = 4.0 # Set new end time otherwise it just stops
+    NS_parameters['T'] = 2.0 # Set new end time otherwise it just stops
     globals().update(NS_parameters)
     
 else:
-    Lx = 2.*pi
-    Ly = 2.
-    Lz = pi
-    Nx = 10
-    Ny = 10
-    Nz = 6    
-    NS_parameters.update(dict(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz))
-    NS_parameters['restart_folder'] = restart_folder
-
     # Override some problem specific parameters
-    T = 1.
-    dt = 0.05
     nu = 2.e-5
     Re_tau = 395.
     NS_parameters.update(dict(
-        update_statistics = 1e8,
-        check_save_h5 = 1e8,
+        update_statistics = 10,
+        check_save_h5 = 10,
         checkpoint = 10,
         save_step = 10,
+        Nx = 20,
+        Ny = 20,
+        Nz = 20,
         nu = nu,
         Re_tau = Re_tau,
-        T = T,
-        dt = dt,
+        T = 1.0,
+        dt = 0.05,
         velocity_degree = 1,
         check_flux = 10,
         folder = "channel_results",
@@ -71,7 +65,6 @@ else:
       )
     )
     NS_parameters['krylov_solvers']['monitor_convergence'] = True
-mesh = create_stretched_mesh(Nx, Ny, Nz, Lx, Ly, Lz)
 
 ##############################################################
 
@@ -109,12 +102,12 @@ utau = nu * Re_tau
 def body_force(**NS_namespace):
     return Constant((utau**2, 0., 0.))
 
-def pre_solve_hook(Vv, V, **NS_namespace):    
+def pre_solve_hook(Vv, V, Nx, Ny, Nz, mesh, **NS_namespace):    
     """Called prior to time loop"""
     uv = Function(Vv) 
     tol = 1e-8
-    voluviz = StructuredGrid(V, [Nx, Ny, Nz], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=False)
-    stats = ChannelGrid(V, [Nx/5, Ny, Nz/5], [tol, -Ly/2.+tol, -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-2*tol, Ly-2*tol, Lz-2*tol], statistics=True)
+    voluviz = StructuredGrid(V, [Nx, Ny+1, Nz], [tol, -Ly/2., -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-Lx/Nx, Ly, Lz-Lz/Nz], statistics=False)
+    stats = ChannelGrid(V, [Nx/5, Ny+1, Nz/5], [tol, -Ly/2., -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-Lx/Nx*5, Ly, Lz-Lz/Nz*5], statistics=True)
     
     Inlet = AutoSubDomain(inlet)
     facets = FacetFunction('size_t', mesh)

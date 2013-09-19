@@ -136,26 +136,42 @@ and we solve:
 Ta might differ from A due to Dirichlet boundary conditions.
     
 """
+import sys, json
+
 ################### Problem dependent parameters ####################
 ### Should import a mesh and a dictionary called NS_parameters    ###
 ### See NSdefault_hooks for possible parameters                   ###
 
-from DrivenCavity import *
-#from DrivenCavityScalar import *
-#from Channel import *
-#from ChannelScalar import *
-#from LaminarChannel import *
-#from Lshape import *
-#from TaylorGreen2D import *
-#from TaylorGreen3D import *
+default_problem = 'DrivenCavity'
+
+# Parse command-line keyword arguments
+commandline_kwargs = {}
+for s in sys.argv[1:]:
+    if s.count('=') == 1:
+        key, value = s.split('=', 1)
+    else:
+        raise TypeError(s+" Only kwargs separated with '=' sign allowed. See NSdefault_hooks for a range of parameters. Your problem file should contain problem specific parameters.")
+    try:
+        value = json.loads(value) 
+    except ValueError:
+        pass
+    commandline_kwargs[key] = value
+
+# Import mesh and NS_parameters    
+exec("from {} import *".format(commandline_kwargs.get('problem', default_problem)))
 
 assert(isinstance(NS_parameters, dict))
-assert(isinstance(mesh, Mesh))
+NS_parameters.update(commandline_kwargs)
+
+# If the mesh is a callable function, then create the mesh here.
+if callable(mesh):
+    mesh = mesh(**NS_parameters)
+
+assert(isinstance(mesh, Mesh))    
 #####################################################################
+
 if NS_parameters['velocity_degree'] > 1:
     NS_parameters['use_lumping_of_mass_matrix'] = False
-
-#parameters["form_compiler"].add("no_ferari", True)
 
 # Put NS_parameters in global namespace
 vars().update(NS_parameters)  

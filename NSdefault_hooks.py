@@ -14,6 +14,7 @@ parameters["linear_algebra_backend"] = "PETSc"
 parameters["form_compiler"]["optimize"] = False
 parameters["form_compiler"]["cpp_optimize"] = True
 parameters['mesh_partitioner'] = "ParMETIS"
+parameters["form_compiler"].add("no_ferari", True)
 
 # Default parameters
 NS_parameters = dict(

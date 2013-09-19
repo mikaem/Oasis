@@ -7,16 +7,18 @@ from Oasis import *
 from numpy import ceil, cos, pi, arctan
 
 # Create a mesh
-Nx = 41
-Ny = 41
-mesh = UnitSquareMesh(Nx, Ny)
-x = mesh.coordinates()
-x[:, :] = (x[:, :] - 0.5)*2
-x[:, :] = 0.5*(cos(pi*(x[:, :]-1.) / 2.) + 1.)
-#x[:, :] = ( arctan(pi*x[:, :])/arctan(pi) +1. ) / 2.
-#set_log_level(10)
+def mesh(Nx, Ny, skewness, **params):
+    m = UnitSquareMesh(Nx, Ny)
+    if skewness:
+        x = m.coordinates()
+        x[:, :] = (x[:, :] - 0.5) * 2
+        if skewness == 'cos':
+            x[:, :] = 0.5*(cos(pi*(x[:, :]-1.) / 2.) + 1.)
+        elif skewness == 'atan':
+            x[:, :] = ( arctan(pi*x[:, :])/arctan(pi) +1. ) / 2.
+    return m
 
-T = 2.5
+T = 0.001
 #dt = 0.25*T/ceil(T/0.2/mesh.hmin())
 dt = 0.001
 # Override some problem specific parameters
@@ -24,6 +26,9 @@ recursive_update(NS_parameters,
    dict(nu = 0.001,
         T = T,
         dt = dt,
+        Nx = 41,
+        Ny = 41,
+        skewness = 'cos',
         folder = "drivencavity_results",
         plot_interval = 100,
         save_step = 10,
