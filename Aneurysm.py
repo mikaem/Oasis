@@ -10,8 +10,8 @@ from numpy import zeros, floor
 # Override some problem specific parameters
 recursive_update(NS_parameters, 
     dict(nu = 0.00345,
-         T = 10,
-         dt = 0.05,
+         T = 1002.,
+         dt = 1.0,
          folder = "aneurysm_results",
          max_iter = 1,
          plot_interval = 10,
@@ -28,7 +28,12 @@ mesh = Mesh("/home/mikael/Fenics/master/dolfin/demo/undocumented/bcs/aneurysm.xm
 n = FacetNormal(mesh)
 facet_domains = MeshFunction("size_t", mesh, 2, mesh.domains())
 ds = ds[facet_domains]
-    
+
+# 0 = Walls
+# 1 = Inlet (fix velocity)
+# 2, 3 = Outlets (fix pressure)
+
+# These inlet velocities were found in an old file    
 MCAtime = array([    0.,    27.,    42.,    58.,    69.,    88.,   110.,   130.,                                                                    
         136.,   168.,   201.,   254.,   274.,   290.,   312.,   325.,                                                                                      
         347.,   365.,   402.,   425.,   440.,   491.,   546.,   618.,                                                                                      
