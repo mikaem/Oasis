@@ -143,13 +143,13 @@ Ta might differ from A due to Dirichlet boundary conditions.
 #from DrivenCavity import *
 #from DrivenCavityScalar import *
 #from Channel180_atan import *
-from CSF_Bryn_NN import *
+#from CSF_Bryn_NN import *
 #from Channel import *
 #from ChannelScalar import *
 #from LaminarChannel import *
 #from Lshape import *
 #from TaylorGreen2D import *
-#from TaylorGreen3D import *
+from TaylorGreen3D import *
 
 assert(isinstance(NS_parameters, dict))
 assert(isinstance(mesh, Mesh))
@@ -397,14 +397,13 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         #######################
         [bc.apply(b['p']) for bc in bcs['p']]        
         solve_pressure(**vars())
+        p_sol.t += (time.time()-t0)
                 
         if num_iter > 1:
             if inner_iter == 1: 
                 info_blue('  Inner iterations velocity pressure:')
                 info_blue('                 error u  error p')
             info_blue('    Iter = {0:4d}, {1:2.2e} {2:2.2e}'.format(inner_iter, err, norm(dp_.vector())))
-
-        p_sol.t += (time.time()-t0)
 
     ### Update velocity if noniterative scheme is used ###
     if inner_iter == 1:
@@ -459,6 +458,8 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(tstep - old_tstep, tottime))
         list_timings(True)
         t1 = time.time(); old_tstep = tstep
+        info_blue("psol {} usol {}".format(p_sol.t, u_sol.t))
+        p_sol.t = 0; u_sol.t = 0
     
     # AB projection for pressure on next timestep
     if AB_projection_pressure:
@@ -472,7 +473,7 @@ info_red('Total computing time = {0:f}'.format(tend - tin))
 #mymem = eval(final_memory_use)-eval(initial_memory_use)
 #print 'Additional memory use of processor = {0}'.format(mymem)
 #info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
-        
+
 ###### Final hook ######        
 theend(**vars())
 ########################

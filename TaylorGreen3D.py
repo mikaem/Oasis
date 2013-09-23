@@ -6,7 +6,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from Oasis import *
 
 # Create a mesh here
-mesh = BoxMesh(-pi, -pi, -pi, pi, pi, pi, 32, 32, 32)
+mesh = BoxMesh(-pi, -pi, -pi, pi, pi, pi, 63, 63, 63)
 
 class PeriodicDomain(SubDomain):
     
@@ -47,16 +47,19 @@ class PeriodicDomain(SubDomain):
 constrained_domain = PeriodicDomain()
 
 # Override some problem specific parameters
-NS_parameters.update(dict(
-    nu = 0.005,
-    T = 4.,
+recursive_update(NS_parameters, dict(
+    nu = 0.01,
+    T = 0.2,
     dt = 0.01,
     folder = "taylorgreen3D_results",
     max_iter = 1,
     velocity_degree = 1,
-    plot_interval = 10,
+    save_step = 10000,
+    checkpoint = 10000, 
+    plot_interval = 100000,
     use_krylov_solvers = True,
     use_lumping_of_mass_matrix = True,
+    krylov_solvers = dict(monitor_convergence=True)
   )
 )
 
@@ -79,3 +82,4 @@ def temporal_hook(q_, tstep, plot_interval, **NS_namespace):
         plot(q_['p'], title='pressure')
         plot(q_['u0'], title='velocity-x')
         plot(q_['u1'], title='velocity-y')
+

@@ -298,7 +298,19 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             du_sol.parameters['preconditioner']['reuse'] = True
             du_sol.t = 0            
         ## pressure solver ##
-        p_sol = KrylovSolver('gmres', 'hypre_amg')
+        #p_prec = PETScPreconditioner('petsc_amg')
+        #p_prec.parameters['report'] = True
+        #p_prec.parameters['same_nonzero_pattern'] = True
+        #p_prec.parameters['gamg']['num_aggregation_smooths'] = 2
+        #p_prec = PETScPreconditioner('ml_amg')
+        p_prec = PETScPreconditioner('hypre_amg')
+        p_prec.parameters["hypre"]["BoomerAMG"]["agressive_coarsening_levels"] = 0
+        p_prec.parameters['report'] = True
+        #p_prec.parameters['same_nonzero_pattern'] = True
+        p_sol = PETScKrylovSolver('minres', p_prec)
+        p_sol.p_prec = p_prec
+        #p_sol = KrylovSolver('minres', 'petsc_amg')
+
         p_sol.parameters['preconditioner']['reuse'] = True
         p_sol.parameters.update(krylov_solvers)
         p_sol.t = 0
