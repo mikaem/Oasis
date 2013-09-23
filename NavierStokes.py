@@ -324,6 +324,7 @@ tin = time.time()
 tend = tin
 stop = False
 t1 = time.time(); old_tstep = tstep
+t_as = 0; du_t = 0
 
 #### Do something problem specific ####
 vars().update(pre_solve_hook(**vars()))
@@ -341,6 +342,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         inner_iter += 1
         ### Assemble matrices and compute rhs vector for tentative velocity ###
         if inner_iter == 1:
+            t0 = time.time()
             # Only on the first iteration because nothing here is changing in time
             # Set up coefficient matrix for computing the rhs:
             A = assemble(a_conv, tensor=A, reset_sparsity=False) 
@@ -366,6 +368,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             A._scale(-1.)
             A.axpy(2./dt, M, True)
             [bc.apply(A) for bc in bcs['u0']]
+            t_as += time.time()-t0
                    
         t0 = time.time()
         err = 0
@@ -408,12 +411,12 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
 
     ### Update velocity if noniterative scheme is used ###
     if inner_iter == 1:
+        t0 = time.time()
         if use_lumping_of_mass_matrix:
             update_velocity_lumping(**vars())
             [bc.apply(x_[ui]) for bc in bcs[ui]]
             
         else: # Use regular mass matrix
-            t0 = time.time()
             for ui in u_components:
                 #b[ui][:] = Mu*x_[ui][:]                        
                 b[ui]._scale(0.)
@@ -425,7 +428,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
                 [bc.apply(b[ui]) for bc in bcs[ui]]
                 info_blue('Updating velocity '+ui, print_solve_info)
                 du_sol.solve(Mu, x_[ui], b[ui])
-            du_sol.t += (time.time()-t0)
+        du_t += (time.time()-t0)
         
     # Solve for scalars
     if len(scalar_components) > 0:
@@ -479,8 +482,8 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(tstep - old_tstep, tottime))
         list_timings(True)
         t1 = time.time(); old_tstep = tstep
-        info_blue("psol {} usol {}".format(p_sol.t, u_sol.t))
-        p_sol.t = 0; u_sol.t = 0
+        info_blue("psol {} usol {} dusol {} assemble {}".format(p_sol.t, u_sol.t, du_t, t_as))
+        p_sol.t = 0; u_sol.t = 0; du_t = 0; t_as=0
     
     # AB projection for pressure on next timestep
     if AB_projection_pressure:
