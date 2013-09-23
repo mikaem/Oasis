@@ -357,8 +357,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             
             # Compute rhs for all velocity components
             for ui in u_components:
-                #b[ui][:] = b0[ui][:]         # start with body force
-                b[ui]._scale(0.)
+                b[ui]._scale(0.)             # start with body force
                 b[ui].axpy(1., b0[ui])
                 b[ui].axpy(1., A*x_1[ui])    # Add transient, convection and diffusion
                 
@@ -371,7 +370,6 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         err = 0
         for i, ui in enumerate(u_components):
             info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
-            #b_tmp[ui][:] = b[ui][:] 
             b_tmp[ui]._scale(0.)
             b_tmp[ui].axpy(1., b[ui])
             add_pressure_gradient_rhs(**vars())
@@ -379,11 +377,9 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             velocity_tentative_hook(**vars())
             #################################
             [bc.apply(b[ui]) for bc in bcs[ui]]
-            #x_2[ui][:] = x_[ui][:]               # x_2 only used on inner_iter 1, so use here as work vector
-            x_2[ui]._scale(0.)
+            x_2[ui]._scale(0.)                 # x_2 only used on inner_iter 1, so use here as work vector
             x_2[ui].axpy(1., x_[ui])
             u_sol.solve(A, x_[ui], b[ui])
-            #b[ui][:] = b_tmp[ui][:]
             b[ui]._scale(0.)
             b[ui].axpy(1., b_tmp[ui])
             err += norm(x_2[ui] - x_[ui])
@@ -416,7 +412,6 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         else: # Use regular mass matrix
             t0 = time.time()
             for ui in u_components:
-                #b[ui][:] = Mu*x_[ui][:]                        
                 b[ui]._scale(0.)
                 b[ui].axpy(1.0, Mu*x_[ui])
                 add_pressure_gradient_rhs_update(**vars())
@@ -438,8 +433,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         # Compute rhs for all scalars
         for ci in scalar_components:
             Ta.axpy(-0.5*nu/Schmidt[ci], K, True) # Add diffusion
-            #b[ci][:] = Ta*x_1[ci]                 # Compute rhs
-            b[ci]._scale(0.)
+            b[ci]._scale(0.)                      # Compute rhs
             b[ci].axpy(1., Ta*x_1[ci])
             Ta.axpy(0.5*nu/Schmidt[ci], K, True)  # Subtract diffusion
         # Reset matrix for lhs - Note scalar matrix does not contain diffusion
@@ -464,13 +458,10 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
 
     # Update to a new timestep
     for ui in u_components:
-        #x_2[ui][:] = x_1[ui][:]
-        #x_1[ui][:] = x_ [ui][:]
         x_2[ui]._scale(0.); x_2[ui].axpy(1.0, x_1[ui])
         x_1[ui]._scale(0.); x_1[ui].axpy(1.0, x_ [ui])
         
     for ci in scalar_components:
-        #x_1[ci][:] = x_[ci][:]
         x_1[ci]._scale(0.); x_1[ci].axpy(1., x_[ci])
 
     # Print some information
