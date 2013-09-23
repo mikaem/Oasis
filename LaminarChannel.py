@@ -9,11 +9,12 @@ from numpy import pi, arctan, array
 # Create a mesh here
 L = 10.
 H = 1.
-mesh = RectangleMesh(0., -H, L, H, 40, 40)
-# Squeeze towards walls
-x = mesh.coordinates()        
-x[:, 1] = arctan(1.*pi*(x[:, 1]))/arctan(1.*pi) 
-del x
+def mesh(Nx, Ny, **params):
+    m = RectangleMesh(0., -H, L, H, Nx, Ny)
+    # Squeeze towards walls
+    x = m.coordinates()        
+    x[:, 1] = arctan(1.*pi*(x[:, 1]))/arctan(1.*pi) 
+    return m
 
 class PeriodicDomain(SubDomain):
 
@@ -34,6 +35,8 @@ NS_parameters.update(dict(
     T = 10,
     dt = 0.01,
     Re = Re,
+    Nx = 40,
+    Ny = 40,
     folder = "laminarchannel_results",
     max_iter = 1,
     velocity_degree = 1,

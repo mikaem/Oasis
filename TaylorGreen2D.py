@@ -5,30 +5,32 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from Oasis import *
 
-# Create a mesh here
-mesh = RectangleMesh(0, 0, 2, 2, 20, 20)
-
 # Override some problem specific parameters
 NS_parameters.update(dict(
     nu = 0.01,
-    T = 1,
-    dt = 0.025,
+    T = 0.1,
+    dt = 0.01,
+    Nx = 20,
+    Ny = 20,
     folder = "taylorgreen2D_results",
-    max_iter = 5,
+    max_iter = 1,
     iters_on_first_timestep = 2,
     convection = "Standard",
-    plot_interval = 100,
+    plot_interval = 10,
     save_step = 100,
     checkpoint = 100,
-    use_krylov_solvers = False,
+    use_krylov_solvers = True,
     low_memory_version = True,
     use_lumping_of_mass_matrix = True,
     velocity_degree = 1,
     pressure_degree = 1,
-    monitor_convergence = False,
-    krylov_report = False    
+    krylov_report = True
   )
 )
+NS_parameters['krylov_solvers'] = {'monitor_convergence': True}
+
+def mesh(Nx, Ny, **params):
+    return RectangleMesh(0, 0, 2, 2, Nx, Ny)
 
 class PeriodicDomain(SubDomain):
     

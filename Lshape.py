@@ -10,13 +10,13 @@ class Submesh(SubDomain):
     def inside(self, x, on_boundary):
         return x[0] > 0.25 - DOLFIN_EPS and x[1] > 0.25 - DOLFIN_EPS
 
-mesh_ = UnitSquareMesh(40, 40)
-subm = Submesh()
-mf1 = MeshFunction("size_t", mesh_, 2)
-mf1.set_all(0)
-subm.mark(mf1, 1)
-mesh = SubMesh(mesh_, mf1, 0)
-del mesh_, mf1, subm
+def mesh(Nx, Ny, **params):
+    mesh_ = UnitSquareMesh(Nx, Ny)
+    subm = Submesh()
+    mf1 = MeshFunction("size_t", mesh_, 2)
+    mf1.set_all(0)
+    subm.mark(mf1, 1)
+    return SubMesh(mesh_, mf1, 0)
 
 # Override some problem specific parameters
 Re = 200.
@@ -24,12 +24,14 @@ nu = 1./Re
 NS_parameters.update(dict(
     nu = nu,
     T = 10,
-    dt = 0.1,
+    dt = 0.01,
     Re = Re,
+    Nx = 40,
+    Ny = 40,
     folder = "Lshape_results",
     max_iter = 1,
     plot_interval = 1,
-    velocity_degree = 1,
+    velocity_degree = 2,
     use_lumping_of_mass_matrix = True,
     use_krylov_solvers = True
   )

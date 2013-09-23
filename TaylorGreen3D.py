@@ -5,8 +5,8 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from Oasis import *
 
-# Create a mesh here
-mesh = BoxMesh(-pi, -pi, -pi, pi, pi, pi, 63, 63, 63)
+def mesh(Nx, Ny, Nz, **params):
+    return BoxMesh(-pi, -pi, -pi, pi, pi, pi, Nx, Ny, Nz)
 
 class PeriodicDomain(SubDomain):
     
@@ -51,6 +51,9 @@ recursive_update(NS_parameters, dict(
     nu = 0.01,
     T = 0.2,
     dt = 0.01,
+    Nx = 20,
+    Ny = 20, 
+    Nz = 20,
     folder = "taylorgreen3D_results",
     max_iter = 1,
     velocity_degree = 1,
@@ -82,4 +85,5 @@ def temporal_hook(q_, tstep, plot_interval, **NS_namespace):
         plot(q_['p'], title='pressure')
         plot(q_['u0'], title='velocity-x')
         plot(q_['u1'], title='velocity-y')
+
 
