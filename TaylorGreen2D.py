@@ -8,7 +8,7 @@ from Oasis import *
 # Override some problem specific parameters
 NS_parameters.update(dict(
     nu = 0.01,
-    T = 10,
+    T = 0.1,
     dt = 0.01,
     Nx = 20,
     Ny = 20,
@@ -19,14 +19,15 @@ NS_parameters.update(dict(
     plot_interval = 10,
     save_step = 100,
     checkpoint = 100,
-    use_krylov_solvers = False,
+    use_krylov_solvers = True,
     low_memory_version = True,
     use_lumping_of_mass_matrix = True,
     velocity_degree = 1,
     pressure_degree = 1,
-    krylov_report = False    
+    krylov_report = True
   )
 )
+NS_parameters['krylov_solvers'] = {'monitor_convergence': True}
 
 def mesh(Nx, Ny, **params):
     return RectangleMesh(0, 0, 2, 2, Nx, Ny)
