@@ -21,7 +21,7 @@ NS_parameters.update(dict(
     checkpoint = 100,
     use_krylov_solvers = True,
     low_memory_version = True,
-    use_lumping_of_mass_matrix = True,
+    use_lumping_of_mass_matrix = False,
     velocity_degree = 1,
     pressure_degree = 1,
     krylov_report = True

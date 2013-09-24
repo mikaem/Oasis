@@ -19,7 +19,7 @@ import random
 #restart_folder = 'channelscalar_results/data/1/Checkpoint'
 #restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
 #restart_folder = '/usit/abel/u1/mikaem/data/channel_results/data/1/Checkpoint'
-restart_folder = 'channel_results/data/5/Checkpoint'
+restart_folder = 'channel_results/data/6/Checkpoint'
 #restart_folder = None
 
 Lx = 2.*pi

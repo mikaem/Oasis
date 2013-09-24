@@ -4,7 +4,7 @@ Optimized And StrIpped Solvers
 from NSdefault_hooks import *
 
 from commands import getoutput
-import time, copy
+import copy
 
 def getMyMemoryUsage():
     mypid = getpid()

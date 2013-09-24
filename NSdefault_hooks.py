@@ -276,10 +276,12 @@ def init_from_restart(restart_folder, sys_comp, uc_comp, u_components,
                     hdf5_file.read(q_1[ui].vector(), "/previous")
                     q_1[ui].vector().apply('insert')
                 except:
-                    q_1[ui].vector()[:] = q_[ui].vector()[:]
+                    q_1[ui].vector().zero()
+                    q_1[ui].vector().axpy(1., q_[ui].vector())
                     q_1[ui].vector().apply('insert')
             if ui in u_components:
-                q_2[ui].vector()[:] = q_1[ui].vector()[:]
+                q_2[ui].vector().zero()
+                q_2[ui].vector().axpy(1., q_1[ui].vector())
                 q_2[ui].vector().apply('insert')            
 
 def create_bcs(sys_comp, **NS_namespace):
