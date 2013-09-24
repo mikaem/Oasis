@@ -316,16 +316,16 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             du_sol.t = 0            
         ## pressure solver ##
         #p_prec = PETScPreconditioner('petsc_amg')
-        ##p_prec.parameters['gamg']['num_aggregation_smooths'] = 2
-        ##p_prec = PETScPreconditioner('ml_amg')
-        ##p_prec = PETScPreconditioner('hypre_amg')
-        ##p_prec.parameters["hypre"]["BoomerAMG"]["agressive_coarsening_levels"] = 0
         #p_prec.parameters['report'] = True
         #p_prec.parameters['same_nonzero_pattern'] = True
-        #p_prec.parameters['reuse'] = True
-        #p_sol = PETScKrylovSolver('minres', p_prec)
+        #p_prec.parameters['gamg']['verbose'] = 20
+        #p_prec.parameters['gamg']['num_aggregation_smooths'] = 2
+        #p_sol = PETScKrylovSolver('gmres', p_prec)
         #p_sol.p_prec = p_prec
-        p_sol = KrylovSolver('minres', 'petsc_amg')
+        if bcs['p'] == []:
+            p_sol = KrylovSolver('minres', 'petsc_amg')
+        else:
+            p_sol = KrylovSolver('gmres', 'petsc_amg')
         p_sol.parameters['preconditioner']['reuse'] = True
         p_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
         p_sol.parameters.update(krylov_solvers)
@@ -396,7 +396,7 @@ def add_pressure_gradient_rhs_update(b, dt, P, dp_, v, i, ui, **NS_namespace):
         
 def assemble_pressure_rhs(b, Rx, x_, dt, q, u_, Ap, **NS_namespace):
     """Assemble rhs of pressure equation."""
-    b['p']._scale(0.)
+    b['p'].zero()
     if Rx:
         for ui in Rx:
             b['p'].axpy(-1./dt, Rx[ui]*x_[ui])
@@ -406,8 +406,7 @@ def assemble_pressure_rhs(b, Rx, x_, dt, q, u_, Ap, **NS_namespace):
     
 def solve_pressure(dp_, x_, Ap, b, p_sol, **NS_namespace):
     """Solve pressure equation."""
-    #dp_.vector()[:] = x_['p'][:]
-    dp_.vector()._scale(0.)
+    dp_.vector().zero()
     dp_.vector().axpy(1., x_['p'])
     # KrylovSolvers use nullspace for normalization of pressure
     if hasattr(p_sol, 'null_space'):
@@ -427,16 +426,13 @@ def solve_scalar(ci, scalar_components, Ta, Tb, b, x_, bb, bx, bcs, c_sol,
                   **NS_namespace):
     if len(scalar_components) > 1: 
         # Reuse solver for all scalars. This requires the same matrix and vectors to be used by c_sol.
-        Tb._scale(0.)
+        Tb.zero()
         Tb.axpy(1., Ta, True)
-        #bb[:] = b[ci][:]
-        #bx[:] = x_[ci][:]
         bb.scale(0.); bb.axpy(1., b[ci])
         bx.scale(0.); bx.axpy(1., x_[ci])
         [bc.apply(Tb, bb) for bc in bcs[ci]]
         c_sol.solve(Tb, bx, bb)
-        #x_[ci][:] = bx[:]
-        x_[ci]._scale(0.); x_[ci].axpy(1., bx)
+        x_[ci].zero(); x_[ci].axpy(1., bx)
     else:
         [bc.apply(Ta, b[ci]) for bc in bcs[ci]]
         c_sol.solve(Ta, x_[ci], b[ci])    
