@@ -13,7 +13,8 @@ from numpy import array, maximum
 parameters["linear_algebra_backend"] = "PETSc"
 parameters["form_compiler"]["optimize"] = False
 parameters["form_compiler"]["cpp_optimize"] = True
-parameters['mesh_partitioner'] = "ParMETIS"
+parameters["mesh_partitioner"] = "ParMETIS"
+#parameters["graph_coloring_library"] = "Zoltan"
 parameters["form_compiler"].add("no_ferari", True)
 
 # Default parameters
@@ -233,7 +234,7 @@ def scalar_source(scalar_components, **NS_namespace):
     fs = dict((ci, Constant(0)) for ci in scalar_components)
     return fs
     
-def convection_form(conv, u, v, U_AB, **NS_namespace):
+def convection_form(conv, u, v, U_AB, q_1, q_2, u_1, u_2, uc_comp, **NS_namespace):
     if conv == 'Standard':
         return inner(v, dot(U_AB, nabla_grad(u)))
         
@@ -247,6 +248,10 @@ def convection_form(conv, u, v, U_AB, **NS_namespace):
     elif conv == 'Skew':
         return 0.5*(inner(v, dot(U_AB, nabla_grad(u))) + inner(v, nabla_div(outer(U_AB, u))))
 
+    elif conv == 'Adams-Bashforth':
+        return dict((ui, 1.5*inner(v, dot(grad(q_1[ui]), u_1)) - 0.5*inner(v, dot(grad(q_2[ui]), u_2)))
+                    for ui in uc_comp)
+    
     else:
         raise TypeError("Wrong convection form {}".format(conv))
 
@@ -430,8 +435,8 @@ def solve_scalar(ci, scalar_components, Ta, Tb, b, x_, bb, bx, bcs, c_sol,
         # Reuse solver for all scalars. This requires the same matrix and vectors to be used by c_sol.
         Tb.zero()
         Tb.axpy(1., Ta, True)
-        bb.scale(0.); bb.axpy(1., b[ci])
-        bx.scale(0.); bx.axpy(1., x_[ci])
+        bb.zero(); bb.axpy(1., b[ci])
+        bx.zero(); bx.axpy(1., x_[ci])
         [bc.apply(Tb, bb) for bc in bcs[ci]]
         c_sol.solve(Tb, bx, bb)
         x_[ci].zero(); x_[ci].axpy(1., bx)

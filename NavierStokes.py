@@ -325,7 +325,7 @@ vars().update(pre_solve_hook(**vars()))
 #######################################
 tic()
 stop = False
-complete_timer = Timer("Complete time integration")
+total_timer = Timer("Full time integration")
 while t < (T - tstep*DOLFIN_EPS) and not stop:
     complete_timestep = Timer("Complete timestep")
     t += dt
@@ -434,7 +434,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         # Compute rhs for all scalars
         for ci in scalar_components:
             Ta.axpy(-0.5*nu/Schmidt[ci], K, True) # Add diffusion
-            b[ci].zero()                      # Compute rhs
+            b[ci].zero()                          # Compute rhs
             b[ci].axpy(1., Ta*x_1[ci])
             Ta.axpy(0.5*nu/Schmidt[ci], K, True)  # Subtract diffusion
         # Reset matrix for lhs - Note scalar matrix does not contain diffusion
@@ -478,13 +478,13 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     if AB_projection_pressure:
         x_['p'].axpy(0.5, dp_.vector())
 
-complete_timer.stop()
+total_timer.stop()
 list_timings()
-info_red('Total computing time = {0:f}'.format(complete_timer.value()))
-#final_memory_use = dolfin_memory_usage('at end')
-#mymem = eval(final_memory_use)-eval(initial_memory_use)
-#print 'Additional memory use of processor = {0}'.format(mymem)
-#info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
+info_red('Total computing time = {0:f}'.format(total_timer.value()))
+final_memory_use = dolfin_memory_usage('at end')
+mymem = eval(final_memory_use)-eval(initial_memory_use)
+print 'Additional memory use of processor = {0}'.format(mymem)
+info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
 
 ###### Final hook ######        
 theend(**vars())

@@ -6,20 +6,6 @@ from NSdefault_hooks import *
 from commands import getoutput
 import copy
 
-def getMyMemoryUsage():
-    mypid = getpid()
-    mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
-    return mymemory
-
-def dolfin_memory_usage(s):
-    # Check how much memory is actually used by dolfin before we allocate anything
-    dolfin_memory_use = getMyMemoryUsage()
-    info_red('Memory use {} = '.format(s) + dolfin_memory_use)
-    return dolfin_memory_use
-
-# Print memory use up til now
-initial_memory_use = dolfin_memory_usage('plain dolfin')
-
 # Convenience functions
 def strain(u):
     return 0.5*(grad(u)+ grad(u).T)
@@ -62,3 +48,17 @@ def info_green(s, check=True):
 def info_red(s, check=True):
     if MPI.process_number()==0 and check:
         print RED % s
+
+def getMyMemoryUsage():
+    mypid = getpid()
+    mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
+    return mymemory
+
+def dolfin_memory_usage(s):
+    # Check how much memory is actually used by dolfin before we allocate anything
+    dolfin_memory_use = getMyMemoryUsage()
+    info_red('Memory use {} = '.format(s) + dolfin_memory_use)
+    return dolfin_memory_use
+
+# Print memory use up til now
+initial_memory_use = dolfin_memory_usage('plain dolfin')

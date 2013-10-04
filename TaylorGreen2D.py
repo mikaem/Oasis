@@ -24,10 +24,11 @@ NS_parameters.update(dict(
     use_lumping_of_mass_matrix = False,
     velocity_degree = 1,
     pressure_degree = 1,
-    krylov_report = True
+    krylov_report = False
   )
 )
-NS_parameters['krylov_solvers'] = {'monitor_convergence': True}
+NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
+                                   'report': False}
 
 def mesh(Nx, Ny, **params):
     return RectangleMesh(0, 0, 2, 2, Nx, Ny)
