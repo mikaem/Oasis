@@ -1,12 +1,16 @@
 __author__ = "Mikael Mortensen <mikaem@math.uio.no>"
-__date__ = "2011-12-19"
-__copyright__ = "Copyright (C) 2011 " + __author__
+__date__ = "2013-10-04"
+__copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 """
 This is a highly tuned and stripped down Navier-Stokes solver optimized
 for both speed and memory. The algorithm used is a second order in time 
 fractional step method (incremental pressure correction).
+
+### FIXME
+
+### This documentation is not correct for explicit solver
 
 Crank-Nicolson discretization is used in time for the Laplacian and 
 the convected velocity. The convecting velocity is computed with an 
