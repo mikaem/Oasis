@@ -11,7 +11,7 @@ from numpy import array, maximum
 
 #parameters["linear_algebra_backend"] = "Epetra"
 parameters["linear_algebra_backend"] = "PETSc"
-parameters["form_compiler"]["optimize"] = False
+parameters["form_compiler"]["optimize"] = True
 parameters["form_compiler"]["cpp_optimize"] = True
 parameters["mesh_partitioner"] = "ParMETIS"
 #parameters["graph_coloring_library"] = "Zoltan"
@@ -312,6 +312,7 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         u_sol = KrylovSolver('bicgstab', 'jacobi')
         u_sol.parameters.update(krylov_solvers)
         u_sol.parameters['preconditioner']['reuse'] = False
+        u_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
         u_sol.t = 0
         ## velocity correction solver
         if use_lumping_of_mass_matrix:
@@ -330,9 +331,9 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         #p_sol = PETScKrylovSolver('gmres', p_prec)
         #p_sol.p_prec = p_prec
         if bcs['p'] == []:
-            p_sol = KrylovSolver('minres', 'petsc_amg')
+            p_sol = KrylovSolver('minres', 'hypre_amg')
         else:
-            p_sol = KrylovSolver('gmres', 'petsc_amg')
+            p_sol = KrylovSolver('gmres', 'hypre_amg')
         p_sol.parameters['preconditioner']['reuse'] = True
         p_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
         p_sol.parameters.update(krylov_solvers)
@@ -346,6 +347,7 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             c_sol = KrylovSolver('bicgstab', 'jacobi')
             c_sol.parameters.update(krylov_solvers)
             c_sol.parameters['preconditioner']['reuse'] = False
+            c_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
             c_sol.t = 0
             sols.append(c_sol)
         else:

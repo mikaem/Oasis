@@ -158,7 +158,8 @@ for s in sys.argv[1:]:
     try:
         value = json.loads(value) 
     except ValueError:
-        pass
+        if value in ("True", "False"): # json understands true/false, but not True/False
+            value = eval(value)
     commandline_kwargs[key] = value
 
 # Import mesh and NS_parameters    
@@ -291,7 +292,7 @@ else:
     [bc.apply(Ap) for bc in bcs['p']]
     Ap.compress()
 
-# Allocate coefficient matrix (needs reassembling)
+# Allocate coefficient matrix
 A_rhs = Matrix(M)
 A_rhs._scale(1./dt)
 A_rhs.axpy(-0.5*nu, K, True) # Add diffusion 
@@ -423,7 +424,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         Ta.axpy(1./dt, M, True)
         for ci in scalar_components:
             Ta.axpy(-0.5*nu/Schmidt[ci], K, True) # Add diffusion
-            b[ci] = assemble(a_conv[ci], tensor=b[ci])
+            b[ci] = assemble(-a_conv[ci], tensor=b[ci])
             b[ci].axpy(1., Ta*x_1[ci])
             Ta.axpy(0.5*nu/Schmidt[ci], K, True)  # Subtract diffusion
             

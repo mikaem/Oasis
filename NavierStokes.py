@@ -104,8 +104,8 @@ Velocity update is computed through:
   inner(u, v)*dx == inner(q_[ui], v)*dx - dt*inner(dp_.dx(i), v)*dx
 
 where each component on the rhs of the equation is computed effectively as
-  inner(q_[ui], v)*dx = M * q_[ui].vector()
-  dt*inner(dp_.dx(i), v)*dx = dt * P[ui] * dp_.vector()
+  assemble(inner(q_[ui], v)*dx) = M * q_[ui].vector()
+  assemble(dt*inner(dp_.dx(i), v)*dx) = dt * P[ui] * dp_.vector()
 
 where dp_ is the pressure correction, i.e., th newly computed pressure 
 at the new timestep minus the pressure at previous timestep.
@@ -136,29 +136,15 @@ and we solve:
 Ta might differ from A due to Dirichlet boundary conditions.
     
 """
-import sys, json
+from common import *
 
 ################### Problem dependent parameters ####################
 ### Should import a mesh and a dictionary called NS_parameters    ###
 ### See NSdefault_hooks for possible parameters                   ###
 
 default_problem = 'DrivenCavity'
-
-# Parse command-line keyword arguments
-commandline_kwargs = {}
-for s in sys.argv[1:]:
-    if s.count('=') == 1:
-        key, value = s.split('=', 1)
-    else:
-        raise TypeError(s+" Only kwargs separated with '=' sign allowed. See NSdefault_hooks for a range of parameters. Your problem file should contain problem specific parameters.")
-    try:
-        value = json.loads(value) 
-    except ValueError:
-        pass
-    commandline_kwargs[key] = value
-
-# Import mesh and NS_parameters    
-exec("from {} import *".format(commandline_kwargs.get('problem', default_problem)))
+commandline_kwargs = parse_command_line()
+exec("from problems.{} import *".format(commandline_kwargs.get('problem', default_problem)))
 
 assert(isinstance(NS_parameters, dict))
 NS_parameters.update(commandline_kwargs)
@@ -177,14 +163,14 @@ if NS_parameters['velocity_degree'] > 1:
 vars().update(NS_parameters)  
 print_solve_info = use_krylov_solvers and krylov_solvers['monitor_convergence']
 
+# Update dolfin parameters
+parameters['krylov_solver'].update(krylov_solvers)
+
 # Create lists of components solved for
 dim = mesh.geometry().dim()
 u_components = map(lambda x: 'u'+str(x), range(dim))
 sys_comp =  u_components + ['p'] + scalar_components
 uc_comp  =  u_components + scalar_components
-
-# Update dolfin parameters
-parameters['krylov_solver'].update(krylov_solvers)
 
 # Set up initial folders for storing results
 newfolder, tstepfiles = create_initial_folders(**vars())
@@ -296,7 +282,8 @@ if len(scalar_components) > 0:
     Tb, bb, bx = None, None, None            
     if len(scalar_components) > 1:
         # For more than one scalar we use the same linear algebra solver for all.
-        # For this to work we need some additional tensors
+        # For this to work we need some additional tensors. The extra matrix
+        # is required since different scalars may have different boundary conditions
         Tb = Matrix(M)
         bb = Vector(x_[scalar_components[0]])
         bx = Vector(x_[scalar_components[0]])
@@ -311,6 +298,9 @@ else:  # Use regular mass matrix for velocity update
     [bc.apply(Mu) for bc in bcs['u0']]
 
 #####################################################################
+
+if parameters["form_compiler"].has_key("no_ferari"):
+    parameters["form_compiler"].remove("no_ferari")
 
 # Set convection form
 a_conv = 0.5*convection_form(convection, **vars())*dx
