@@ -133,25 +133,30 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, Vv,
     timefolder = path.join(newfolder, 'Timeseries')
     if output_timeseries_as_vector:
         # project or store velocity to vector function space
-        if not hasattr(tstepfiles['u'], 'uv'): # First time around only
-            tstepfiles['u'].uv = Function(Vv)
-            tstepfiles['u'].d = dict((ui, Vv.sub(i).dofmap().collapse(Vv.mesh())[1]) 
-                                     for i, ui in enumerate(u_components))
+        if "u0" in q_: # Segregated
+            if not hasattr(tstepfiles['u'], 'uv'): # First time around only
+                tstepfiles['u'].uv = Function(Vv)
+                tstepfiles['u'].d = dict((ui, Vv.sub(i).dofmap().collapse(Vv.mesh())[1]) 
+                                        for i, ui in enumerate(u_components))
 
-        # The short but timeconsuming way:
-        #tstepfiles['u'].uv.assign(project(u_, Vv))
-        
-        # Or the faster, but more comprehensive way:
-        for ui in u_components:
-            q_[ui].update()    
-            vals = tstepfiles['u'].d[ui].values()
-            keys = tstepfiles['u'].d[ui].keys()
-            tstepfiles['u'].uv.vector()[vals] = q_[ui].vector()[keys]
-        tstepfiles['u'] << (tstepfiles['u'].uv, float(tstep))
+            # The short but timeconsuming way:
+            #tstepfiles['u'].uv.assign(project(u_, Vv))
+            
+            # Or the faster, but more comprehensive way:
+            for ui in u_components:
+                q_[ui].update()    
+                vals = tstepfiles['u'].d[ui].values()
+                keys = tstepfiles['u'].d[ui].keys()
+                tstepfiles['u'].uv.vector()[vals] = q_[ui].vector()[keys]
+            tstepfiles['u'] << (tstepfiles['u'].uv, float(tstep))
+            
+        else:
+            tstepfiles['u'] << (u_, float(tstep))
         
         # Store the rest of the solution functions
         for ui in ['p']+scalar_components:
             tstepfiles[ui] << (q_[ui], float(tstep))
+            
     else:
         for ui in q_:
             tstepfiles[ui] << (q_[ui], float(tstep))
@@ -166,6 +171,9 @@ def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters):
     
     For safety reasons, in case the solver is interrupted, take backup of 
     solution first.
+    
+    Must be restarted using the same mesh-partitioning. This will be fixed
+    soon. (MM)
     
     """
     checkpointfolder = path.join(newfolder, "Checkpoint")
@@ -234,27 +242,6 @@ def scalar_source(scalar_components, **NS_namespace):
     fs = dict((ci, Constant(0)) for ci in scalar_components)
     return fs
     
-def convection_form(conv, u, v, U_AB, q_1, q_2, u_1, u_2, uc_comp, **NS_namespace):
-    if conv == 'Standard':
-        return inner(v, dot(U_AB, nabla_grad(u)))
-        
-    elif conv == 'Divergence':
-        return inner(v, nabla_div(outer(U_AB, u)))
-        
-    elif conv == 'Divergence by parts':
-        # Use with care. ds term could be important
-        return -inner(grad(v), outer(U_AB, u))
-        
-    elif conv == 'Skew':
-        return 0.5*(inner(v, dot(U_AB, nabla_grad(u))) + inner(v, nabla_div(outer(U_AB, u))))
-
-    elif conv == 'Adams-Bashforth':
-        return dict((ui, 1.5*inner(v, dot(grad(q_1[ui]), u_1)) - 0.5*inner(v, dot(grad(q_2[ui]), u_2)))
-                    for ui in uc_comp)
-    
-    else:
-        raise TypeError("Wrong convection form {}".format(conv))
-
 def assemble_lumped_P1_diagonal(V, M, **NS_namespace):
     ones = Function(V)
     ones.vector()[:] = 1.

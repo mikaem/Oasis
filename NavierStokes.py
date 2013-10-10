@@ -302,8 +302,9 @@ else:  # Use regular mass matrix for velocity update
 if parameters["form_compiler"].has_key("no_ferari"):
     parameters["form_compiler"].remove("no_ferari")
 
-# Set convection form
-a_conv = 0.5*convection_form(convection, **vars())*dx
+# Set convection form 
+# u_ is here actually 1.5*u_1-0.5*u_2, set at the end of the time loop
+a_conv = 0.5*inner(v, dot(u_, nabla_grad(u)))*dx
 
 # A scalar always uses the Standard convection form
 a_scalar = a_conv
@@ -316,6 +317,7 @@ vars().update(pre_solve_hook(**vars()))
 tic()
 stop = False
 total_timer = Timer("Full time integration")
+info_blue("Start simulation")
 while t < (T - tstep*DOLFIN_EPS) and not stop:
     complete_timestep = Timer("Complete timestep")
     t += dt
@@ -329,35 +331,34 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     while err > max_error and inner_iter < num_iter:
         inner_iter += 1
         ### Assemble matrices and compute rhs vector for tentative velocity ###
+        t0 = Timer("Tentative velocity")
         if inner_iter == 1:
-            t0 = Timer("Assemble first inner iter")
+            t1 = Timer("Assemble first inner iter")
             # Only on the first iteration because nothing here is changing in time
             # Set up coefficient matrix for computing the rhs:
             A = assemble(a_conv, tensor=A, reset_sparsity=False) 
             A._scale(-1.)            # Negative convection on the rhs 
             A.axpy(1./dt, M, True)   # Add mass
             
-            #Set up scalar matrix for rhs
+            #Set up scalar matrix for rhs using the same convection as velocity
             if len(scalar_components) > 0:                
-               if a_scalar is a_conv:        # Use the same convection as velocity
+               if a_scalar is a_conv:
                    Ta.zero()
                    Ta.axpy(1., A, True)
                    
-            A.axpy(-0.5*nu, K, True) # Add diffusion 
-
-            # Compute rhs for all velocity components
+            # Add diffusion and compute rhs for all velocity components 
+            A.axpy(-0.5*nu, K, True) 
             for ui in u_components:
-                b[ui].zero()                 # start with body force
+                b[ui].zero()              # start with body force
                 b[ui].axpy(1., b0[ui])
-                b[ui].axpy(1., A*x_1[ui])    # Add transient, convection and diffusion
+                b[ui].axpy(1., A*x_1[ui]) # Add transient, convection and diffusion
                 
             # Reset matrix for lhs
             A._scale(-1.)
             A.axpy(2./dt, M, True)
             [bc.apply(A) for bc in bcs['u0']]
-            t0.stop()
+            t1.stop()
                    
-        t0 = Timer("Tentative velocity")
         err = 0
         for i, ui in enumerate(u_components):
             info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
@@ -385,13 +386,13 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         #######################
         [bc.apply(b['p']) for bc in bcs['p']]        
         solve_pressure(**vars())
-        t0.stop()
                 
         if num_iter > 1 and print_velocity_pressure_convergence:
             if inner_iter == 1: 
                 info_blue('  Inner iterations velocity pressure:')
                 info_blue('                 error u  error p')
             info_blue('    Iter = {0:4d}, {1:2.2e} {2:2.2e}'.format(inner_iter, err, norm(dp_.vector())))
+        t0.stop()
 
     ### Update velocity if noniterative scheme is used ###
     if inner_iter == 1:
@@ -452,7 +453,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     for ui in u_components:
         x_2[ui].zero(); x_2[ui].axpy(1.0, x_1[ui])
         x_1[ui].zero(); x_1[ui].axpy(1.0, x_ [ui])
-        
+                
     for ci in scalar_components:
         x_1[ci].zero(); x_1[ci].axpy(1., x_[ci])
 
@@ -463,11 +464,17 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(print_intermediate_info, toc()))
         list_timings(True)
         tic()
-    
-    # AB projection for pressure on next timestep
-    if AB_projection_pressure:
-        x_['p'].axpy(0.5, dp_.vector())
+            
+    if t < (T - tstep*DOLFIN_EPS) and not stop:
+        # AB projection for pressure on next timestep
+        if AB_projection_pressure:
+            x_['p'].axpy(0.5, dp_.vector())
 
+        # Update u_ used as convecting AB-velocity in convection assembly
+        for ui in u_components:
+            x_[ui]._scale(1.5)
+            x_[ui].axpy(-0.5, x_1[ui])
+                
 total_timer.stop()
 list_timings()
 info_red('Total computing time = {0:f}'.format(total_timer.value()))
