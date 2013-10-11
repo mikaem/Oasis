@@ -8,20 +8,20 @@ from Oasis import *
 # Override some problem specific parameters
 NS_parameters.update(dict(
     nu = 0.01,
-    T = 0.1,
+    T = 1.,
     dt = 0.01,
     Nx = 20,
     Ny = 20,
     folder = "taylorgreen2D_results",
     max_iter = 1,
-    iters_on_first_timestep = 2,
-    convection = "Standard",
-    plot_interval = 10,
-    save_step = 100,
-    checkpoint = 100,
-    use_krylov_solvers = True,
+    iters_on_first_timestep = 1,
+    plot_interval = 1000,
+    save_step = 10000,
+    checkpoint = 10000,
+    print_intermediate_info = 1000,
+    use_krylov_solvers = False,
     low_memory_version = True,
-    use_lumping_of_mass_matrix = False,
+    use_lumping_of_mass_matrix = True,
     velocity_degree = 1,
     pressure_degree = 1,
     krylov_report = False
@@ -31,7 +31,7 @@ NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
                                    'report': False}
 
 def mesh(Nx, Ny, **params):
-    return RectangleMesh(0, 0, 2, 2, Nx, Ny)
+    return RectangleMesh(0, 0, 2, 2, Nx, Ny, "crossed")
 
 class PeriodicDomain(SubDomain):
     
@@ -59,7 +59,7 @@ initial_fields = dict(
     u1='sin(pi*x[0])*cos(pi*x[1])*exp(-2.*pi*pi*nu*t)',
     p='-(cos(2*pi*x[0])+cos(2*pi*x[1]))*exp(-4.*pi*pi*nu*t)/4.')
     
-def initialize(q_, q_1, q_2, VV, t, nu, dt, **NS_namespace):
+def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
     """Initialize solution. 
     
     Use t=dt/2 for pressure since pressure is computed in between timesteps.
@@ -70,8 +70,10 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, **NS_namespace):
         vv = project(Expression((initial_fields[ui]), t=t+deltat, nu=nu), VV[ui])
         q_[ui].vector()[:] = vv.vector()[:]
         if not ui == 'p':
-            q_1[ui].vector()[:] = q_[ui].vector()[:]
-            q_2[ui].vector()[:] = q_[ui].vector()[:]
+            deltat = -dt
+            vv = project(Expression((initial_fields[ui]), t=t+deltat, nu=nu), VV[ui])
+            q_1[ui].vector()[:] = vv.vector()[:]
+            q_2[ui].vector()[:] = q_1[ui].vector()[:]
 
 def temporal_hook(q_, t, nu, VV, dt, plot_interval, tstep, **NS_namespace):
     """Function called at end of timestep.    
@@ -90,4 +92,4 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, tstep, **NS_namespace):
         vv = project(Expression((initial_fields[ui]), t=t-deltat, nu=nu), VV[ui])
         vv.vector().axpy(-1., q_[ui].vector())
         err[ui] = "{0:2.6f}".format(norm(vv.vector()))
-    print "Error at time = ", t, " is ", err
+    print "Error is ", err, " at time = ", t 

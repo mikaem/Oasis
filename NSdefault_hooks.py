@@ -27,7 +27,6 @@ NS_parameters = dict(
   dt = 0.01,             # Time interval on each timestep
   
   # Some discretization options
-  convection = "Standard",  # "Standard", "Skew", "Divergence", "Divergence by parts"
   AB_projection_pressure = False,  # Use Adams Bashforth projection as first estimate for pressure on new timestep
   velocity_degree = 2,
   pressure_degree = 1,  
@@ -197,7 +196,7 @@ def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters):
         newfile = HDF5File(h5file, 'w')
         newfile.flush()
         newfile.write(q_[ui].vector(), '/current')
-        if not ui == 'p':
+        if ui in u_components:
             newfile.write(q_1[ui].vector(), '/previous')
         if path.exists(oldfile):
             if MPI.process_number() == 0:
@@ -264,17 +263,12 @@ def init_from_restart(restart_folder, sys_comp, uc_comp, u_components,
             q_[ui].vector().apply('insert')
             # Check for the solution at a previous timestep as well
             if ui in uc_comp:
-                try:
-                    hdf5_file.read(q_1[ui].vector(), "/previous")
-                    q_1[ui].vector().apply('insert')
-                except:
-                    q_1[ui].vector().zero()
-                    q_1[ui].vector().axpy(1., q_[ui].vector())
-                    q_1[ui].vector().apply('insert')
-            if ui in u_components:
-                q_2[ui].vector().zero()
-                q_2[ui].vector().axpy(1., q_1[ui].vector())
-                q_2[ui].vector().apply('insert')            
+                q_1[ui].vector().zero()
+                q_1[ui].vector().axpy(1., q_[ui].vector())
+                q_1[ui].vector().apply('insert')
+                if ui in u_components:
+                    hdf5_file.read(q_2[ui].vector(), "/previous")
+                    q_2[ui].vector().apply('insert')
 
 def create_bcs(sys_comp, **NS_namespace):
     """Return dictionary of Dirichlet boundary conditions."""
@@ -298,9 +292,11 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         ## tentative velocity solver ##
         u_sol = KrylovSolver('bicgstab', 'jacobi')
         u_sol.parameters.update(krylov_solvers)
-        u_sol.parameters['preconditioner']['reuse'] = False
+        if "u0" in x_: # Segregated
+            u_sol.parameters['preconditioner']['reuse'] = False
+        else:
+            u_sol.parameters['preconditioner']['reuse'] = True
         u_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
-        u_sol.t = 0
         ## velocity correction solver
         if use_lumping_of_mass_matrix:
             du_sol = None
@@ -308,7 +304,6 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
             du_sol.parameters.update(krylov_solvers)
             du_sol.parameters['preconditioner']['reuse'] = True
-            du_sol.t = 0            
         ## pressure solver ##
         #p_prec = PETScPreconditioner('petsc_amg')
         #p_prec.parameters['report'] = True
@@ -324,7 +319,6 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         p_sol.parameters['preconditioner']['reuse'] = True
         p_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
         p_sol.parameters.update(krylov_solvers)
-        p_sol.t = 0
         if bcs['p'] == []:
             attach_pressure_nullspace(p_sol, x_, Q)
         sols = [u_sol, p_sol, du_sol]
@@ -335,32 +329,27 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             c_sol.parameters.update(krylov_solvers)
             c_sol.parameters['preconditioner']['reuse'] = False
             c_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
-            c_sol.t = 0
             sols.append(c_sol)
         else:
             sols.append(None)
     else:
         ## tentative velocity solver ##
         u_sol = LUSolver()
-        u_sol.t = 0
         ## velocity correction ##
         if use_lumping_of_mass_matrix:
             du_sol = None
         else:
             du_sol = LUSolver()
             du_sol.parameters['reuse_factorization'] = True
-            du_sol.t = 0
         ## pressure solver ##
         p_sol = LUSolver()
         p_sol.parameters['reuse_factorization'] = True
-        p_sol.t = 0  
         if bcs['p'] == []:
             p_sol.normalize = True
         sols = [u_sol, p_sol, du_sol]
         ## scalar solver ##
         if len(scalar_components) > 0:
             c_sol = LUSolver()
-            c_sol.t = 0
             sols.append(c_sol)
         else:
             sols.append(None)
@@ -436,13 +425,14 @@ def solve_scalar(ci, scalar_components, Ta, Tb, b, x_, bb, bx, bcs, c_sol,
     #x_[ci].set_local(maximum(0., x_[ci].array()))
     #x_[ci].apply("insert")
 
-def update_velocity_lumping(P, dp_, ML, dt, x_, v, u_components, **NS_namespace):
+def update_velocity_lumping(P, dp_, ML, dt, x_, v, u_components, bcs, **NS_namespace):
     for i, ui in enumerate(u_components):
         if P:
             x_[ui].axpy(-dt, (P[ui] * dp_.vector()) * ML)
         else:
             x_[ui].axpy(-dt, (assemble(v*dp_.dx(i)*dx)) * ML)
-            
+        [bc.apply(x_[ui]) for bc in bcs[ui]]
+
 def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     """Called just prior to solving for tentative velocity."""
     if use_krylov_solvers:

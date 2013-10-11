@@ -1,5 +1,5 @@
 from Channel import *
-parameters['allow_extrapolation'] = True
+from NSVector_default_hooks import *
 
 def create_bcs(Vv, q_, q_1, q_2, sys_comp, u_components, **NS_namespace):
     bcs = dict((ui, []) for ui in sys_comp)    
@@ -33,7 +33,8 @@ class U0 : public Expression
 
     double utau, nu;
 
-    U0() : Expression() {_value_shape.resize(1); _value_shape[0]=3;}
+    U0() : Expression() {_value_shape.resize(1); 
+                         _value_shape[0]=3;}
 
   void eval(Array<double>& values, const Array<double>& x,
             const ufc::cell& c) const

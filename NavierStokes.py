@@ -303,13 +303,16 @@ if parameters["form_compiler"].has_key("no_ferari"):
     parameters["form_compiler"].remove("no_ferari")
 
 # Set convection form 
-# u_ is here actually 1.5*u_1-0.5*u_2, set at the end of the time loop
-a_conv = 0.5*inner(v, dot(u_, nabla_grad(u)))*dx
+u_ab = as_vector([Function(V) for i in range(len(u_components))])
+a_conv = 0.5*inner(v, dot(u_ab, nabla_grad(u)))*dx
+#a_conv = 0.5*inner(v, dot(U_AB, nabla_grad(u)))*dx
+
+for i, ui in enumerate(u_components):
+    u_ab[i].vector().axpy(1.5, x_[ui])
+    u_ab[i].vector().axpy(-0.5, x_1[ui])
 
 # A scalar always uses the Standard convection form
 a_scalar = a_conv
-if not convection == "Standard":     
-    a_scalar = 0.5*convection_form("Standard", **vars())*dx
 
 #### Do something problem specific ####
 vars().update(pre_solve_hook(**vars()))
@@ -399,10 +402,9 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         t0 = Timer("Velocity update")
         if use_lumping_of_mass_matrix:
             update_velocity_lumping(**vars())
-            [bc.apply(x_[ui]) for bc in bcs[ui]]
             
         else: # Use regular mass matrix
-            for ui in u_components:
+            for i, ui in enumerate(u_components):
                 b[ui].zero()
                 b[ui].axpy(1.0, Mu*x_[ui])
                 add_pressure_gradient_rhs_update(**vars())
@@ -412,6 +414,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
                 [bc.apply(b[ui]) for bc in bcs[ui]]
                 info_blue('Updating velocity '+ui, print_solve_info)
                 du_sol.solve(Mu, x_[ui], b[ui])
+                
         t0.stop()
         
     # Solve for scalars
@@ -471,10 +474,13 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             x_['p'].axpy(0.5, dp_.vector())
 
         # Update u_ used as convecting AB-velocity in convection assembly
-        for ui in u_components:
-            x_[ui]._scale(1.5)
-            x_[ui].axpy(-0.5, x_1[ui])
-                
+        for i, ui in enumerate(u_components):
+            #x_[ui]._scale(1.5)
+            #x_[ui].axpy(-0.5, x_1[ui])
+            u_ab[i].vector().zero()
+            u_ab[i].vector().axpy(1.5, x_1[ui])
+            u_ab[i].vector().axpy(-0.5, x_2[ui])
+                            
 total_timer.stop()
 list_timings()
 info_red('Total computing time = {0:f}'.format(total_timer.value()))
