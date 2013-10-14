@@ -9,13 +9,11 @@ solvers = ["NavierStokes", "IPCS_AB"]
 
 def calling_solver():
     frames = sys._current_frames()
-    #print frames.values()
     calling_frame = frames.values()[-1].f_back
     name = calling_frame.f_globals['__file__'].split(".")[0]
     while not name in solvers: 
         calling_frame = calling_frame.f_back
         name = calling_frame.f_globals['__file__'].split(".")[0]
-        print name
     return name.split(".")[0]
 
 # Import all functions specific to chosen solver and all default hooks

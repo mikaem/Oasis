@@ -304,8 +304,8 @@ if parameters["form_compiler"].has_key("no_ferari"):
 
 # Set convection form 
 u_ab = as_vector([Function(V) for i in range(len(u_components))])
-#a_conv = 0.5*inner(v, dot(u_ab, nabla_grad(u)))*dx  # Faster version
-a_conv = 0.5*inner(v, dot(U_AB, nabla_grad(u)))*dx
+a_conv = 0.5*inner(v, dot(u_ab, nabla_grad(u)))*dx  # Faster version
+#a_conv = 0.5*inner(v, dot(U_AB, nabla_grad(u)))*dx
 
 for i, ui in enumerate(u_components):
     u_ab[i].vector().axpy(1.5, x_1[ui])
