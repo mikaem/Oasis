@@ -1,1 +1,1 @@
-from common import parse_command_line
+from common import *

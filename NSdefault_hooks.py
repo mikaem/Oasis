@@ -5,6 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import *
 import cPickle
+import inspect
 from collections import defaultdict
 from os import getpid, path, makedirs, getcwd, listdir, remove, system
 from numpy import array, maximum
@@ -69,170 +70,6 @@ scalar_components = []
 #   Schmidt = nu / D (= momentum diffusivity / mass diffusivity)
 Schmidt = defaultdict(lambda: 1.)
 
-def create_initial_folders(folder, restart_folder, sys_comp, tstep, 
-                           scalar_components, output_timeseries_as_vector, **NS_namespace):
-    """Create necessary folders."""
-    
-    # To avoid writing over old data create a new folder for each run
-    if MPI.process_number() == 0:
-        try:
-            makedirs(folder)
-        except OSError:
-            pass
-
-    newfolder = path.join(folder, 'data')
-    if restart_folder:
-        newfolder = path.join(newfolder, restart_folder.split('/')[-2])
-    else:
-        if not path.exists(newfolder):
-            newfolder = path.join(newfolder, '1')
-        else:
-            previous = listdir(newfolder)
-            previous = max(map(eval, previous)) if previous else 0
-            newfolder = path.join(newfolder, str(previous + 1))
-
-    MPI.barrier()
-    if MPI.process_number() == 0:
-        if not restart_folder:
-            makedirs(path.join(newfolder, "Voluviz"))
-            makedirs(path.join(newfolder, "Stats"))
-            makedirs(path.join(newfolder, "VTK"))
-            makedirs(path.join(newfolder, "Timeseries"))
-            makedirs(path.join(newfolder, "Checkpoint"))
-            
-    tstepfolder = path.join(newfolder, "Timeseries")
-    tstepfiles = {}
-    comps = sys_comp
-    if output_timeseries_as_vector:
-        comps = ['p', 'u'] + scalar_components 
-        
-    for ui in comps:
-        tstepfiles[ui] = XDMFFile(path.join(tstepfolder, ui+'_from_tstep_{}.xdmf'.format(tstep)))
-        tstepfiles[ui].parameters["rewrite_function_mesh"] = False
-    return newfolder, tstepfiles
-
-def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint, 
-                  NS_parameters, tstepfiles, Vv, u_, u_components,
-                  output_timeseries_as_vector, **NS_namespace):
-    """Called at end of timestep. Check for kill and save solution if required."""
-    NS_parameters.update(t=t, tstep=tstep)
-    if tstep % save_step == 0: 
-        save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, Vv, 
-                               output_timeseries_as_vector, u_components)
-        
-    killoasis = check_if_kill(folder)
-    if tstep % checkpoint == 0 or killoasis:
-        save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters)
-        
-    return killoasis
-
-def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, Vv,
-                           output_timeseries_as_vector, u_components):
-    """Store solution on current timestep to XDMF file."""
-    timefolder = path.join(newfolder, 'Timeseries')
-    if output_timeseries_as_vector:
-        # project or store velocity to vector function space
-        if "u0" in q_: # Segregated
-            if not hasattr(tstepfiles['u'], 'uv'): # First time around only
-                tstepfiles['u'].uv = Function(Vv)
-                tstepfiles['u'].d = dict((ui, Vv.sub(i).dofmap().collapse(Vv.mesh())[1]) 
-                                        for i, ui in enumerate(u_components))
-
-            # The short but timeconsuming way:
-            #tstepfiles['u'].uv.assign(project(u_, Vv))
-            
-            # Or the faster, but more comprehensive way:
-            for ui in u_components:
-                q_[ui].update()    
-                vals = tstepfiles['u'].d[ui].values()
-                keys = tstepfiles['u'].d[ui].keys()
-                tstepfiles['u'].uv.vector()[vals] = q_[ui].vector()[keys]
-            tstepfiles['u'] << (tstepfiles['u'].uv, float(tstep))
-            
-        else:
-            tstepfiles['u'] << (u_, float(tstep))
-        
-        # Store the rest of the solution functions
-        for ui in ['p']+scalar_components:
-            tstepfiles[ui] << (q_[ui], float(tstep))
-            
-    else:
-        for ui in q_:
-            tstepfiles[ui] << (q_[ui], float(tstep))
-        
-    if MPI.process_number() == 0:
-        if not path.exists(path.join(timefolder, "params.dat")):
-            f = open(path.join(timefolder, 'params.dat'), 'w')
-            cPickle.dump(NS_parameters,  f)
-
-def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters):
-    """Overwrite solution in Checkpoint folder. 
-    
-    For safety reasons, in case the solver is interrupted, take backup of 
-    solution first.
-    
-    Must be restarted using the same mesh-partitioning. This will be fixed
-    soon. (MM)
-    
-    """
-    checkpointfolder = path.join(newfolder, "Checkpoint")
-    if MPI.process_number() == 0:
-        if path.exists(path.join(checkpointfolder, "params.dat")):
-            system('cp {0} {1}'.format(path.join(checkpointfolder, "params.dat"),
-                                        path.join(checkpointfolder, "params_old.dat")))
-        f = open(path.join(checkpointfolder, "params.dat"), 'w')
-        cPickle.dump(NS_parameters,  f)
-        
-    MPI.barrier()
-    for ui in q_:
-        h5file = path.join(checkpointfolder, ui+'.h5')
-        oldfile = path.join(checkpointfolder, ui+'_old.h5')
-        # For safety reasons...
-        if path.exists(h5file):
-            if MPI.process_number() == 0:
-                system('cp {0} {1}'.format(h5file, oldfile))
-        MPI.barrier()
-        ###
-        newfile = HDF5File(h5file, 'w')
-        newfile.flush()
-        newfile.write(q_[ui].vector(), '/current')
-        if ui in u_components:
-            newfile.write(q_1[ui].vector(), '/previous')
-        if path.exists(oldfile):
-            if MPI.process_number() == 0:
-                system('rm {0}'.format(oldfile))
-        MPI.barrier()
-    if MPI.process_number() == 0:
-        system('rm {0}'.format(path.join(checkpointfolder, "params_old.dat")))
-        
-def check_if_kill(folder):
-    """Check if user has put a file named killoasis in folder."""
-    found = 0
-    if 'killoasis' in listdir(folder):
-        found = 1
-    collective = MPI.sum(found)
-    if collective > 0:
-        if MPI.process_number() == 0:
-            remove(path.join(folder, 'killoasis'))
-        info_red('killoasis Found! Stopping simulations cleanly...')
-        return True
-    else:
-        return False
-
-def check_if_reset_statistics(folder):
-    """Check if user has put a file named resetoasis in folder."""
-    found = 0
-    if 'resetoasis' in listdir(folder):
-        found = 1
-    collective = MPI.sum(found)    
-    if collective > 0:        
-        if MPI.process_number() == 0:
-            remove(path.join(folder, 'resetoasis'))
-        info_red('resetoasis Found!')
-        return True
-    else:
-        return False
-
 def body_force(mesh, **NS_namespace):
     """Specify body force"""
     return Constant((0,)*mesh.geometry().dim())
@@ -241,34 +78,9 @@ def scalar_source(scalar_components, **NS_namespace):
     fs = dict((ci, Constant(0)) for ci in scalar_components)
     return fs
     
-def assemble_lumped_P1_diagonal(V, M, **NS_namespace):
-    ones = Function(V)
-    ones.vector()[:] = 1.
-    ML = M * ones.vector()
-    ML.set_local(1. / ML.array())
-    return ML
-    
 def initialize(**NS_namespace):
     """Initialize solution. """
     pass
-
-def init_from_restart(restart_folder, sys_comp, uc_comp, u_components, 
-               q_, q_1, q_2, **NS_namespace):
-    """Initialize solution from checkpoint files """
-    if restart_folder:
-        for ui in sys_comp:
-            filename = path.join(restart_folder, ui + '.h5')
-            hdf5_file = HDF5File(filename, "r")
-            hdf5_file.read(q_[ui].vector(), "/current")      
-            q_[ui].vector().apply('insert')
-            # Check for the solution at a previous timestep as well
-            if ui in uc_comp:
-                q_1[ui].vector().zero()
-                q_1[ui].vector().axpy(1., q_[ui].vector())
-                q_1[ui].vector().apply('insert')
-                if ui in u_components:
-                    hdf5_file.read(q_2[ui].vector(), "/previous")
-                    q_2[ui].vector().apply('insert')
 
 def create_bcs(sys_comp, **NS_namespace):
     """Return dictionary of Dirichlet boundary conditions."""
@@ -292,11 +104,7 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         ## tentative velocity solver ##
         u_sol = KrylovSolver('bicgstab', 'jacobi')
         u_sol.parameters.update(krylov_solvers)
-        if "u0" in x_: # Segregated
-            u_sol.parameters['preconditioner']['reuse'] = False
-        else:
-            u_sol.parameters['preconditioner']['reuse'] = True
-        u_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
+        
         ## velocity correction solver
         if use_lumping_of_mass_matrix:
             du_sol = None
@@ -305,54 +113,42 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             du_sol.parameters.update(krylov_solvers)
             du_sol.parameters['preconditioner']['reuse'] = True
         ## pressure solver ##
-        #p_prec = PETScPreconditioner('petsc_amg')
-        #p_prec.parameters['report'] = True
-        #p_prec.parameters['same_nonzero_pattern'] = True
-        #p_prec.parameters['gamg']['verbose'] = 20
-        #p_prec.parameters['gamg']['num_aggregation_smooths'] = 2
-        #p_sol = PETScKrylovSolver('gmres', p_prec)
-        #p_sol.p_prec = p_prec
-        if bcs['p'] == []:
-            p_sol = KrylovSolver('minres', 'hypre_amg')
-        else:
-            p_sol = KrylovSolver('gmres', 'hypre_amg')
+        p_sol = KrylovSolver('gmres', 'hypre_amg')
         p_sol.parameters['preconditioner']['reuse'] = True
-        p_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
         p_sol.parameters.update(krylov_solvers)
         if bcs['p'] == []:
             attach_pressure_nullspace(p_sol, x_, Q)
-        sols = [u_sol, p_sol, du_sol]
+            
+        sols = [u_sol, p_sol, du_sol, None]
         ## scalar solver ##
         if len(scalar_components) > 0:
-            #c_sol = KrylovSolver('bicgstab', 'hypre_euclid')
             c_sol = KrylovSolver('bicgstab', 'jacobi')
             c_sol.parameters.update(krylov_solvers)
             c_sol.parameters['preconditioner']['reuse'] = False
-            c_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
-            sols.append(c_sol)
-        else:
-            sols.append(None)
+            sols[-1] = c_sol
+            
     else:
         ## tentative velocity solver ##
         u_sol = LUSolver()
+        
         ## velocity correction ##
         if use_lumping_of_mass_matrix:
             du_sol = None
         else:
             du_sol = LUSolver()
             du_sol.parameters['reuse_factorization'] = True
+        
         ## pressure solver ##
         p_sol = LUSolver()
         p_sol.parameters['reuse_factorization'] = True
         if bcs['p'] == []:
             p_sol.normalize = True
-        sols = [u_sol, p_sol, du_sol]
+        sols = [u_sol, p_sol, du_sol, None]
+        
         ## scalar solver ##
         if len(scalar_components) > 0:
             c_sol = LUSolver()
-            sols.append(c_sol)
-        else:
-            sols.append(None)
+            sols[-1] = c_sol
         
     return sols
 
@@ -365,30 +161,6 @@ def attach_pressure_nullspace(p_sol, x_, Q):
     p_sol.set_nullspace(null_space)
     p_sol.null_space = null_space
 
-def add_pressure_gradient_rhs(b, x_, P, p_, v, i, ui, **NS_namespace):
-    """Add pressure gradient on rhs of tentative velocity equation."""
-    if P:
-        b[ui].axpy(-1., P[ui]*x_['p'])
-    else:
-        b[ui].axpy(-1., assemble(v*p_.dx(i)*dx))
-
-def add_pressure_gradient_rhs_update(b, dt, P, dp_, v, i, ui, **NS_namespace):
-    """Add pressure gradient on rhs of velocity update equation."""
-    if P:
-        b[ui].axpy(-dt, P[ui]*dp_.vector())
-    else:
-        b[ui].axpy(-dt, assemble(v*dp_.dx(i)*dx))
-        
-def assemble_pressure_rhs(b, Rx, x_, dt, q, u_, Ap, **NS_namespace):
-    """Assemble rhs of pressure equation."""
-    b['p'].zero()
-    if Rx:
-        for ui in Rx:
-            b['p'].axpy(-1./dt, Rx[ui]*x_[ui])
-    else:
-        b['p'].axpy(-1./dt, assemble(div(u_)*q*dx))
-    b['p'].axpy(1., Ap*x_['p'])
-    
 def solve_pressure(dp_, x_, Ap, b, p_sol, **NS_namespace):
     """Solve pressure equation."""
     dp_.vector().zero()
@@ -418,6 +190,7 @@ def solve_scalar(ci, scalar_components, Ta, Tb, b, x_, bb, bx, bcs, c_sol,
         [bc.apply(Tb, bb) for bc in bcs[ci]]
         c_sol.solve(Tb, bx, bb)
         x_[ci].zero(); x_[ci].axpy(1., bx)
+        
     else:
         [bc.apply(Ta, b[ci]) for bc in bcs[ci]]
         c_sol.solve(Ta, x_[ci], b[ci])    
@@ -425,21 +198,9 @@ def solve_scalar(ci, scalar_components, Ta, Tb, b, x_, bb, bx, bcs, c_sol,
     #x_[ci].set_local(maximum(0., x_[ci].array()))
     #x_[ci].apply("insert")
 
-def update_velocity_lumping(P, dp_, ML, dt, x_, v, u_components, bcs, **NS_namespace):
-    for i, ui in enumerate(u_components):
-        if P:
-            x_[ui].axpy(-dt, (P[ui] * dp_.vector()) * ML)
-        else:
-            x_[ui].axpy(-dt, (assemble(v*dp_.dx(i)*dx)) * ML)
-        [bc.apply(x_[ui]) for bc in bcs[ui]]
-
 def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     """Called just prior to solving for tentative velocity."""
-    if use_krylov_solvers:
-        if ui == "u0":
-            u_sol.parameters['preconditioner']['reuse'] = False
-        else:
-            u_sol.parameters['preconditioner']['reuse'] = True
+    pass
 
 def pressure_hook(**NS_namespace):
     """Called prior to pressure solve."""
@@ -468,4 +229,3 @@ def pre_solve_hook(**NS_namespace):
 def theend(**NS_namespace):
     """Called at the very end."""
     pass
-

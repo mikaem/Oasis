@@ -14,14 +14,14 @@ NS_parameters.update(dict(
     Ny = 20,
     folder = "taylorgreen2D_results",
     max_iter = 1,
-    iters_on_first_timestep = 1,
+    iters_on_first_timestep = 2,
     plot_interval = 1000,
     save_step = 10000,
     checkpoint = 10000,
     print_intermediate_info = 1000,
     use_krylov_solvers = False,
     low_memory_version = True,
-    use_lumping_of_mass_matrix = True,
+    use_lumping_of_mass_matrix = False,
     velocity_degree = 1,
     pressure_degree = 1,
     krylov_report = False
@@ -31,7 +31,7 @@ NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
                                    'report': False}
 
 def mesh(Nx, Ny, **params):
-    return RectangleMesh(0, 0, 2, 2, Nx, Ny, "crossed")
+    return RectangleMesh(0, 0, 2, 2, Nx, Ny)
 
 class PeriodicDomain(SubDomain):
     
@@ -70,10 +70,10 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
         vv = project(Expression((initial_fields[ui]), t=t+deltat, nu=nu), VV[ui])
         q_[ui].vector()[:] = vv.vector()[:]
         if not ui == 'p':
+            q_1[ui].vector()[:] = vv.vector()[:]
             deltat = -dt
             vv = project(Expression((initial_fields[ui]), t=t+deltat, nu=nu), VV[ui])
-            q_1[ui].vector()[:] = vv.vector()[:]
-            q_2[ui].vector()[:] = q_1[ui].vector()[:]
+            q_2[ui].vector()[:] = vv.vector()[:]
 
 def temporal_hook(q_, t, nu, VV, dt, plot_interval, tstep, **NS_namespace):
     """Function called at end of timestep.    
@@ -91,5 +91,5 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, tstep, **NS_namespace):
         deltat = dt/2. if ui is 'p' else 0.
         vv = project(Expression((initial_fields[ui]), t=t-deltat, nu=nu), VV[ui])
         vv.vector().axpy(-1., q_[ui].vector())
-        err[ui] = "{0:2.6f}".format(norm(vv.vector()))
+        err[ui] = "{0:2.6f}".format(norm(vv.vector(), "linf"))
     print "Error is ", err, " at time = ", t 
