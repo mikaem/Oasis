@@ -4,10 +4,11 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import *
+from commands import getoutput
+from os import getpid, path, makedirs, getcwd, listdir, remove, system
 import cPickle
 import inspect
 from collections import defaultdict
-from os import getpid, path, makedirs, getcwd, listdir, remove, system
 from numpy import array, maximum
 
 #parameters["linear_algebra_backend"] = "Epetra"
@@ -69,6 +70,38 @@ scalar_components = []
 # With diffusivities given as a Schmidt number defined by:
 #   Schmidt = nu / D (= momentum diffusivity / mass diffusivity)
 Schmidt = defaultdict(lambda: 1.)
+
+# The following helper functions are available in dolfin
+# They are redefined here for printing only on process 0. 
+RED   = "\033[1;37;31m%s\033[0m"
+BLUE  = "\033[1;37;34m%s\033[0m"
+GREEN = "\033[1;37;32m%s\033[0m"
+
+def info_blue(s, check=True):
+    if MPI.process_number()==0 and check:
+        print BLUE % s
+
+def info_green(s, check=True):
+    if MPI.process_number()==0 and check:
+        print GREEN % s
+    
+def info_red(s, check=True):
+    if MPI.process_number()==0 and check:
+        print RED % s
+
+def getMyMemoryUsage():
+    mypid = getpid()
+    mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
+    return mymemory
+
+def dolfin_memory_usage(s):
+    # Check how much memory is actually used by dolfin before we allocate anything
+    dolfin_memory_use = getMyMemoryUsage()
+    info_red('Memory use {} = '.format(s) + dolfin_memory_use)
+    return dolfin_memory_use
+
+# Print memory use up til now
+initial_memory_use = dolfin_memory_usage('plain dolfin')
 
 def body_force(mesh, **NS_namespace):
     """Specify body force"""

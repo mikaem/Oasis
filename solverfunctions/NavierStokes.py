@@ -36,9 +36,13 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         if use_lumping_of_mass_matrix:
             du_sol = None
         else:
-            du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
+            du_sol = KrylovSolver('bicgstab', 'bjacobi')
             du_sol.parameters.update(krylov_solvers)
             du_sol.parameters['preconditioner']['reuse'] = True
+            #du_sol.parameters['preconditioner']['ilu']['fill_level'] = 1
+            #PETScOptions.set("pc_hypre_euclid_bj", True)
+            #PETScOptions.set("pc_hypre_euclid_print_statistics", True)
+
         ## pressure solver ##
         #p_prec = PETScPreconditioner('petsc_amg')
         #p_prec.parameters['report'] = True

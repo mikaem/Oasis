@@ -1,8 +1,6 @@
 """
 Optimized And StrIpped Solvers
 """
-from commands import getoutput
-import copy
 import sys
 
 solvers = ["NavierStokes", "IPCS_AB"]
@@ -48,38 +46,6 @@ def recursive_update(dst, src):
             dst[key] = val
     return dst
             
-# The following helper functions are available in dolfin
-# They are redefined here for printing only on process 0. 
-RED   = "\033[1;37;31m%s\033[0m"
-BLUE  = "\033[1;37;34m%s\033[0m"
-GREEN = "\033[1;37;32m%s\033[0m"
-
-def info_blue(s, check=True):
-    if MPI.process_number()==0 and check:
-        print BLUE % s
-
-def info_green(s, check=True):
-    if MPI.process_number()==0 and check:
-        print GREEN % s
-    
-def info_red(s, check=True):
-    if MPI.process_number()==0 and check:
-        print RED % s
-
-def getMyMemoryUsage():
-    mypid = getpid()
-    mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
-    return mymemory
-
-def dolfin_memory_usage(s):
-    # Check how much memory is actually used by dolfin before we allocate anything
-    dolfin_memory_use = getMyMemoryUsage()
-    info_red('Memory use {} = '.format(s) + dolfin_memory_use)
-    return dolfin_memory_use
-
-# Print memory use up til now
-initial_memory_use = dolfin_memory_usage('plain dolfin')
-
 def create_initial_folders(folder, restart_folder, sys_comp, tstep, 
                            scalar_components, output_timeseries_as_vector, **NS_namespace):
     """Create necessary folders."""

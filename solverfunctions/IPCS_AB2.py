@@ -3,14 +3,7 @@ __date__ = "2013-10-14"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
-from common.default_hooks import *
-
-def assemble_lumped_P1_diagonal(Vv, M, **NS_namespace):
-    ones = Function(Vv)
-    ones.vector()[:] = 1.
-    ML = M * ones.vector()
-    ML.set_local(1. / ML.array())
-    return ML
+from NavierStokes import *
 
 def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix, 
                 krylov_solvers, sys_comp, bcs, x_, Q, 
@@ -36,10 +29,12 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         if use_lumping_of_mass_matrix:
             du_sol = None
         else:
-            du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
+            du_sol = KrylovSolver('bicgstab', 'bjacobi')
             du_sol.parameters.update(krylov_solvers)
             du_sol.parameters['preconditioner']['reuse'] = True
             du_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
+            #du_sol.parameters['preconditioner']['ilu']['fill_level'] = 1
+
         ## pressure solver ##
         if bcs['p'] == []:
             p_sol = KrylovSolver('minres', 'hypre_amg')
@@ -86,37 +81,6 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         
     return sols
 
-def add_pressure_gradient_rhs(b, x_, P, p_, v, **NS_namespace):
-    """Add pressure gradient on rhs of tentative velocity equation."""
-    if P:
-        b['u'].axpy(-1., P*x_['p'])
-    else:
-        b['u'].axpy(-1., assemble(dot(v, grad(p_))*dx))
-
-def add_pressure_gradient_rhs_update(b, dt, P, dp_, v, **NS_namespace):
-    """Add pressure gradient on rhs of velocity update equation."""
-    if P:
-        b['u'].axpy(-dt, P * dp_.vector())
-    else:
-        b['u'].axpy(-dt, assemble(dot(v, grad(dp_))*dx))
-        
-def assemble_pressure_rhs(b, Rx, x_, dt, q, u_, Ap, **NS_namespace):
-    """Assemble rhs of pressure equation."""
-    b['p'].zero()
-    if Rx:
-        b['p'].axpy(-1./dt, Rx*x_['u'])
-    else:
-        b['p'].axpy(-1./dt, assemble(div(u_)*q*dx))
-    b['p'].axpy(1., Ap*x_['p'])
-
-def update_velocity_lumping(P, dp_, ML, dt, x_, v, bcs, **NS_namespace):
-    if P:
-        x_['u'].axpy(-dt, (P * dp_.vector()) * ML)
-    else:
-        x_['u'].axpy(-dt, (assemble(dot(v, grad(dp_))*dx)) * ML)
-
-    [bc.apply(x_['u']) for bc in bcs['u']]
-
-def velocity_tentative_hook(use_krylov_solvers, u_sol, **NS_namespace):
+def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     """Called just prior to solving for tentative velocity."""
     pass
