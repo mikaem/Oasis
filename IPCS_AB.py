@@ -105,7 +105,7 @@ from common import *
 
 ################### Problem dependent parameters ####################
 ### Should import a mesh and a dictionary called NS_parameters    ###
-### See NSdefault_hooks for possible parameters                   ###
+### See common/default_hooks.py for possible parameters                   ###
 
 default_problem = 'LshapeVector'
 commandline_kwargs = parse_command_line()

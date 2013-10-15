@@ -3,7 +3,7 @@ __date__ = "2013-10-14"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
-from NSdefault_hooks import *
+from common.default_hooks import *
 
 def assemble_lumped_P1_diagonal(V, M, **NS_namespace):
     ones = Function(V)
