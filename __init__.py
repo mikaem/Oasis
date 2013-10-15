@@ -18,10 +18,10 @@ def calling_solver():
 
 # Import all functions specific to chosen solver and all default hooks
 try:
-    exec("from {}_functions import *".format(calling_solver()))
+    exec("from solverfunctions.{} import *".format(calling_solver()))
 
 except:
-    from NavierStokes_functions import *
+    from solverfunctions.NavierStokes import *
     
 # Convenience functions
 def strain(u):
