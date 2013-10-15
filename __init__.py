@@ -3,7 +3,7 @@ Optimized And StrIpped Solvers
 """
 import sys
 
-solvers = ["NavierStokes", "IPCS_AB"]
+solvers = ["NavierStokes", "IPCS_AB", "IPCS_AB2"]
 
 def calling_solver():
     frames = sys._current_frames()
