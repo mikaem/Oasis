@@ -202,8 +202,9 @@ def solve_pressure(dp_, x_, Ap, b, p_sol, **NS_namespace):
     if hasattr(p_sol, 'null_space'):
         p_sol.null_space.orthogonalize(b['p']);
 
+    t1 = Timer("Pressure Linear Algebra Solve")
     p_sol.solve(Ap, x_['p'], b['p'])
-    
+    t1.stop()
     # LUSolver use normalize directly for normalization of pressure
     if hasattr(p_sol, 'normalize'):
         normalize(x_['p'])

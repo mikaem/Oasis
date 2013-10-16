@@ -414,7 +414,9 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
                 ##############################
                 [bc.apply(b[ui]) for bc in bcs[ui]]
                 info_blue('Updating velocity '+ui, print_solve_info)
+                t1 = Timer("Update Linear Algebra Solve")
                 du_sol.solve(M, x_[ui], b[ui])
+                t1.stop()
                 
         t0.stop()
         

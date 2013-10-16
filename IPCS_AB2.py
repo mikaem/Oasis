@@ -375,7 +375,9 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             [bc.apply(A, b[ui]) for bc in bcs[ui]]
             x_2[ui].zero()                 # x_2 only used on inner_iter 1, so use here as work vector
             x_2[ui].axpy(1., x_[ui])
+            t1 = Timer("Tentative Linear Algebra Solve")
             u_sol.solve(A, x_[ui], b[ui])
+            t1.stop()
             b[ui].zero()
             b[ui].axpy(1., b_tmp[ui])
             err += norm(x_2[ui] - x_[ui])
@@ -414,8 +416,9 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
                 ##############################
                 [bc.apply(b[ui]) for bc in bcs[ui]]
                 info_blue('Updating velocity '+ui, print_solve_info)
+                t1 = Timer("Update Linear Algebra Solve")
                 du_sol.solve(M, x_[ui], b[ui])
-                
+                t1.stop()
         t0.stop()
         
     # Solve for scalars
