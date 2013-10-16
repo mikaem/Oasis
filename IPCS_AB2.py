@@ -312,7 +312,8 @@ if parameters["form_compiler"].has_key("no_ferari"):
     parameters["form_compiler"].remove("no_ferari")
 
 # Set convection form 
-a_conv = dict((ui, inner(dot(grad(q_1[ui]), u_1), v)*dx) for ui in u_components)
+#a_conv = dict((ui, inner(v, dot(grad(q_1[ui]), u_1))*dx) for ui in u_components)
+a_conv = dict((ui, inner(v, dot(u_1, nabla_grad(q_1[ui])))*dx) for ui in u_components)
 #a_conv = inner(1.5*dot(grad(u_1), u_1)-0.5*dot(grad(u_2), u_2), v)*dx # Old
 b_conv = dict((ui, assemble(inner(dot(grad(q_2[ui]), u_2), v)*dx)) for ui in u_components)
 

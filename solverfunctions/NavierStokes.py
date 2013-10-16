@@ -39,6 +39,7 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
             du_sol.parameters.update(krylov_solvers)
             du_sol.parameters['preconditioner']['reuse'] = True
+            du_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
             du_sol.parameters['preconditioner']['ilu']['fill_level'] = 2
             #PETScOptions.set("pc_hypre_euclid_bj", True)
             #PETScOptions.set("pc_hypre_euclid_print_statistics", True)
