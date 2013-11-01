@@ -36,20 +36,21 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         if use_lumping_of_mass_matrix:
             du_sol = None
         else:
+            #du_sol = KrylovSolver('bicgstab', 'jacobi')
             du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
             du_sol.parameters.update(krylov_solvers)
             du_sol.parameters['preconditioner']['reuse'] = True
-            du_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
-            du_sol.parameters['preconditioner']['ilu']['fill_level'] = 2
+            #du_sol.parameters['preconditioner']['ilu']['fill_level'] = 2
             #PETScOptions.set("pc_hypre_euclid_bj", True)
             #PETScOptions.set("pc_hypre_euclid_print_statistics", True)
+            PETScOptions.set("pc_factor_reuse_ordering", True)
+            PETScOptions.set("pc_factor_reuse_fill", True)
 
         ## pressure solver ##
         #p_prec = PETScPreconditioner('petsc_amg')
         #p_prec.parameters['report'] = True
-        #p_prec.parameters['same_nonzero_pattern'] = True
-        #p_prec.parameters['gamg']['verbose'] = 20
-        #p_prec.parameters['gamg']['num_aggregation_smooths'] = 2
+        #p_prec.parameters['reuse'] = True
+        #p_prec.parameters['gamg']['num_aggregation_smooths'] = 1
         #p_sol = PETScKrylovSolver('gmres', p_prec)
         #p_sol.p_prec = p_prec
         if bcs['p'] == []:
@@ -57,7 +58,7 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         else:
             p_sol = KrylovSolver('gmres', 'hypre_amg')
         p_sol.parameters['preconditioner']['reuse'] = True
-        p_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
+        
         p_sol.parameters.update(krylov_solvers)
         if bcs['p'] == []:
             attach_pressure_nullspace(p_sol, x_, Q)
@@ -109,7 +110,7 @@ def add_pressure_gradient_rhs_update(b, dt, P, dp_, v, i, ui, **NS_namespace):
         b[ui].axpy(-dt, P[ui]*dp_.vector())
     else:
         b[ui].axpy(-dt, assemble(v*dp_.dx(i)*dx))
-        
+    
 def assemble_pressure_rhs(b, Rx, x_, dt, q, u_, Ap, **NS_namespace):
     """Assemble rhs of pressure equation."""
     b['p'].zero()

@@ -59,7 +59,7 @@ recursive_update(NS_parameters, dict(
     velocity_degree = 1,
     save_step = 10000,
     checkpoint = 10000, 
-    plot_interval = 20,
+    plot_interval = 1000,
     use_krylov_solvers = True,
     use_lumping_of_mass_matrix = True,
     krylov_solvers = dict(monitor_convergence=True)

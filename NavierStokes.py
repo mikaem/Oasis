@@ -137,6 +137,7 @@ Ta might differ from A due to Dirichlet boundary conditions.
     
 """
 from common import *
+from petsc4py import PETSc
 
 ################### Problem dependent parameters ####################
 ### Should import a mesh and a dictionary called NS_parameters    ###
@@ -259,19 +260,19 @@ else:
         Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
 
 # Mass matrix
-M = assemble(inner(u, v)*dx)                    
+M = assemble(inner(u, v)*dx)
 
 # Stiffness matrix (without viscosity coefficient)
-K = assemble(inner(grad(u), grad(v))*dx)        
+K = assemble(inner(grad(u), grad(v))*dx)
 
 # Pressure Laplacian
 if velocity_degree == pressure_degree and bcs['p'] == []:
     Ap = K
     
 else:
-    Ap = assemble(inner(grad(q), grad(p))*dx) 
+    Ap = assemble(inner(grad(q), grad(p))*dx)
     [bc.apply(Ap) for bc in bcs['p']]
-    Ap.compress()
+    #Ap.compress()
 
 # Allocate coefficient matrix (needs reassembling)
 A = Matrix(M)
@@ -339,7 +340,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             t1 = Timer("Assemble first inner iter")
             # Only on the first iteration because nothing here is changing in time
             # Set up coefficient matrix for computing the rhs:
-            A = assemble(a_conv, tensor=A, reset_sparsity=False) 
+            A = assemble(a_conv, tensor=A, reset_sparsity=False)
             A._scale(-1.)            # Negative convection on the rhs 
             A.axpy(1./dt, M, True)   # Add mass
             

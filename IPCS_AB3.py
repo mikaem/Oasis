@@ -274,15 +274,6 @@ else:
     Ap.compress()
 
 # Allocate coefficient matrix
-#A_rhs = Matrix(M)
-#A_rhs._scale(1./dt)
-#A_rhs.axpy(-0.5*nu, K, True) # Add diffusion 
-#A_lhs = Matrix(M)
-#A_lhs._scale(1./dt)
-#A_lhs.axpy(0.5*nu, K, True) # Add diffusion 
-#[bc.apply(A_lhs) for bc in bcs['u0']]
-#A_rhs.compress()
-#A_lhs.compress()
 A = Matrix(M)
 
 # Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
@@ -313,6 +304,8 @@ if parameters["form_compiler"].has_key("no_ferari"):
 
 # Set convection form 
 a_conv = inner(v, dot(u_1, nabla_grad(u)))*dx
+
+# Assemble convection matrix for first timestep
 A_conv = assemble(inner(v, dot(u_2, nabla_grad(u)))*dx)
 
 # A scalar always uses the Standard convection form
@@ -357,7 +350,6 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             A.axpy(-1.5, A_conv, True)
             for ui in u_components:            
                 b[ui].axpy(1.0, A*x_1[ui])              # Add transient and diffusion
-                #b[ui].axpy(-1.5, A_conv*x_1[ui])
                             
             A.axpy(nu, K, True)       # Reset for lhs
             A.axpy(1.5, A_conv, True) # Remove convection

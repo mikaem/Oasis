@@ -11,10 +11,11 @@ import inspect
 from collections import defaultdict
 from numpy import array, maximum
 
-#parameters["linear_algebra_backend"] = "Epetra"
 parameters["linear_algebra_backend"] = "PETSc"
 parameters["form_compiler"]["optimize"] = True
 parameters["form_compiler"]["cpp_optimize"] = True
+parameters["form_compiler"]["representation"] = "quadrature"
+#parameters["form_compiler"]["cache_dir"] = "/home/mikael/MySoftware/Oasis/instant"
 parameters["mesh_partitioner"] = "ParMETIS"
 #parameters["graph_coloring_library"] = "Zoltan"
 parameters["form_compiler"].add("no_ferari", True)
@@ -204,6 +205,7 @@ def solve_pressure(dp_, x_, Ap, b, p_sol, **NS_namespace):
 
     t1 = Timer("Pressure Linear Algebra Solve")
     p_sol.solve(Ap, x_['p'], b['p'])
+    
     t1.stop()
     # LUSolver use normalize directly for normalization of pressure
     if hasattr(p_sol, 'normalize'):

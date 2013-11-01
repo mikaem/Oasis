@@ -3,7 +3,7 @@ Optimized And StrIpped Solvers
 """
 import sys
 
-solvers = ["NavierStokes", "IPCS_AB", "IPCS_AB2", "IPCS_AB3"]
+solvers = ["NavierStokes", "IPCS_AB", "IPCS_AB2", "IPCS_AB3", "IPCS_LAO"]
 
 def calling_solver():
     frames = sys._current_frames()
@@ -100,7 +100,8 @@ def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint,
         
     killoasis = check_if_kill(folder)
     if tstep % checkpoint == 0 or killoasis:
-        save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters)
+        save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters,
+                                    u_components)
         
     return killoasis
 
@@ -143,7 +144,8 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, Vv,
             f = open(path.join(timefolder, 'params.dat'), 'w')
             cPickle.dump(NS_parameters,  f)
 
-def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters):
+def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, NS_parameters,
+                                u_components):
     """Overwrite solution in Checkpoint folder. 
     
     For safety reasons, in case the solver is interrupted, take backup of 

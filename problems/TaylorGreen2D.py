@@ -9,9 +9,8 @@ from Oasis import *
 NS_parameters.update(dict(
     nu = 0.01,
     T = 1.,
-    dt = 0.01,
-    Nx = 20,
-    Ny = 20,
+    dt = 0.001,
+    Nx = 20, Ny = 20,
     folder = "taylorgreen2D_results",
     max_iter = 1,
     iters_on_first_timestep = 2,
@@ -19,10 +18,10 @@ NS_parameters.update(dict(
     save_step = 10000,
     checkpoint = 10000,
     print_intermediate_info = 1000,
-    use_krylov_solvers = False,
-    low_memory_version = True,
+    use_krylov_solvers = True,
+    low_memory_version = False,
     use_lumping_of_mass_matrix = False,
-    velocity_degree = 1,
+    velocity_degree = 2,
     pressure_degree = 1,
     krylov_report = False
   )
@@ -31,7 +30,7 @@ NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
                                    'report': False}
 
 def mesh(Nx, Ny, **params):
-    return RectangleMesh(0, 0, 2, 2, Nx, Ny)
+    return RectangleMesh(0, 0, 2, 2, Nx, Ny, "crossed")
 
 class PeriodicDomain(SubDomain):
     
