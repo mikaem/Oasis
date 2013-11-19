@@ -3,27 +3,6 @@ Optimized And StrIpped Solvers
 """
 from common.default_hooks import *
 
-<<<<<<< HEAD
-solvers = ["NavierStokes", "IPCS_AB", "IPCS_AB2", "IPCS_AB3", "IPCS_LAO"]
-
-def calling_solver():
-    frames = sys._current_frames()
-    calling_frame = frames.values()[-1].f_back
-    name = calling_frame.f_globals['__file__'].split(".")[0]
-    while not name in solvers: 
-        calling_frame = calling_frame.f_back
-        name = calling_frame.f_globals['__file__'].split(".")[0]
-    return name.split(".")[0]
-
-# Import all functions specific to chosen solver and all default hooks
-try:
-    exec("from solverfunctions.{} import *".format(calling_solver()))
-
-except:
-    from solverfunctions.NavierStokes import *
-    
-=======
->>>>>>> mikael/lao
 # Convenience functions
 def strain(u):
     return 0.5*(grad(u)+ grad(u).T)
