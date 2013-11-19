@@ -16,27 +16,18 @@ NS_parameters.update(dict(
     #convection = 'Skew',
     plot_interval = 10,
     velocity_degree = 1,
-    use_lumping_of_mass_matrix = True,
-    use_krylov_solvers = True
+    use_krylov_solvers = False
   )
 )
 
 # Declare two scalar fields with different diffusivities
 scalar_components = ['c', 'k']
-Schmidt['c'] = 1000.
+Schmidt['c'] = 1.
 Schmidt['k'] = 1.
 
 class C0(Expression):
     def eval(self, values, x):
         values[0] = exp(-10*pow((pow(x[0]-0.5, 4) + pow(x[1]-0.5, 4)), 0.25))
-
-pre_solve_hook_0 = pre_solve_hook
-def pre_solve_hook(Vv, v, **NS_namespace):    
-    d = pre_solve_hook_0(Vv, **NS_namespace)
-    cc = C0()
-    c0 = assemble(cc*v*dx)
-    d.update(c0=c0)
-    return d
 
 # Specify boundary conditions
 create_bcs_0 = create_bcs
@@ -55,8 +46,9 @@ def initialize(x_, x_1, x_2, bcs, **NS_namespace):
     #q_['c'].vector()[:] = 1e-12 # To help Krylov solver on first timestep
     #q_['k'].vector()[:] = 1e-12
     
-def scalar_hook(b, c0, **NS_namespace):
-    b['c'].axpy(1., c0)
+def scalar_source(v, **NS_namespace):
+    fs = {"c": C0(), "k": Constant(0)}
+    return fs    
     
 temporal_hook0 = temporal_hook    
 def temporal_hook(tstep, u_, Vv, uv, p_, c_, k_, plot_interval, **NS_namespace):

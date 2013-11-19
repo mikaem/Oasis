@@ -26,8 +26,8 @@ recursive_update(NS_parameters,
    dict(nu = 0.001,
         T = T,
         dt = dt,
-        Nx = 32,
-        Ny = 32,
+        Nx = 100,
+        Ny = 100,
         skewness = 'cos',
         folder = "drivencavity_results",
         plot_interval = 1000,
@@ -37,7 +37,6 @@ recursive_update(NS_parameters,
         print_intermediate_info = 100,
         max_iter = 1,
         iters_on_first_timestep = 1,
-        use_lumping_of_mass_matrix = True,
         use_krylov_solvers = True,
         krylov_solvers = dict(monitor_convergence=False,
                               relative_tolerance = 1e-8))
@@ -45,8 +44,7 @@ recursive_update(NS_parameters,
 
 def pre_solve_hook(Vv, **NS_namespace):    
     # Declare a Function used for plotting in temporal_hook
-    uv = Function(Vv)  
-    return dict(uv=uv)
+    return dict(uv=Function(Vv))
 
 def lid(x, on_boundary):
     return (on_boundary and near(x[1], 1.0))

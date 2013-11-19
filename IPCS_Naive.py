@@ -149,7 +149,6 @@ if callable(mesh):
 assert(isinstance(mesh, Mesh))    
 #####################################################################
 
-NS_parameters['use_lumping_of_mass_matrix'] = False
 # Put NS_parameters in global namespace
 vars().update(NS_parameters)  
 
@@ -249,18 +248,8 @@ for i, ui in enumerate(u_components):
     # Velocity update
     Fu[ui] = inner(u, v)*dx - inner(q_[ui], v)*dx + dt*inner(dp_.dx(i), v)*dx
 
-A = Matrix()                # Coefficient matrix (needs reassembling)
-#A = assemble(lhs(F["u0"]))
-#[bc.apply(A) for bc in bcs["u0"]]
-
-M = assemble(lhs(Fu["u0"])) # Same for all components
-[bc.apply(M) for bc in bcs['u0']]
-
 # Pressure update
-n = FacetNormal(mesh)
-Ap = assemble(inner(grad(q), grad(p))*dx) 
-Lp = inner(grad(p_), grad(q))*dx - (1/dt)*div(u_)*q*dx 
-[bc.apply(Ap) for bc in bcs['p']]
+Fp = inner(grad(q), grad(p))*dx - inner(grad(p_), grad(q))*dx + (1./dt)*div(u_)*q*dx 
 
 # Scalar with SUPG
 h = CellSize(mesh)
@@ -269,16 +258,6 @@ vw = v + h*inner(grad(v), U_AB)
 for ci in scalar_components:
     F[ci] = (1./dt)*inner(u - q_1[ci], vw)*dx + inner(dot(grad(U_CN[ci]), U_AB), vw)*dx + \
             nu/Schmidt[ci]*inner(grad(U_CN[ci]), grad(vw))*dx 
-
-if len(scalar_components) > 0:
-    Ta = Matrix(M)                              # Coefficient matrix for scalar. Differs from velocity in boundary conditions only
-    Tb, bb, bx = None, None, None
-    if len(scalar_components) > 1:
-        # For more than one scalar we use the same linear algebra solver for all.
-        # For this to work we need some additional tensors
-        Tb = Matrix(M)
-        bb = Vector(x_[scalar_components[0]])
-        bx = Vector(x_[scalar_components[0]])
 
 print_solve_info = use_krylov_solvers and krylov_solvers['monitor_convergence']
 
@@ -303,58 +282,21 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         t0 = Timer("Tentative velocity")
         err = 0
         inner_iter += 1
-        ### Assemble matrices and compute rhs vector for tentative velocity and scalar ###
-        
         # short short version
         for ui in u_components:
             solve(lhs(F[ui]) == rhs(F[ui]), q_[ui], bcs=bcs[ui])
-
-        #if inner_iter == 1:
-            ## Only on the first iteration because nothing here is changing in time
-            ## Set up coefficient matrix for computing the rhs:
-            #t1 = Timer("Assemble first inner iter")
-            #A = assemble(lhs(F["u0"]), tensor=A) 
-            #[bc.apply(A) for bc in bcs["u0"]]
-            #t1.stop()
             
-        #for ui in u_components:
-            #b[ui].zero()
-            #b[ui] = assemble(rhs(F[ui]), tensor=b[ui])
-            ##################################
-            #velocity_tentative_hook(**vars())
-            ##################################
-            #[bc.apply(b[ui]) for bc in bcs[ui]]
-            #b_tmp[:] = x_[ui][:]
-            #info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
-            #u_sol.solve(A, x_[ui], b[ui])
-            #err += norm(b_tmp - x_[ui])
-                        
         t0.stop()
         
         ### Solve pressure ###
         t0 = Timer("Pressure solve")
-        
         dp_.vector()[:] = x_['p'][:]
-        b['p'] = assemble(Lp, tensor=b['p'])
-        #######################
-        pressure_hook(**vars())
-        #######################
-        [bc.apply(b['p']) for bc in bcs['p']]
-        rp = residual(Ap, x_['p'], b['p'])
-        info_blue('Solving pressure', inner_iter == 1 and print_solve_info)
-        
-        # KrylovSolvers use nullspace for normalization of pressure
-        if hasattr(p_sol, 'null_space'):
-            p_sol.null_space.orthogonalize(b['p']);
-
-        p_sol.solve(Ap, x_['p'], b['p'])
-        
-        # LUSolver use normalize directly for normalization of pressure
-        if hasattr(p_sol, 'normalize'):
-            normalize(x_['p'])
-
+        solve(lhs(Fp) == rhs(Fp), p_, bcs["p"])        
+        if bcs["p"] == []:
+            normalize(p_.vector())
         dp_.vector()[:] = x_['p'][:] - dp_.vector()[:]
         if num_iter > 1:
+            rp = norm(dp_.vector())
             if inner_iter == 1: 
                 info_blue('  Inner iterations velocity pressure:')
                 info_blue('                 error u  error p')
@@ -365,13 +307,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     if inner_iter == 1:
         t0 = Timer("Velocity update")
         for ui in u_components:
-            b[ui] = assemble(rhs(Fu[ui]), tensor=b[ui])
-            ##############################
-            velocity_update_hook(**vars())
-            ##############################
-            [bc.apply(b[ui]) for bc in bcs[ui]]
-            info_blue('Updating velocity '+ui, print_solve_info)
-            du_sol.solve(M, x_[ui], b[ui])
+            solve(lhs(Fu[ui]) == rhs(Fu[ui]), q_[ui], bcs[ui])
             
         t0.stop() 
         
@@ -380,26 +316,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         t0 = Timer("Scalar solve")
         for ci in scalar_components:    
             info_blue('Solving scalar {}'.format(ci), print_solve_info)
-            # Reuse solver for all scalars. This requires the same matrix and vectors to be used by c_sol.
-            Ta = assemble(lhs(F[ci]), tensor=Ta)
-            b[ci] = assemble(rhs(F[ci]), tensor=b[ci])
-            #####################
-            scalar_hook(**vars())
-            #####################
-            if len(scalar_components) > 1: 
-                Tb._scale(0.)
-                Tb.axpy(1., Ta, True)
-                bb[:] = b[ci][:]
-                bx[:] = x_[ci][:]
-                [bc.apply(Tb, bb) for bc in bcs[ci]]
-                c_sol.solve(Tb, bx, bb)
-                x_[ci][:] = bx[:]
-            else:
-                [bc.apply(Ta, b[ci]) for bc in bcs[ci]]
-                c_sol.solve(Ta, x_[ci], b[ci])
-            x_[ci][x_[ci] < 0] = 0.               # Bounded solution
-            #x_[ci].set_local(maximum(0., x_[ci].array()))
-            x_[ci].apply("insert")
+            solve(lhs(F[ci]) == rhs(F[ci]), q_[ci], bcs[ci])
         t0.stop()
 
     ##############################

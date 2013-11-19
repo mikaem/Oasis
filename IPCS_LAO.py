@@ -137,6 +137,7 @@ Ta might differ from A due to Dirichlet boundary conditions.
     
 """
 from common import *
+from petsc4py import PETSc
 
 ################### Problem dependent parameters ####################
 ### Should import a mesh and a dictionary called NS_parameters    ###
@@ -241,9 +242,6 @@ assert(isinstance(f, Constant))
 
 ################### Preassemble and allocate ########################
 
-# Constant body force
-b0 = dict((ui, assemble(v*f[i]*dx)) for i, ui in enumerate(u_components))
-
 if low_memory_version:
     P = None
     Rx = None
@@ -258,22 +256,26 @@ else:
     else:
         Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
 
+# Constant body force
+b0 = dict((ui, assemble(v*f[i]*dx)) for i, ui in enumerate(u_components))
+
 # Mass matrix
-M = assemble(inner(u, v)*dx)                    
+M = assemble(inner(u, v)*dx)
 
 # Stiffness matrix (without viscosity coefficient)
-K = assemble(inner(grad(u), grad(v))*dx)        
+K = assemble(inner(grad(u), grad(v))*dx)
 
 # Pressure Laplacian
 if velocity_degree == pressure_degree and bcs['p'] == []:
     Ap = K
+    Mp = M
     
 else:
-    Ap = assemble(inner(grad(q), grad(p))*dx) 
+    Ap = assemble(inner(grad(q), grad(p))*dx)
     [bc.apply(Ap) for bc in bcs['p']]
-    Ap.compress()
-
-# Allocate coefficient matrix
+    Mp = assemble(inner(p, q)*dx)
+    
+# Allocate coefficient matrix (needs reassembling)
 A = Matrix(M)
 
 # Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
@@ -288,31 +290,32 @@ if len(scalar_components) > 0:
         bb = Vector(x_[scalar_components[0]])
         bx = Vector(x_[scalar_components[0]])
 
-# Velocity update may use lumping of the mass matrix for P1-elements
-# Compute inverse of the lumped diagonal mass matrix 
-if velocity_update_type == "lumping":
-    from solverfunctions.lumpingupdate import update_velocity, assemble_lumped_P1_diagonal
-    ML = assemble_lumped_P1_diagonal(**vars())
-    
-else: # Use regular velocity update
-    Mu = Matrix(M) if len(scalar_components) > 0 else M # Copy if used by scalars
-    [bc.apply(Mu) for bc in bcs['u0']]
-
 #####################################################################
 
 if parameters["form_compiler"].has_key("no_ferari"):
     parameters["form_compiler"].remove("no_ferari")
 
 # Set convection form 
-a_conv = inner(v, dot(u_1, nabla_grad(u)))*dx
+u_ab = as_vector([Function(V) for i in range(len(u_components))])
+a_conv = 0.5*inner(v, dot(u_ab, nabla_grad(u)))*dx  # Faster version
+#a_conv = 0.5*inner(v, dot(U_AB, nabla_grad(u)))*dx
 
-# Assemble convection matrix for first timestep
-A_conv = assemble(inner(v, dot(u_2, nabla_grad(u)))*dx)
+for i, ui in enumerate(u_components):
+    u_ab[i].vector().axpy(1.5, x_1[ui])
+    u_ab[i].vector().axpy(-0.5, x_2[ui])
 
 # A scalar always uses the Standard convection form
-a_scalar = None
-if len(scalar_components) > 0:
-    a_scalar = 0.5*inner(dot(grad(u), U_AB), v)*dx
+a_scalar = a_conv
+
+lp = LocalAverageOperator(V)
+dp = Function(V) 
+#if velocity_degree == pressure_degree:
+    #lpq = lp
+#else:
+    #lpq = LocalAverageOperator(Q)
+lpq = LocalAverageOperator(Q)
+#lpq = LocalAverageOperator(Q, Form(q*dx))
+lpq.bcs = [homogenize(bc) for bc in bcs["u0"]]
 
 #### Do something problem specific ####
 vars().update(pre_solve_hook(**vars()))
@@ -338,22 +341,28 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         if inner_iter == 1:
             t1 = Timer("Assemble first inner iter")
             # Only on the first iteration because nothing here is changing in time
-            A.zero()
-            A.axpy(1./dt, M, True)
-            A.axpy(-0.5*nu, K, True) # Add diffusion 
-
+            # Set up coefficient matrix for computing the rhs:
+            A = assemble(a_conv, tensor=A, reset_sparsity=False)
+            A._scale(-1.)            # Negative convection on the rhs 
+            A.axpy(1./dt, M, True)   # Add mass
+            
+            #Set up scalar matrix for rhs using the same convection as velocity
+            if len(scalar_components) > 0:                
+               if a_scalar is a_conv:
+                   Ta.zero()
+                   Ta.axpy(1., A, True)
+                   
+            # Add diffusion and compute rhs for all velocity components 
+            A.axpy(-0.5*nu, K, True) 
             for ui in u_components:
-                b[ui].zero()
-                b[ui].axpy(1.0, b0[ui])                 # body force
-                b[ui].axpy(0.5, A_conv*x_2[ui])
+                b[ui].zero()              # start with body force
+                b[ui].axpy(1., b0[ui])
+                b[ui].axpy(1., A*x_1[ui]) # Add transient, convection and diffusion
                 
-            A_conv = assemble(a_conv, tensor=A_conv, reset_sparsity=False)
-            A.axpy(-1.5, A_conv, True)
-            for ui in u_components:            
-                b[ui].axpy(1.0, A*x_1[ui])              # Add transient and diffusion
-                            
-            A.axpy(nu, K, True)       # Reset for lhs
-            A.axpy(1.5, A_conv, True) # Remove convection
+            # Reset matrix for lhs
+            A._scale(-1.)
+            A.axpy(2./dt, M, True)
+            [bc.apply(A) for bc in bcs['u0']]
             t1.stop()
                    
         err = 0
@@ -365,7 +374,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             #################################
             velocity_tentative_hook(**vars())
             #################################
-            [bc.apply(A, b[ui]) for bc in bcs[ui]]
+            [bc.apply(b[ui]) for bc in bcs[ui]]
             x_2[ui].zero()                 # x_2 only used on inner_iter 1, so use here as work vector
             x_2[ui].axpy(1., x_[ui])
             t1 = Timer("Tentative Linear Algebra Solve")
@@ -396,15 +405,16 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     ### Update velocity if noniterative scheme is used ###
     if inner_iter == 1:
         t0 = Timer("Velocity update")
-        update_velocity(**vars())                
+        update_velocity_lao(**vars())                
         t0.stop()
         
     # Solve for scalars
     if len(scalar_components) > 0:
         t0 = Timer("Scalar solve")
-        Ta = assemble(a_scalar, tensor=Ta, reset_sparsity=False)
-        Ta._scale(-1.)            # Negative convection on the rhs 
-        Ta.axpy(1./dt, M, True)   # Add mass
+        if not a_scalar is a_conv:
+            Ta = assemble(a_scalar, tensor=Ta, reset_sparsity=False)
+            Ta._scale(-1.)            # Negative convection on the rhs 
+            Ta.axpy(1./dt, M, True)   # Add mass
             
         # Compute rhs for all scalars
         for ci in scalar_components:
@@ -453,6 +463,14 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         # AB projection for pressure on next timestep
         if AB_projection_pressure:
             x_['p'].axpy(0.5, dp_.vector())
+
+        # Update u_ used as convecting AB-velocity in convection assembly
+        for i, ui in enumerate(u_components):
+            #x_[ui]._scale(1.5)
+            #x_[ui].axpy(-0.5, x_1[ui])
+            u_ab[i].vector().zero()
+            u_ab[i].vector().axpy(1.5, x_1[ui])
+            u_ab[i].vector().axpy(-0.5, x_2[ui])
                             
 total_timer.stop()
 list_timings()

@@ -144,7 +144,9 @@ from petsc4py import PETSc
 ### See common/default_hooks.py for possible parameters                   ###
 
 default_problem = 'DrivenCavity'
+
 commandline_kwargs = parse_command_line()
+    
 exec("from problems.{} import *".format(commandline_kwargs.get('problem', default_problem)))
 
 assert(isinstance(NS_parameters, dict))
@@ -156,9 +158,6 @@ if callable(mesh):
 
 assert(isinstance(mesh, Mesh))    
 #####################################################################
-
-if NS_parameters['velocity_degree'] > 1:
-    NS_parameters['use_lumping_of_mass_matrix'] = False
 
 # Put NS_parameters in global namespace
 vars().update(NS_parameters)  
@@ -289,12 +288,21 @@ if len(scalar_components) > 0:
         bb = Vector(x_[scalar_components[0]])
         bx = Vector(x_[scalar_components[0]])
 
-# Velocity update may use lumping of the mass matrix for P1-elements
-# Compute inverse of the lumped diagonal mass matrix 
-if use_lumping_of_mass_matrix:
+# Velocity update offers three different possibilities
+# First is through a local Clement interpolation (only good if pressure is P1)
+if velocity_update_type.upper() == "LAO":
+    from solverhooks.velocity_update import lao_update_velocity as update_velocity
+    lp = LocalAverageOperator(V)
+    dp = Function(V) 
+    assert(pressure_degree == 1)
+
+# Second uses lumping of the mass matrix (only if velocity is P1)
+elif velocity_update_type.upper() == "LUMPING":
+    from solverhooks.velocity_update import assemble_lumped_P1_diagonal, lumping_update_velocity as update_velocity
     ML = assemble_lumped_P1_diagonal(**vars())
+    assert(velocity_degree == 1)
     
-else:  # Use regular mass matrix for velocity update
+else: # Use default regular velocity update
     Mu = Matrix(M) if len(scalar_components) > 0 else M # Copy if used by scalars
     [bc.apply(Mu) for bc in bcs['u0']]
 
@@ -307,10 +315,6 @@ if parameters["form_compiler"].has_key("no_ferari"):
 u_ab = as_vector([Function(V) for i in range(len(u_components))])
 a_conv = 0.5*inner(v, dot(u_ab, nabla_grad(u)))*dx  # Faster version
 #a_conv = 0.5*inner(v, dot(U_AB, nabla_grad(u)))*dx
-
-for i, ui in enumerate(u_components):
-    u_ab[i].vector().axpy(1.5, x_1[ui])
-    u_ab[i].vector().axpy(-0.5, x_2[ui])
 
 # A scalar always uses the Standard convection form
 a_scalar = a_conv
@@ -340,7 +344,15 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             t1 = Timer("Assemble first inner iter")
             # Only on the first iteration because nothing here is changing in time
             # Set up coefficient matrix for computing the rhs:
-            A = assemble(a_conv, tensor=A, reset_sparsity=False)
+                    # Update u_ used as convecting AB-velocity in convection assembly
+            for i, ui in enumerate(u_components):
+                #x_[ui]._scale(1.5)
+                #x_[ui].axpy(-0.5, x_1[ui])
+                u_ab[i].vector().zero()
+                u_ab[i].vector().axpy(1.5, x_1[ui])
+                u_ab[i].vector().axpy(-0.5, x_2[ui])
+
+            A = assemble(a_conv, tensor=A, reset_sparsity=False) 
             A._scale(-1.)            # Negative convection on the rhs 
             A.axpy(1./dt, M, True)   # Add mass
             
@@ -353,9 +365,9 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             # Add diffusion and compute rhs for all velocity components 
             A.axpy(-0.5*nu, K, True) 
             for ui in u_components:
-                b[ui].zero()              # start with body force
-                b[ui].axpy(1., b0[ui])
-                b[ui].axpy(1., A*x_1[ui]) # Add transient, convection and diffusion
+                b_tmp[ui].zero()              # start with body force
+                b_tmp[ui].axpy(1., b0[ui])
+                b_tmp[ui].axpy(1., A*x_1[ui]) # Add transient, convection and diffusion
                 
             # Reset matrix for lhs
             A._scale(-1.)
@@ -366,9 +378,12 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         err = 0
         for i, ui in enumerate(u_components):
             info_blue('Solving tentative velocity '+ui, inner_iter == 1 and print_solve_info)
-            b_tmp[ui].zero()
-            b_tmp[ui].axpy(1., b[ui])
-            add_pressure_gradient_rhs(**vars())
+            b[ui].zero()
+            b[ui].axpy(1., b_tmp[ui])
+            if P:
+                b[ui].axpy(-1., P[ui]*x_['p'])
+            else:
+                b[ui].axpy(-1., assemble(v*p_.dx(i)*dx))
             #################################
             velocity_tentative_hook(**vars())
             #################################
@@ -378,8 +393,6 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
             t1 = Timer("Tentative Linear Algebra Solve")
             u_sol.solve(A, x_[ui], b[ui])
             t1.stop()
-            b[ui].zero()
-            b[ui].axpy(1., b_tmp[ui])
             err += norm(x_2[ui] - x_[ui])
         t0.stop()
         
@@ -403,23 +416,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     ### Update velocity if noniterative scheme is used ###
     if inner_iter == 1:
         t0 = Timer("Velocity update")
-        if use_lumping_of_mass_matrix:
-            update_velocity_lumping(**vars())
-            
-        else: # Use regular mass matrix
-            for i, ui in enumerate(u_components):
-                b[ui].zero()
-                b[ui].axpy(1.0, Mu*x_[ui])
-                add_pressure_gradient_rhs_update(**vars())
-                ##############################
-                velocity_update_hook(**vars())
-                ##############################
-                [bc.apply(b[ui]) for bc in bcs[ui]]
-                info_blue('Updating velocity '+ui, print_solve_info)
-                t1 = Timer("Update Linear Algebra Solve")
-                du_sol.solve(Mu, x_[ui], b[ui])
-                t1.stop()
-                
+        update_velocity(**vars())                
         t0.stop()
         
     # Solve for scalars
@@ -477,14 +474,6 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         # AB projection for pressure on next timestep
         if AB_projection_pressure:
             x_['p'].axpy(0.5, dp_.vector())
-
-        # Update u_ used as convecting AB-velocity in convection assembly
-        for i, ui in enumerate(u_components):
-            #x_[ui]._scale(1.5)
-            #x_[ui].axpy(-0.5, x_1[ui])
-            u_ab[i].vector().zero()
-            u_ab[i].vector().axpy(1.5, x_1[ui])
-            u_ab[i].vector().axpy(-0.5, x_2[ui])
                             
 total_timer.stop()
 list_timings()
