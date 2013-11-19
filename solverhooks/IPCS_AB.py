@@ -29,24 +29,34 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
     if use_krylov_solvers:
         ## tentative velocity solver ##
         u_sol = KrylovSolver('bicgstab', 'jacobi')
+        if "structure" in u_sol.parameters['preconditioner']:
+            u_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
+        else:
+            u_sol.parameters['preconditioner']['reuse'] = False
+            u_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
         u_sol.parameters.update(krylov_solvers)
-        u_sol.parameters['preconditioner']['reuse'] = True
-        u_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
+
         ## velocity correction solver
         if use_lumping_of_mass_matrix:
             du_sol = None
         else:
             du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
+            if "structure" in du_sol.parameters['preconditioner']:
+                du_sol.parameters['preconditioner']['structure'] = "same"
+            else:
+                du_sol.parameters['preconditioner']['reuse'] = True
             du_sol.parameters.update(krylov_solvers)
-            du_sol.parameters['preconditioner']['reuse'] = True
-            du_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
+
         ## pressure solver ##
         if bcs['p'] == []:
             p_sol = KrylovSolver('minres', 'hypre_amg')
         else:
             p_sol = KrylovSolver('gmres', 'hypre_amg')
-        p_sol.parameters['preconditioner']['reuse'] = True
-        p_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
+        if "structure" in p_sol.parameters['preconditioner']:
+            p_sol.parameters['preconditioner']['structure'] = "same"
+        else:
+            p_sol.parameters['preconditioner']['reuse'] = True    
+
         p_sol.parameters.update(krylov_solvers)
         if bcs['p'] == []:
             attach_pressure_nullspace(p_sol, x_, Q)
@@ -56,8 +66,12 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             #c_sol = KrylovSolver('bicgstab', 'hypre_euclid')
             c_sol = KrylovSolver('bicgstab', 'jacobi')
             c_sol.parameters.update(krylov_solvers)
-            c_sol.parameters['preconditioner']['reuse'] = False
-            c_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
+            if "structure" in c_sol.parameters['preconditioner']:
+                c_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
+            else:
+                c_sol.parameters['preconditioner']['reuse'] = False
+                c_sol.parameters['preconditioner']['same_nonzero_pattern'] = True    
+
             sols.append(c_sol)
         else:
             sols.append(None)

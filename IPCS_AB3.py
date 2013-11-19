@@ -274,15 +274,6 @@ else:
     Ap.compress()
 
 # Allocate coefficient matrix
-#A_rhs = Matrix(M)
-#A_rhs._scale(1./dt)
-#A_rhs.axpy(-0.5*nu, K, True) # Add diffusion 
-#A_lhs = Matrix(M)
-#A_lhs._scale(1./dt)
-#A_lhs.axpy(0.5*nu, K, True) # Add diffusion 
-#[bc.apply(A_lhs) for bc in bcs['u0']]
-#A_rhs.compress()
-#A_lhs.compress()
 A = Matrix(M)
 
 # Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
@@ -299,10 +290,11 @@ if len(scalar_components) > 0:
 
 # Velocity update may use lumping of the mass matrix for P1-elements
 # Compute inverse of the lumped diagonal mass matrix 
-if use_lumping_of_mass_matrix:
+if velocity_update_type == "lumping":
+    from solverfunctions.lumpingupdate import update_velocity, assemble_lumped_P1_diagonal
     ML = assemble_lumped_P1_diagonal(**vars())
     
-else:  # Use regular mass matrix for velocity update
+else: # Use regular velocity update
     Mu = Matrix(M) if len(scalar_components) > 0 else M # Copy if used by scalars
     [bc.apply(Mu) for bc in bcs['u0']]
 
@@ -318,7 +310,7 @@ A_conv = assemble(inner(v, dot(u_2, nabla_grad(u)))*dx)
 # A scalar always uses the Standard convection form
 a_scalar = None
 if len(scalar_components) > 0:
-    a_scalar = 0.5*inner(dot(grad(c), U_AB), d)*dx
+    a_scalar = 0.5*inner(dot(grad(u), U_AB), v)*dx
 
 #### Do something problem specific ####
 vars().update(pre_solve_hook(**vars()))
@@ -403,23 +395,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     ### Update velocity if noniterative scheme is used ###
     if inner_iter == 1:
         t0 = Timer("Velocity update")
-        if use_lumping_of_mass_matrix:
-            update_velocity_lumping(**vars())
-            
-        else: # Use regular mass matrix
-            for i, ui in enumerate(u_components):
-                b[ui].zero()
-                b[ui].axpy(1.0, M*x_[ui])
-                add_pressure_gradient_rhs_update(**vars())
-                ##############################
-                velocity_update_hook(**vars())
-                ##############################
-                [bc.apply(b[ui]) for bc in bcs[ui]]
-                info_blue('Updating velocity '+ui, print_solve_info)
-                t1 = Timer("Update Linear Algebra Solve")
-                du_sol.solve(M, x_[ui], b[ui])
-                t1.stop()
-                
+        update_velocity(**vars())                
         t0.stop()
         
     # Solve for scalars

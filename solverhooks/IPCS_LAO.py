@@ -25,8 +25,12 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
         ## tentative velocity solver ##
         u_sol = KrylovSolver('bicgstab', 'jacobi')
         u_sol.parameters.update(krylov_solvers)
-        u_sol.parameters['preconditioner']['reuse'] = False
-        u_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
+        if "structure" in u_sol.parameters['preconditioner']:
+            u_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
+        else:
+            u_sol.parameters['preconditioner']['reuse'] = False
+            u_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
+
         ## velocity correction solver
         du_sol = None
         
@@ -41,7 +45,10 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             p_sol = KrylovSolver('minres', 'hypre_amg')
         else:
             p_sol = KrylovSolver('gmres', 'hypre_amg')
-        p_sol.parameters['preconditioner']['reuse'] = True
+        if "structure" in p_sol.parameters['preconditioner']:
+            p_sol.parameters['preconditioner']['structure'] = "same"
+        else:
+            p_sol.parameters['preconditioner']['reuse'] = True    
         
         p_sol.parameters.update(krylov_solvers)
         if bcs['p'] == []:
@@ -52,8 +59,11 @@ def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix,
             #c_sol = KrylovSolver('bicgstab', 'hypre_euclid')
             c_sol = KrylovSolver('bicgstab', 'jacobi')
             c_sol.parameters.update(krylov_solvers)
-            c_sol.parameters['preconditioner']['reuse'] = False
-            c_sol.parameters['preconditioner']['same_nonzero_pattern'] = True
+            if "structure" in c_sol.parameters['preconditioner']:
+                c_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
+            else:
+                c_sol.parameters['preconditioner']['reuse'] = False
+                c_sol.parameters['preconditioner']['same_nonzero_pattern'] = True    
             sols.append(c_sol)
         else:
             sols.append(None)

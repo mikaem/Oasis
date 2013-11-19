@@ -9,14 +9,12 @@ from os import getpid, path, makedirs, getcwd, listdir, remove, system
 import cPickle
 import inspect
 from collections import defaultdict
-from numpy import array, maximum
+from numpy import array, maximum, zeros
 
-#parameters["linear_algebra_backend"] = "Epetra"
 parameters["linear_algebra_backend"] = "PETSc"
 parameters["form_compiler"]["optimize"] = True
 parameters["form_compiler"]["cpp_optimize"] = True
 parameters["mesh_partitioner"] = "ParMETIS"
-#parameters["graph_coloring_library"] = "Zoltan"
 parameters["form_compiler"].add("no_ferari", True)
 
 # Default parameters
@@ -32,16 +30,17 @@ NS_parameters = dict(
   AB_projection_pressure = False,  # Use Adams Bashforth projection as first estimate for pressure on new timestep
   velocity_degree = 2,
   pressure_degree = 1,  
+  convection = "ABCN",  # "ABCN", "ABE" or "Naive"
   
   # Parameters used to tweek solver  
   max_iter = 1,          # Number of inner pressure velocity iterations on timestep
   max_error = 1e-6,      # Tolerance for inner iterations (pressure velocity iterations)
   iters_on_first_timestep = 2,  # Number of iterations on first timestep
-  use_lumping_of_mass_matrix = False,  
   use_krylov_solvers = False,  # Otherwise use LU-solver
   low_memory_version = False,  # Use assembler and not preassembled matrices
   print_intermediate_info = 10,
   print_velocity_pressure_convergence = True,
+  velocity_update_type = "default",
   
   # Parameters used to tweek output  
   plot_interval = 10,    
@@ -89,6 +88,17 @@ def info_red(s, check=True):
     if MPI.process_number()==0 and check:
         print RED % s
 
+Timer.__init__0 = Timer.__init__
+def timer_init(self, task, verbose=False):
+    info_blue(task, verbose)
+    self.__init__0(task)
+Timer.__init__ = timer_init
+
+class OasisTimer(Timer):
+    def __init__(self, task, verbose=False):
+        Timer.__init__(self, task)
+        info_blue(task, verbose)
+
 def getMyMemoryUsage():
     mypid = getpid()
     mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
@@ -119,120 +129,7 @@ def create_bcs(sys_comp, **NS_namespace):
     """Return dictionary of Dirichlet boundary conditions."""
     return dict((ui, []) for ui in sys_comp)
 
-def get_solvers(use_krylov_solvers, use_lumping_of_mass_matrix, 
-                krylov_solvers, sys_comp, bcs, x_, Q, 
-                scalar_components, **NS_namespace):
-    """Return linear solvers. 
-    
-    We are solving for
-       - tentative velocity
-       - pressure correction
-       - velocity update (unless lumping is switched on)
-       
-       and possibly:       
-       - scalars
-            
-    """
-    if use_krylov_solvers:
-        ## tentative velocity solver ##
-        u_sol = KrylovSolver('bicgstab', 'jacobi')
-        u_sol.parameters.update(krylov_solvers)
-        
-        ## velocity correction solver
-        if use_lumping_of_mass_matrix:
-            du_sol = None
-        else:
-            du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
-            du_sol.parameters.update(krylov_solvers)
-            du_sol.parameters['preconditioner']['reuse'] = True
-        ## pressure solver ##
-        p_sol = KrylovSolver('gmres', 'hypre_amg')
-        p_sol.parameters['preconditioner']['reuse'] = True
-        p_sol.parameters.update(krylov_solvers)
-        if bcs['p'] == []:
-            attach_pressure_nullspace(p_sol, x_, Q)
-            
-        sols = [u_sol, p_sol, du_sol, None]
-        ## scalar solver ##
-        if len(scalar_components) > 0:
-            c_sol = KrylovSolver('bicgstab', 'jacobi')
-            c_sol.parameters.update(krylov_solvers)
-            c_sol.parameters['preconditioner']['reuse'] = False
-            sols[-1] = c_sol
-            
-    else:
-        ## tentative velocity solver ##
-        u_sol = LUSolver()
-        
-        ## velocity correction ##
-        if use_lumping_of_mass_matrix:
-            du_sol = None
-        else:
-            du_sol = LUSolver()
-            du_sol.parameters['reuse_factorization'] = True
-        
-        ## pressure solver ##
-        p_sol = LUSolver()
-        p_sol.parameters['reuse_factorization'] = True
-        if bcs['p'] == []:
-            p_sol.normalize = True
-        sols = [u_sol, p_sol, du_sol, None]
-        
-        ## scalar solver ##
-        if len(scalar_components) > 0:
-            c_sol = LUSolver()
-            sols[-1] = c_sol
-        
-    return sols
-
-def attach_pressure_nullspace(p_sol, x_, Q):
-    """Create null space basis object and attach to Krylov solver."""
-    null_vec = Vector(x_['p'])
-    Q.dofmap().set(null_vec, 1.0)
-    null_vec *= 1.0/null_vec.norm("l2")
-    null_space = VectorSpaceBasis([null_vec])
-    p_sol.set_nullspace(null_space)
-    p_sol.null_space = null_space
-
-def solve_pressure(dp_, x_, Ap, b, p_sol, **NS_namespace):
-    """Solve pressure equation."""
-    dp_.vector().zero()
-    dp_.vector().axpy(1., x_['p'])
-    # KrylovSolvers use nullspace for normalization of pressure
-    if hasattr(p_sol, 'null_space'):
-        p_sol.null_space.orthogonalize(b['p']);
-
-    t1 = Timer("Pressure Linear Algebra Solve")
-    p_sol.solve(Ap, x_['p'], b['p'])
-    t1.stop()
-    # LUSolver use normalize directly for normalization of pressure
-    if hasattr(p_sol, 'normalize'):
-        normalize(x_['p'])
-
-    #dp_.vector()[:] = x_['p'][:] - dp_.vector()[:]
-    dp_.vector().axpy(-1., x_['p'])
-    dp_.vector()._scale(-1.)
-
-def solve_scalar(ci, scalar_components, Ta, Tb, b, x_, bb, bx, bcs, c_sol, 
-                  **NS_namespace):
-    if len(scalar_components) > 1: 
-        # Reuse solver for all scalars. This requires the same matrix and vectors to be used by c_sol.
-        Tb.zero()
-        Tb.axpy(1., Ta, True)
-        bb.zero(); bb.axpy(1., b[ci])
-        bx.zero(); bx.axpy(1., x_[ci])
-        [bc.apply(Tb, bb) for bc in bcs[ci]]
-        c_sol.solve(Tb, bx, bb)
-        x_[ci].zero(); x_[ci].axpy(1., bx)
-        
-    else:
-        [bc.apply(Ta, b[ci]) for bc in bcs[ci]]
-        c_sol.solve(Ta, x_[ci], b[ci])    
-    #x_[ci][x_[ci] < 0] = 0.               # Bounded solution
-    #x_[ci].set_local(maximum(0., x_[ci].array()))
-    #x_[ci].apply("insert")
-
-def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
+def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     """Called just prior to solving for tentative velocity."""
     pass
 
@@ -240,16 +137,12 @@ def pressure_hook(**NS_namespace):
     """Called prior to pressure solve."""
     pass
 
-def start_timestep_hook(**NS_parameters):
-    """Called at start of new timestep"""
-    pass
-
-def velocity_update_hook(**NS_namespace):
-    """Called prior to velocity update solve."""
-    pass
-
 def scalar_hook(**NS_namespace):
     """Called prior to scalar solve."""
+    pass
+
+def start_timestep_hook(**NS_parameters):
+    """Called at start of new timestep"""
     pass
 
 def temporal_hook(**NS_namespace):

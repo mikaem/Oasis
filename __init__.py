@@ -1,26 +1,8 @@
 """
 Optimized And StrIpped Solvers
 """
-import sys
+from common.default_hooks import *
 
-solvers = ["NavierStokes", "IPCS_AB", "IPCS_AB2", "IPCS_AB3"]
-
-def calling_solver():
-    frames = sys._current_frames()
-    calling_frame = frames.values()[-1].f_back
-    name = calling_frame.f_globals['__file__'].split(".")[0]
-    while not name in solvers: 
-        calling_frame = calling_frame.f_back
-        name = calling_frame.f_globals['__file__'].split(".")[0]
-    return name.split(".")[0]
-
-# Import all functions specific to chosen solver and all default hooks
-try:
-    exec("from solverfunctions.{} import *".format(calling_solver()))
-
-except:
-    from solverfunctions.NavierStokes import *
-    
 # Convenience functions
 def strain(u):
     return 0.5*(grad(u)+ grad(u).T)
@@ -228,4 +210,3 @@ def init_from_restart(restart_folder, sys_comp, uc_comp, u_components,
                 if ui in u_components:
                     hdf5_file.read(q_2[ui].vector(), "/previous")
                     q_2[ui].vector().apply('insert')
-
