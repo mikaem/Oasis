@@ -94,14 +94,10 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
     
     return d
 
+doc = assemble_first_inner_iter.__doc__
 def assemble_first_inner_iter(A, dt, M, nu, K, b0, b_tmp, A_conv, x_2, x_1,
                               a_conv, u_components, bcs, **NS_namespace):
-    """Called first thing on a new velocity/pressure iteration.
-    
-    Assemble convection matrix, compute rhs of tentative velocity
-    and reset coefficient matrix for solve.
-    
-    """
+    assemble_first_inner_iter.__doc__ = doc
     t0 = Timer("Assemble first inner iter")
     A.zero()
     A.axpy(1./dt, M, True)
@@ -121,8 +117,8 @@ def assemble_first_inner_iter(A, dt, M, nu, K, b0, b_tmp, A_conv, x_2, x_1,
     A.axpy(1.5, A_conv, True) # Remove convection    
     [bc.apply(A) for bc in bcs['u0']]
 
-def tentative_velocity_solve(ui, err, A, bcs, x_, x_2, u_sol, b, 
-                             udiff, **NS_namespace):
+def tentative_velocity_solve(ui, A, bcs, x_, x_2, u_sol, b, udiff, 
+                             **NS_namespace):
     """Linear algebra solve of tentative velocity component."""    
     [bc.apply(b[ui]) for bc in bcs[ui]]
     x_2[ui].zero()                 # x_2 only used on inner_iter 1, so use here as work vector

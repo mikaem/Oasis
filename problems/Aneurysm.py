@@ -18,7 +18,7 @@ recursive_update(NS_parameters,
          save_step = 10,
          checkpoint = 10,
          use_krylov_solvers = True,
-         use_lumping_of_mass_matrix = True,
+         velocity_update_type = "lumping",
          velocity_degree = 1,
          pressure_degree = 1,
          krylov_solvers = dict(monitor_convergence=False))

@@ -163,11 +163,11 @@ def initialize(V, Vv, q_, q_1, q_2, bcs, restart_folder, facets, Flux, **NS_name
 def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     if use_krylov_solvers:
         if ui == "u0":
-            u_sol.parameters['preconditioner']['reuse'] = False
+            u_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
             u_sol.parameters['relative_tolerance'] = 1e-9
             u_sol.parameters['absolute_tolerance'] = 1e-9
         else:
-            u_sol.parameters['preconditioner']['reuse'] = True
+            u_sol.parameters['preconditioner']['structure'] = "same"
             u_sol.parameters['relative_tolerance'] = 1e-8
             u_sol.parameters['absolute_tolerance'] = 1e-8
 

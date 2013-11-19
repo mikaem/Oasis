@@ -32,7 +32,7 @@ NS_parameters.update(dict(
     max_iter = 1,
     plot_interval = 1,
     velocity_degree = 2,
-    use_lumping_of_mass_matrix = True,
+    velocity_update_type = "lumping",
     use_krylov_solvers = True
   )
 )
@@ -60,8 +60,7 @@ def create_bcs(V, Q, sys_comp, **NS_namespace):
     return bcs
 
 def pre_solve_hook(Vv, **NS_namespace):
-    uv = Function(Vv)
-    return dict(uv=uv)
+    return dict(uv=Function(Vv))
 
 def start_timestep_hook(t, **NS_namespace):
     p_in.t = t

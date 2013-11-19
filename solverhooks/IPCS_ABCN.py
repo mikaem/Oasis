@@ -191,10 +191,10 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
 def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components,
                               a_scalar, K, nu, u_components,
                               b_tmp, b0, x_1, x_2, u_ab, bcs, **NS_namespace):
-    """Called first thing on a new velocity/pressure iteration.
+    """Called on first inner iteration of velocity/pressure system.
     
-    Assemble convection matrix, compute rhs of tentative velocity
-    and reset coefficient matrix for solve.
+    Assemble convection matrix, compute rhs of tentative velocity and 
+    reset coefficient matrix for solve.
     
     """
     t0 = Timer("Assemble first inner iter")

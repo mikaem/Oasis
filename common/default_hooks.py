@@ -15,7 +15,7 @@ parameters["linear_algebra_backend"] = "PETSc"
 parameters["form_compiler"]["optimize"] = True
 parameters["form_compiler"]["cpp_optimize"] = True
 parameters["form_compiler"]["representation"] = "quadrature"
-#parameters["form_compiler"]["cache_dir"] = "/home/mikael/MySoftware/Oasis/instant"
+parameters["form_compiler"]["cache_dir"] = "instant"
 parameters["mesh_partitioner"] = "ParMETIS"
 parameters["form_compiler"].add("no_ferari", True)
 
@@ -32,7 +32,7 @@ NS_parameters = dict(
   AB_projection_pressure = False,  # Use Adams Bashforth projection as first estimate for pressure on new timestep
   velocity_degree = 2,
   pressure_degree = 1,  
-  convection = "ABCN",  # "ABCN", "ABE" or "Naive"
+  convection = "ABCN",   # "ABCN", "ABE" or "Naive"
   
   # Parameters used to tweek solver  
   max_iter = 1,          # Number of inner pressure velocity iterations on timestep
@@ -90,12 +90,6 @@ def info_red(s, check=True):
     if MPI.process_number()==0 and check:
         print RED % s
 
-Timer.__init__0 = Timer.__init__
-def timer_init(self, task, verbose=False):
-    info_blue(task, verbose)
-    self.__init__0(task)
-Timer.__init__ = timer_init
-
 class OasisTimer(Timer):
     def __init__(self, task, verbose=False):
         Timer.__init__(self, task)
@@ -120,11 +114,11 @@ def body_force(mesh, **NS_namespace):
     return Constant((0,)*mesh.geometry().dim())
 
 def scalar_source(scalar_components, **NS_namespace):
-    fs = dict((ci, Constant(0)) for ci in scalar_components)
-    return fs
+    """Return a dictionary of scalar sources."""
+    return dict((ci, Constant(0)) for ci in scalar_components)
     
 def initialize(**NS_namespace):
-    """Initialize solution. """
+    """Initialize solution."""
     pass
 
 def create_bcs(sys_comp, **NS_namespace):

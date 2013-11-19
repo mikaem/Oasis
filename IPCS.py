@@ -174,15 +174,9 @@ if callable(mesh):
 
 assert(isinstance(mesh, Mesh))    
 
-# Import chosen functionality from solverhooks 
-if convection.lower() == "naive":
-    from solverhooks.IPCS import *
-
-elif convection.upper() in("ABCN", "ABE"):
-    exec("from solverhooks.{} import *".format("IPCS_"+convection.upper()))
-
-else:
-    raise TypeError("Wrong convection")
+# Import chosen functionality from solverhooks, fall back on Naive
+conv = {"ABCN": "IPCS_ABCN", "ABE": "IPCS_ABE"}.get(convection, "IPCS")
+exec("from solverhooks.{} import *".format(conv))
 
 # Update dolfin parameters
 parameters['krylov_solver'].update(krylov_solvers)
@@ -220,7 +214,7 @@ q_2 = dict((ui, Function(V, name=ui+"_2")) for ui in u_components)
 init_from_restart(**vars())
 
 # Create vectors of the segregated velocity components    
-u_  = as_vector([q_[ui]  for ui in u_components]) # Velocity vector at t
+u_  = as_vector([q_ [ui] for ui in u_components]) # Velocity vector at t
 u_1 = as_vector([q_1[ui] for ui in u_components]) # Velocity vector at t - dt
 u_2 = as_vector([q_2[ui] for ui in u_components]) # Velocity vector at t - 2*dt
 
@@ -306,14 +300,14 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         for i, ui in enumerate(u_components):
             t1 = OasisTimer('Solving tentative velocity '+ui, print_solve_info)
             tentative_velocity_assemble(**vars())
-            tentative_velocity_hook(**vars())
-            tentative_velocity_solve(**vars())
+            tentative_velocity_hook    (**vars())
+            tentative_velocity_solve   (**vars())
             t1.stop()
             
         t0 = OasisTimer("Pressure solve", print_solve_info)
         pressure_assemble(**vars())
-        pressure_hook(**vars())
-        pressure_solve(**vars())
+        pressure_hook    (**vars())
+        pressure_solve   (**vars())
         t0.stop()
                 
         print_velocity_pressure_info(**vars())
@@ -329,7 +323,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         scalar_assemble(**vars())
         for ci in scalar_components:    
             t1 = OasisTimer('Solving scalar {}'.format(ci), print_solve_info)
-            scalar_hook(**vars())
+            scalar_hook (**vars())
             scalar_solve(**vars())
             t1.stop()
         
@@ -353,10 +347,9 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         list_timings(True)
         tic()
           
-    if t < (T - tstep*DOLFIN_EPS) and not stop:
-        # AB projection for pressure on next timestep
-        if AB_projection_pressure:
-            x_['p'].axpy(0.5, dp_.vector())
+    # AB projection for pressure on next timestep
+    if AB_projection_pressure and t < (T - tstep*DOLFIN_EPS) and not stop:
+        x_['p'].axpy(0.5, dp_.vector())
                             
 total_timer.stop()
 list_timings()
@@ -366,6 +359,5 @@ mymem = eval(final_memory_use)-eval(initial_memory_use)
 print 'Additional memory use of processor = {0}'.format(mymem)
 info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
 
-###### Final hook ######        
+# Final hook
 theend(**vars())
-########################
