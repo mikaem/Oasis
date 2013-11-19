@@ -36,7 +36,7 @@ def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats,
                    update_statistics, check_save_h5, newfolder, **NS_namespace)
     if tstep % check_save_h5 == 0:
         voluviz(q_['c'])
-        h5folder = path.join(newfolder, "HDF5")
+        h5folder = path.join(newfolder, "Voluviz")
         voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_c_{}.h5".format(tstep))
         voluviz.probes.clear()
         

@@ -355,13 +355,14 @@ def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components,
     Ta._scale(-1.)
     Ta.axpy(2./dt, M, True)
 
-def scalar_solve(ci, scalar_components, Ta, Tb, b, x_, bb, bx, bcs, c_sol, 
+def scalar_solve(ci, scalar_components, Ta, b, x_, bcs, c_sol, 
                  nu, Schmidt, K, **NS_namespace):
     """Solve scalar equation."""
     
     Ta.axpy(0.5*nu/Schmidt[ci], K, True) # Add diffusion
     if len(scalar_components) > 1: 
         # Reuse solver for all scalars. This requires the same matrix and vectors to be used by c_sol.
+        Tb, bb, bx = NS_namespace["Tb"], NS_namespace["bb"], NS_namespace["bx"]
         Tb.zero()
         Tb.axpy(1., Ta, True)
         bb.zero(); bb.axpy(1., b[ci])

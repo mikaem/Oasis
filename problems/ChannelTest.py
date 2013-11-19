@@ -60,8 +60,7 @@ else:
         dt = dt,
         Flux = Flux,
         folder = "channel_results",
-        use_krylov_solvers = True,
-        use_lumping_of_mass_matrix = False
+        use_krylov_solvers = True
       )
     )
     NS_parameters['krylov_solvers']['monitor_convergence'] = False
@@ -161,7 +160,7 @@ def initialize(V, Vv, q_, q_1, q_2, bcs, restart_folder, facets, Flux, **NS_name
         q_1['u2'].vector()[:] = q_['u2'].vector()[:]
         q_2['u2'].vector()[:] = q_['u2'].vector()[:]
     
-def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
+def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     if use_krylov_solvers:
         if ui == "u0":
             u_sol.parameters['preconditioner']['reuse'] = False
@@ -180,7 +179,7 @@ def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats, update_statistics,
         
     if tstep % check_save_h5 == 0:
         statsfolder = path.join(newfolder, "Stats")
-        h5folder = path.join(newfolder, "HDF5")
+        h5folder = path.join(newfolder, "Voluviz")
         stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
         voluviz(q_['u0'])
         voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_u0_{}.h5".format(tstep))

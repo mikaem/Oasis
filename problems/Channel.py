@@ -19,7 +19,7 @@ import random
 #restart_folder = 'channelscalar_results/data/1/Checkpoint'
 #restart_folder = 'channel_results/data/dt=5.0000e-02/10/timestep=60'
 #restart_folder = '/usit/abel/u1/mikaem/data/channel_results/data/1/Checkpoint'
-#restart_folder = 'channel_results/data/6/Checkpoint'
+#restart_folder = 'channel_results/data/35/Checkpoint'
 restart_folder = None
 
 Lx = 2.*pi
@@ -60,8 +60,7 @@ else:
         velocity_degree = 1,
         check_flux = 10,
         folder = "channel_results",
-        use_krylov_solvers = True,
-        use_lumping_of_mass_matrix = True
+        use_krylov_solvers = True
       )
     )
     NS_parameters['krylov_solvers']['monitor_convergence'] = True
@@ -159,23 +158,12 @@ def initialize(V, Vv, q_, q_1, q_2, bcs, restart_folder, **NS_namespace):
         q_1['u2'].vector()[:] = q_['u2'].vector()[:]
         q_2['u2'].vector()[:] = q_['u2'].vector()[:]
     
-def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
+def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     if use_krylov_solvers:
         if ui == "u0":
-            if "structure" in u_sol.parameters['preconditioner']:
-                u_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
-            else:
-                u_sol.parameters['preconditioner']['reuse'] = False
-                u_sol.parameters['preconditioner']['same_nonzero_pattern'] = True    
-
             u_sol.parameters['relative_tolerance'] = 1e-9
             u_sol.parameters['absolute_tolerance'] = 1e-9
         else:
-            if "structure" in u_sol.parameters['preconditioner']:
-                u_sol.parameters['preconditioner']['structure'] = "same"
-            else:
-                u_sol.parameters['preconditioner']['reuse'] = True
-
             u_sol.parameters['relative_tolerance'] = 1e-8
             u_sol.parameters['absolute_tolerance'] = 1e-8
 

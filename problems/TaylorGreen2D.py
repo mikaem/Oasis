@@ -20,7 +20,6 @@ NS_parameters.update(dict(
     print_intermediate_info = 1000,
     use_krylov_solvers = True,
     low_memory_version = False,
-    use_lumping_of_mass_matrix = False,
     velocity_degree = 2,
     pressure_degree = 1,
     krylov_report = False

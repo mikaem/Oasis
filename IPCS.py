@@ -154,8 +154,8 @@ Ta may differ from A due to Dirichlet boundary conditions.
 from common import *
 
 ################### Problem dependent parameters ####################
-### Should import a mesh and a dictionary called NS_parameters    ###
-### See common/default_hooks.py for possible parameters           ###
+###  Should import a mesh and a dictionary called NS_parameters   ###
+###     See common/default_hooks.py for possible parameters       ###
 #####################################################################
 
 commandline_kwargs = parse_command_line()
@@ -163,19 +163,18 @@ commandline_kwargs = parse_command_line()
 default_problem = 'DrivenCavity'
 exec("from problems.{} import *".format(commandline_kwargs.get('problem', default_problem)))
 
+# Update NS_parameters with parameters modified through the command line 
 assert(isinstance(NS_parameters, dict))
 NS_parameters.update(commandline_kwargs)
+vars().update(NS_parameters)  
 
 # If the mesh is a callable function, then create the mesh here.
 if callable(mesh):
     mesh = mesh(**NS_parameters)
 
 assert(isinstance(mesh, Mesh))    
-#####################################################################
 
-# Put NS_parameters in global namespace
-vars().update(NS_parameters)  
-
+# Import chosen functionality from solverhooks 
 if convection.lower() == "naive":
     from solverhooks.IPCS import *
 
@@ -280,7 +279,7 @@ vars().update(setup(**vars()))
 vars().update(pre_solve_hook(**vars()))
 
 #####################################################################
-# At this point only convection is left to be assembled. Use ferari for this
+# At this point only convection is left to be assembled. Enable ferari
 if parameters["form_compiler"].has_key("no_ferari") and not convection.lower() == "naive":
     parameters["form_compiler"].remove("no_ferari")
 
@@ -291,7 +290,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     t += dt
     tstep += 1
     inner_iter = 0
-    udiff = array([1e8]) # Norm of velocity change on last inner iter
+    udiff = array([1e8]) # Norm of velocity change over last inner iter
     num_iter = max(iters_on_first_timestep, max_iter) if tstep == 1 else max_iter
     
     start_timestep_hook(**vars())
@@ -327,14 +326,12 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         
     # Solve for scalars
     if len(scalar_components) > 0:
-        t0 = OasisTimer("Solve scalars")
         scalar_assemble(**vars())
         for ci in scalar_components:    
             t1 = OasisTimer('Solving scalar {}'.format(ci), print_solve_info)
             scalar_hook(**vars())
             scalar_solve(**vars())
             t1.stop()
-        t0.stop()
         
     temporal_hook(**vars())
     
