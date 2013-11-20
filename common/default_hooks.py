@@ -23,7 +23,7 @@ parameters["form_compiler"].add("no_ferari", True)
 NS_parameters = dict(
   # Physical constants and solver parameters
   nu = 0.01,             # Kinematic viscosity
-  t = 0,                 # Time
+  t = 0.0,               # Time
   tstep = 0,             # Timestep
   T = 1.0,               # End time
   dt = 0.01,             # Time interval on each timestep
@@ -32,7 +32,7 @@ NS_parameters = dict(
   AB_projection_pressure = False,  # Use Adams Bashforth projection as first estimate for pressure on new timestep
   velocity_degree = 2,
   pressure_degree = 1,  
-  convection = "ABCN",   # "ABCN", "ABE" or "Naive"
+  NSsolver = "IPCS_ABCN",# "IPCS_ABCN", "IPCS_ABE", "IPCS", "Chorin"
   
   # Parameters used to tweek solver  
   max_iter = 1,          # Number of inner pressure velocity iterations on timestep

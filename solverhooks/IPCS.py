@@ -15,16 +15,7 @@ from dolfin import *
 __all__ = ["assemble_first_inner_iter", "tentative_velocity_assemble",
            "tentative_velocity_solve", "pressure_assemble", 
            "pressure_solve", "update_velocity", "scalar_assemble", 
-           "scalar_solve", "get_solvers", "setup", 
-           "print_velocity_pressure_info"]
-
-def print_velocity_pressure_info(num_iter, print_velocity_pressure_convergence, 
-                                 info_blue, inner_iter, udiff, dp_, **NS_namespace):
-        if num_iter > 1 and print_velocity_pressure_convergence:
-            if inner_iter == 1: 
-                info_blue('  Inner iterations velocity pressure:')
-                info_blue('                 error u  error p')
-            info_blue('    Iter = {0:4d}, {1:2.2e} {2:2.2e}'.format(inner_iter, udiff[0], norm(dp_.vector())))
+           "scalar_solve", "get_solvers", "setup"]
 
 def setup(ui, u, q_, q_1, uc_comp, u_components, dt, v, U_AB,
                 nu, p_, dp_, mesh, f, fs, q, p, u_, Schmidt,
@@ -92,8 +83,8 @@ def pressure_assemble(**NS_namespace):
 def pressure_solve(Fp, p_, bcs, dp_, x_, **NS_namespace):
     """Solve pressure equation."""    
     dp_.vector()[:] = x_['p'][:]
-    solve(lhs(Fp) == rhs(Fp), p_, bcs["p"])        
-    if bcs["p"] == []:
+    solve(lhs(Fp) == rhs(Fp), p_, bcs['p'])   
+    if bcs['p'] == []:
         normalize(p_.vector())
     dp_.vector()[:] = x_['p'][:] - dp_.vector()[:]
 

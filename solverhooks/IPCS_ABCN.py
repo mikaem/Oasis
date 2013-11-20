@@ -4,7 +4,7 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import *
-from IPCS import __all__, print_velocity_pressure_info
+from IPCS import __all__
 
 def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
           pressure_degree, bcs, scalar_components, V, x_,
@@ -50,8 +50,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
 
     # Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
     if len(scalar_components) > 0:
-        Ta = Matrix(M)
-        d.update(Ta=Ta)
+        d.update(Ta=Matrix(M))
         if len(scalar_components) > 1:
             # For more than one scalar we use the same linear algebra solver for all.
             # For this to work we need some additional tensors. The extra matrix
@@ -65,7 +64,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
     if velocity_update_type.upper() == "LAO":        
         lp = LocalAverageOperator(V)
         dp = Function(V) 
-        d.update(dict(lp=lp, dp=dp))
+        d.update(lp=lp, dp=dp)
     
     elif velocity_update_type.upper() == "LUMPING":
         ones = Function(V)
@@ -84,7 +83,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
     a_conv = 0.5*inner(v, dot(u_ab, nabla_grad(u)))*dx  # Faster version
     #a_conv = 0.5*inner(v, dot(U_AB, nabla_grad(u)))*dx
     a_scalar = a_conv    
-    d.update(dict(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar))
+    d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar)
     
     return d
 

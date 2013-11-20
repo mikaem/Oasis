@@ -7,6 +7,8 @@ from dolfin import *
 from IPCS_ABCN import *
 from IPCS_ABCN import __all__, attach_pressure_nullspace
 
+docstrings = {func: eval(func+".__doc__") for func in __all__}
+
 def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
           pressure_degree, bcs, scalar_components, V, x_, U_AB,
           velocity_update_type, u_1, u_2, **NS_namespace):    
@@ -24,9 +26,8 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
         P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
 
         # Constant velocity divergence matrix
-        if velocity_degree == pressure_degree:
-            Rx = P
-        else:
+        Rx = P
+        if velocity_degree != pressure_degree:
             Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
 
     # Mass matrix
@@ -36,10 +37,8 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
     K = assemble(inner(grad(u), grad(v))*dx)        
 
     # Pressure Laplacian. Either reuse K or assemble new
-    if velocity_degree == pressure_degree and bcs['p'] == []:
-        Ap = K
-        
-    else:
+    Ap = K
+    if not (velocity_degree == pressure_degree and bcs['p'] == []):
         Ap = assemble(inner(grad(q), grad(p))*dx) 
         [bc.apply(Ap) for bc in bcs['p']]
         Ap.compress()
@@ -52,8 +51,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
 
     # Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
     if len(scalar_components) > 0:
-        Ta = Matrix(M)
-        d.update(Ta=Ta)
+        d.update(Ta=Matrix(M))
         if len(scalar_components) > 1:
             # For more than one scalar we use the same linear algebra solver for all.
             # For this to work we need some additional tensors. The extra matrix
@@ -67,7 +65,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
     if velocity_update_type.upper() == "LAO":        
         lp = LocalAverageOperator(V)
         dp = Function(V) 
-        d.update(dict(lp=lp, dp=dp))
+        d.update(lp=lp, dp=dp)
     
     elif velocity_update_type.upper() == "LUMPING":
         ones = Function(V)
@@ -90,14 +88,12 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
     if len(scalar_components) > 0:
         a_scalar = 0.5*inner(v, dot(grad(u), U_AB))*dx
 
-    d.update(dict(a_conv=a_conv, A_conv=A_conv, a_scalar=a_scalar))
+    d.update(a_conv=a_conv, A_conv=A_conv, a_scalar=a_scalar)
     
     return d
 
-doc = assemble_first_inner_iter.__doc__
 def assemble_first_inner_iter(A, dt, M, nu, K, b0, b_tmp, A_conv, x_2, x_1,
                               a_conv, u_components, bcs, **NS_namespace):
-    assemble_first_inner_iter.__doc__ = doc
     t0 = Timer("Assemble first inner iter")
     A.zero()
     A.axpy(1./dt, M, True)
@@ -218,7 +214,6 @@ def get_solvers(use_krylov_solvers, krylov_solvers, sys_comp, bcs, x_,
     
 def scalar_assemble(Ta, a_scalar, dt, M, scalar_components, 
                     b, nu, Schmidt, K, x_1, b0, **NS_namespace):
-    """Assemble scalar equation."""
     Ta = assemble(a_scalar, tensor=Ta, reset_sparsity=False)
     Ta._scale(-1.)            # Negative convection on the rhs 
     Ta.axpy(1./dt, M, True)   # Add mass
@@ -233,3 +228,11 @@ def scalar_assemble(Ta, a_scalar, dt, M, scalar_components,
     # Reset matrix for lhs - Note scalar matrix does not contain diffusion
     Ta._scale(-1.)
     Ta.axpy(2./dt, M, True)
+    
+# Reuse docstrings from IPCS_ABCN if not defined here    
+for func in __all__:
+    doc = eval("{}.__doc__".format(func))
+    if doc is None:
+        exec("""{}.__doc__ = docstrings["{}"]""".format(func, func))
+        
+    

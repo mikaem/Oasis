@@ -164,9 +164,11 @@ default_problem = 'DrivenCavity'
 exec("from problems.{} import *".format(commandline_kwargs.get('problem', default_problem)))
 
 # Update NS_parameters with parameters modified through the command line 
-assert(isinstance(NS_parameters, dict))
 NS_parameters.update(commandline_kwargs)
 vars().update(NS_parameters)  
+
+# Update dolfin parameters
+parameters['krylov_solver'].update(krylov_solvers)
 
 # If the mesh is a callable function, then create the mesh here.
 if callable(mesh):
@@ -174,12 +176,8 @@ if callable(mesh):
 
 assert(isinstance(mesh, Mesh))    
 
-# Import chosen functionality from solverhooks, fall back on Naive
-conv = {"ABCN": "IPCS_ABCN", "ABE": "IPCS_ABE"}.get(convection, "IPCS")
-exec("from solverhooks.{} import *".format(conv))
-
-# Update dolfin parameters
-parameters['krylov_solver'].update(krylov_solvers)
+# Import chosen functionality from solverhooks
+exec("from solverhooks.{} import *".format(NSsolver))
 
 # Create lists of components solved for
 dim = mesh.geometry().dim()
@@ -191,18 +189,17 @@ uc_comp  =  u_components + scalar_components
 newfolder, tstepfiles = create_initial_folders(**vars())
 
 # Declare FunctionSpaces and arguments
-V = FunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
+V = Q = FunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
 Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
-if velocity_degree == pressure_degree:
-    Q = V
-else:
+if velocity_degree != pressure_degree:
     Q = FunctionSpace(mesh, 'CG', pressure_degree, constrained_domain=constrained_domain)
+
 u = TrialFunction(V)
 v = TestFunction(V)
 p = TrialFunction(Q)
 q = TestFunction(Q)
 
-# Use dictionaries to hold all Functions and FunctionSpaces
+# Use dictionary to hold all FunctionSpaces
 VV = dict((ui, V) for ui in uc_comp); VV['p'] = Q
 
 # Create dictionaries for the solutions at three timesteps
@@ -227,8 +224,8 @@ x_1 = dict((ui, q_1[ui].vector()) for ui in uc_comp)      # Solution vectors t -
 x_2 = dict((ui, q_2[ui].vector()) for ui in u_components) # Solution vectors t - 2*dt
 
 # Create vectors to hold rhs of equations
-b     = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs vectors (final)
-b_tmp = dict((ui, Vector(x_[ui])) for ui in sys_comp)       # rhs temp storage vectors
+b     = dict((ui, Vector(x_[ui])) for ui in sys_comp)     # rhs vectors (final)
+b_tmp = dict((ui, Vector(x_[ui])) for ui in sys_comp)     # rhs temp storage vectors
 
 # Short forms pressure and scalars
 p_  = q_['p']               # pressure at t - dt/2
@@ -274,7 +271,7 @@ vars().update(pre_solve_hook(**vars()))
 
 #####################################################################
 # At this point only convection is left to be assembled. Enable ferari
-if parameters["form_compiler"].has_key("no_ferari") and not convection.lower() == "naive":
+if parameters["form_compiler"].has_key("no_ferari") and not NSsolver == "IPCS":
     parameters["form_compiler"].remove("no_ferari")
 
 tic()
@@ -309,10 +306,10 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         pressure_hook    (**vars())
         pressure_solve   (**vars())
         t0.stop()
-                
+         
         print_velocity_pressure_info(**vars())
 
-    ### Update velocity if noniterative scheme is used ###
+    # Update velocity if noniterative scheme is used
     if inner_iter == 1:
         t0 = OasisTimer("Velocity update")
         update_velocity(**vars())

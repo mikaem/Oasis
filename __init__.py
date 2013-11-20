@@ -27,9 +27,18 @@ def recursive_update(dst, src):
         else:
             dst[key] = val
     return dst
+
+def print_velocity_pressure_info(num_iter, print_velocity_pressure_convergence, 
+                                 info_blue, inner_iter, udiff, dp_, **NS_namespace):
+        if num_iter > 1 and print_velocity_pressure_convergence:
+            if inner_iter == 1: 
+                info_blue('  Inner iterations velocity pressure:')
+                info_blue('                 error u  error p')
+            info_blue('    Iter = {0:4d}, {1:2.2e} {2:2.2e}'.format(inner_iter, udiff[0], norm(dp_.vector())))
             
 def create_initial_folders(folder, restart_folder, sys_comp, tstep, 
-                           scalar_components, output_timeseries_as_vector, **NS_namespace):
+                           scalar_components, output_timeseries_as_vector, 
+                           **NS_namespace):
     """Create necessary folders."""
     
     # To avoid writing over old data create a new folder for each run
@@ -93,25 +102,21 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, Vv,
     timefolder = path.join(newfolder, 'Timeseries')
     if output_timeseries_as_vector:
         # project or store velocity to vector function space
-        if "u0" in q_: # Segregated
-            if not hasattr(tstepfiles['u'], 'uv'): # First time around only
-                tstepfiles['u'].uv = Function(Vv)
-                tstepfiles['u'].d = dict((ui, Vv.sub(i).dofmap().collapse(Vv.mesh())[1]) 
-                                        for i, ui in enumerate(u_components))
+        if not hasattr(tstepfiles['u'], 'uv'): # First time around only
+            tstepfiles['u'].uv = Function(Vv)
+            tstepfiles['u'].d = dict((ui, Vv.sub(i).dofmap().collapse(Vv.mesh())[1]) 
+                                    for i, ui in enumerate(u_components))
 
-            # The short but timeconsuming way:
-            #tstepfiles['u'].uv.assign(project(u_, Vv))
-            
-            # Or the faster, but more comprehensive way:
-            for ui in u_components:
-                q_[ui].update()    
-                vals = tstepfiles['u'].d[ui].values()
-                keys = tstepfiles['u'].d[ui].keys()
-                tstepfiles['u'].uv.vector()[vals] = q_[ui].vector()[keys]
-            tstepfiles['u'] << (tstepfiles['u'].uv, float(tstep))
-            
-        else:
-            tstepfiles['u'] << (u_, float(tstep))
+        # The short but timeconsuming way:
+        #tstepfiles['u'].uv.assign(project(u_, Vv))
+        
+        # Or the faster, but more comprehensive way:
+        for ui in u_components:
+            q_[ui].update()    
+            vals = tstepfiles['u'].d[ui].values()
+            keys = tstepfiles['u'].d[ui].keys()
+            tstepfiles['u'].uv.vector()[vals] = q_[ui].vector()[keys]
+        tstepfiles['u'] << (tstepfiles['u'].uv, float(tstep))
         
         # Store the rest of the solution functions
         for ui in ['p']+scalar_components:
@@ -196,7 +201,7 @@ def check_if_reset_statistics(folder):
         return False
 
 def init_from_restart(restart_folder, sys_comp, uc_comp, u_components, 
-               q_, q_1, q_2, **NS_namespace):
+                      q_, q_1, q_2, **NS_namespace):
     """Initialize solution from checkpoint files """
     if restart_folder:
         for ui in sys_comp:
