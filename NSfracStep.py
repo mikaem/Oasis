@@ -177,7 +177,7 @@ if callable(mesh):
 assert(isinstance(mesh, Mesh))    
 
 # Import chosen functionality from solverhooks
-exec("from solverhooks.{} import *".format(NSsolver))
+exec("from solvers.{} import *".format(NSsolver))
 
 # Create lists of components solved for
 dim = mesh.geometry().dim()
