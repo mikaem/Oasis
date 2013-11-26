@@ -3,7 +3,7 @@ __date__ = "2013-06-25"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
-from Oasis import *
+from problems import *
 from numpy import ceil, cos, pi, arctan
 
 # Create a mesh

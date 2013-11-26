@@ -1,3 +1,4 @@
+from io import *
 import sys, json
 
 # Parse command-line keyword arguments
@@ -15,3 +16,4 @@ def parse_command_line():
                 value = eval(value)
         commandline_kwargs[key] = value
     return commandline_kwargs
+

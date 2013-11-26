@@ -10,14 +10,10 @@ the implementations of the more complex optimized solvers.
 
 """
 from dolfin import *
-from IPCS import *
+from solvers import *
+from solvers import __all__
 
-# declare all functions that must be imported by solver
-__all__ = ["assemble_first_inner_iter", "tentative_velocity_assemble",
-           "tentative_velocity_solve", "pressure_assemble", 
-           "pressure_solve", "update_velocity", "scalar_assemble", 
-           "scalar_solve", "get_solvers", "setup", "max_iter",
-           "iters_on_first_timestep"]
+__all__ += ["max_iter", "iters_on_first_timestep"]
 
 # Chorin is noniterative
 max_iter = 1

@@ -4,7 +4,8 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import *
-from IPCS import __all__
+from solvers import *
+from solvers import __all__
 
 def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
           pressure_degree, bcs, scalar_components, V, x_,

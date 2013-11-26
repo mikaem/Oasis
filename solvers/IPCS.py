@@ -10,12 +10,8 @@ the implementations of the more complex optimized solvers.
 
 """
 from dolfin import *
-
-# declare all functions that must be imported by solver
-__all__ = ["assemble_first_inner_iter", "tentative_velocity_assemble",
-           "tentative_velocity_solve", "pressure_assemble", 
-           "pressure_solve", "update_velocity", "scalar_assemble", 
-           "scalar_solve", "get_solvers", "setup"]
+from solvers import *
+from solvers import __all__
 
 def setup(ui, u, q_, q_1, uc_comp, u_components, dt, v, U_AB,
                 nu, p_, dp_, mesh, f, fs, q, p, u_, Schmidt,
