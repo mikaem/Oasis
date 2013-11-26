@@ -3,7 +3,7 @@ __date__ = "2013-09-19"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
-from Oasis import *
+from problems import *
 from scipy.interpolate import InterpolatedUnivariateSpline as ius
 from numpy import zeros, floor
 
