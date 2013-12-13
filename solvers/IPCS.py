@@ -13,25 +13,29 @@ from dolfin import *
 from solvers import *
 from solvers import __all__
 
-def setup(ui, u, q_, q_1, uc_comp, u_components, dt, v, U_AB,
-                nu, p_, dp_, mesh, f, fs, q, p, u_, Schmidt,
-                scalar_components, **NS_namespace):
+def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
+          nu, p_, p_1, dp_, mesh, f, fs, q, p, u_, Schmidt,
+          scalar_components, **NS_namespace):
     """Set up all equations to be solved."""
     # Implicit Crank Nicholson velocity at t - dt/2
     U_CN = dict((ui, 0.5*(u+q_1[ui])) for ui in uc_comp)
+    p_CN = 0.5*(p_+p_1)
 
     F = {}
     Fu = {}
     for i, ui in enumerate(u_components):
         # Tentative velocity step
         F[ui] = (1./dt)*inner(u - q_1[ui], v)*dx + inner(dot(U_AB, nabla_grad(U_CN[ui])), v)*dx + \
-                nu*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx
+                nu*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_CN.dx(i), v)*dx - inner(f[i], v)*dx
+            
+        #F[ui] = (1./dt)*inner(u - q_1[ui], v)*dx + inner(1.5*dot(u_1, nabla_grad(q_1[ui]))-0.5*dot(u_2, nabla_grad(q_2[ui])), v)*dx + \
+                #nu*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx
         
         # Velocity update
-        Fu[ui] = inner(u, v)*dx - inner(q_[ui], v)*dx + dt*inner(dp_.dx(i), v)*dx
+        Fu[ui] = inner(u, v)*dx - inner(q_[ui], v)*dx + 0.5*dt*inner(dp_.dx(i), v)*dx
 
     # Pressure update
-    Fp = inner(grad(q), grad(p))*dx - inner(grad(p_), grad(q))*dx + (1./dt)*div(u_)*q*dx 
+    Fp = inner(grad(q), grad(p))*dx - inner(grad(p_), grad(q))*dx + (2./dt)*div(u_)*q*dx 
 
     # Scalar with SUPG
     h = CellSize(mesh)
@@ -44,54 +48,25 @@ def setup(ui, u, q_, q_1, uc_comp, u_components, dt, v, U_AB,
     
     return dict(F=F, Fu=Fu, Fp=Fp)
 
-def get_solvers(**NS_namespace):
-    """Return 4 linear solvers. 
-    
-    We are solving for
-       - tentative velocity
-       - pressure correction
-       - velocity update (unless lumping is switched on)
-       
-       and possibly:       
-       - scalars
-            
-    """        
-    return (None, )*4
-
-def assemble_first_inner_iter(**NS_namespace):
-    """Called first thing on a new velocity/pressure iteration."""
-    pass
-
-def tentative_velocity_assemble(**NS_namespace):
-    """Assemble remaining system for tentative velocity component."""
-    pass
-
 def tentative_velocity_solve(ui, F, q_, bcs, x_, b_tmp, udiff, **NS_namespace):
     """Linear algebra solve of tentative velocity component."""
-    b_tmp[ui][:] = x_[ui][:]
-    solve(lhs(F[ui]) == rhs(F[ui]), q_[ui], bcs=bcs[ui])
+    b_tmp[ui][:] = x_[ui]
+    A, L = system(F[ui])
+    solve(A == L, q_[ui], bcs[ui])
     udiff[0] += norm(b_tmp[ui] - x_[ui])
     
-def pressure_assemble(**NS_namespace):
-    """Assemble rhs of pressure equation."""
-    pass
-
 def pressure_solve(Fp, p_, bcs, dp_, x_, **NS_namespace):
     """Solve pressure equation."""    
-    dp_.vector()[:] = x_['p'][:]
+    dp_.vector()[:] = x_['p']
     solve(lhs(Fp) == rhs(Fp), p_, bcs['p'])   
     if bcs['p'] == []:
         normalize(p_.vector())
-    dp_.vector()[:] = x_['p'][:] - dp_.vector()[:]
+    dp_.vector()[:] = x_['p'] - dp_.vector()
 
 def update_velocity(u_components, q_, bcs, Fu, **NS_namespace):
     """Update the velocity after finishing pressure velocity iterations."""
     for ui in u_components:
         solve(lhs(Fu[ui]) == rhs(Fu[ui]), q_[ui], bcs[ui])
-
-def scalar_assemble(**NS_namespace):
-    """Assemble scalar equation."""
-    pass
 
 def scalar_solve(ci, F, q_, bcs, **NS_namespace):
     """Solve scalar equation."""

@@ -14,8 +14,10 @@ parameters["form_compiler"]["optimize"] = True
 parameters["form_compiler"]["cpp_optimize"] = True
 parameters["form_compiler"]["representation"] = "quadrature"
 parameters["form_compiler"]["cache_dir"] = "instant"
+parameters["form_compiler"]["cpp_optimize_flags"] = "-O3 --fast-math"
 parameters["mesh_partitioner"] = "ParMETIS"
 parameters["form_compiler"].add("no_ferari", True)
+#set_log_active(False)
 
 # Default parameters
 NS_parameters = dict(
@@ -30,7 +32,7 @@ NS_parameters = dict(
   AB_projection_pressure = False,  # Use Adams Bashforth projection as first estimate for pressure on new timestep
   velocity_degree = 2,
   pressure_degree = 1,  
-  NSsolver = "IPCS_ABCN",# "IPCS_ABCN", "IPCS_ABE", "IPCS", "Chorin"
+  solver = "IPCS_ABCN",  # "IPCS_ABCN", "IPCS_ABE", "IPCS", "Chorin"
   
   # Parameters used to tweek solver  
   max_iter = 1,          # Number of inner pressure velocity iterations on timestep
@@ -39,7 +41,7 @@ NS_parameters = dict(
   use_krylov_solvers = False,  # Otherwise use LU-solver
   low_memory_version = False,  # Use assembler and not preassembled matrices
   print_intermediate_info = 10,
-  print_velocity_pressure_convergence = True,
+  print_velocity_pressure_convergence = False,
   velocity_update_type = "default",
   
   # Parameters used to tweek output  
@@ -172,6 +174,6 @@ def pre_solve_hook(**NS_namespace):
     """Called just prior to entering time-loop. Must return a dictionary."""
     return {}
 
-def theend(**NS_namespace):
+def theend_hook(**NS_namespace):
     """Called at the very end."""
     pass

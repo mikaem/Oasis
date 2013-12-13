@@ -19,7 +19,7 @@ __all__ += ["max_iter", "iters_on_first_timestep"]
 max_iter = 1
 iters_on_first_timestep = 1
 
-def setup(ui, u, q_, q_1, uc_comp, u_components, dt, v, U_AB,
+def setup(ui, u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1,
                 nu, p_, dp_, mesh, f, fs, q, p, u_, Schmidt,
                 scalar_components, **NS_namespace):
     """Set up all equations to be solved."""
@@ -48,3 +48,25 @@ def setup(ui, u, q_, q_1, uc_comp, u_components, dt, v, U_AB,
                 +nu/Schmidt[ci]*inner(grad(U_CN[ci]), grad(vw))*dx - inner(fs[ci], vw)*dx
     
     return dict(F=F, Fu=Fu, Fp=Fp)
+
+def tentative_velocity_solve(ui, F, q_, bcs, x_, b_tmp, udiff, **NS_namespace):
+    """Linear algebra solve of tentative velocity component."""
+    b_tmp[ui][:] = x_[ui]
+    A, L = system(F[ui])
+    solve(A == L, q_[ui], bcs[ui])
+    udiff[0] += norm(b_tmp[ui] - x_[ui])
+    
+def pressure_solve(Fp, p_, bcs, **NS_namespace):
+    """Solve pressure equation."""    
+    solve(lhs(Fp) == rhs(Fp), p_, bcs['p'])   
+    if bcs['p'] == []:
+        normalize(p_.vector())
+
+def update_velocity(u_components, q_, bcs, Fu, **NS_namespace):
+    """Update the velocity after finishing pressure velocity iterations."""
+    for ui in u_components:
+        solve(lhs(Fu[ui]) == rhs(Fu[ui]), q_[ui], bcs[ui])
+
+def scalar_solve(ci, F, q_, bcs, **NS_namespace):
+    """Solve scalar equation."""
+    solve(lhs(F[ci]) == rhs(F[ci]), q_[ci], bcs[ci])

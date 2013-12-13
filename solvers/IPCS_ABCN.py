@@ -8,8 +8,8 @@ from solvers import *
 from solvers import __all__
 
 def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
-          pressure_degree, bcs, scalar_components, V, x_,
-          velocity_update_type, **NS_namespace):
+          pressure_degree, bcs, scalar_components, V, x_, dim, mesh,
+          constrained_domain, velocity_update_type, **NS_namespace):
     """Preassemble mass and diffusion matrices. 
     
     Set up and prepare all equations to be solved. Called once, before 
@@ -23,6 +23,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
         P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
 
         # Constant velocity divergence matrix
+        #Rx = P
         if velocity_degree == pressure_degree:
             Rx = P
         else:
@@ -67,6 +68,12 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
         dp = Function(V) 
         d.update(lp=lp, dp=dp)
     
+    elif velocity_update_type.upper() == "GRADIENT_MATRIX":
+        from fenicstools.WeightedGradient import weighted_gradient_matrix
+        dP = weighted_gradient_matrix(mesh, range(dim), velocity_degree, constrained_domain)
+        dp = Function(V) 
+        d.update(dP=dP, dp=dp)
+        
     elif velocity_update_type.upper() == "LUMPING":
         ones = Function(V)
         ones.vector()[:] = 1.
@@ -269,12 +276,14 @@ def tentative_velocity_solve(ui, A, bcs, x_, x_2, u_sol, b, udiff,
     t1.stop()
     udiff[0] += norm(x_2[ui] - x_[ui])
 
-def pressure_assemble(b, Rx, x_, dt, q, u_, Ap, **NS_namespace):
+def pressure_assemble(b, Rx, x_, dt, q, u_, Ap, b_tmp, **NS_namespace):
     """Assemble rhs of pressure equation."""
     b['p'].zero()
     if Rx:
         for ui in Rx:
             b['p'].axpy(-1./dt, Rx[ui]*x_[ui])
+            #Rx[ui].transpmult(x_[ui], b_tmp['p'])
+            #b['p'].axpy(-1./dt, b_tmp['p'])
     else:
         b['p'].axpy(-1./dt, assemble(div(u_)*q*dx))
     b['p'].axpy(1., Ap*x_['p'])
@@ -310,6 +319,12 @@ def update_velocity(u_components, b, bcs, print_solve_info, du_sol, P,
             x_[ui].axpy(-dt, dp.vector())
             [bc.apply(x_[ui]) for bc in bcs[ui]]
 
+    elif velocity_update_type.upper() == 'GRADIENT_MATRIX':
+        dP = NS_namespace["dP"]
+        for i, ui in enumerate(u_components):
+            x_[ui].axpy(-dt, dP[i] * dp_.vector())
+            [bc.apply(x_[ui]) for bc in bcs[ui]]
+        
     elif velocity_update_type.upper() == "LUMPING":
         ML = NS_namespace["ML"]
         for i, ui in enumerate(u_components):

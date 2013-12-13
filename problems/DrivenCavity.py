@@ -11,11 +11,11 @@ def mesh(Nx, Ny, skewness, **params):
     m = UnitSquareMesh(Nx, Ny)
     if skewness:
         x = m.coordinates()
-        x[:, :] = (x[:, :] - 0.5) * 2
+        x[:] = (x - 0.5) * 2
         if skewness == 'cos':
-            x[:, :] = 0.5*(cos(pi*(x[:, :]-1.) / 2.) + 1.)
+            x[:] = 0.5*(cos(pi*(x-1.) / 2.) + 1.)
         elif skewness == 'atan':
-            x[:, :] = ( arctan(pi*x[:, :])/arctan(pi) +1. ) / 2.
+            x[:] = ( arctan(pi*x)/arctan(pi) +1. ) / 2.
     return m
 
 T = 0.5
@@ -46,23 +46,17 @@ def pre_solve_hook(Vv, **NS_namespace):
     # Declare a Function used for plotting in temporal_hook
     return dict(uv=Function(Vv))
 
-def lid(x, on_boundary):
-    return (on_boundary and near(x[1], 1.0))
-    
-def stationary_walls(x, on_boundary):
-    return on_boundary and (near(x[0], 0.) or near(x[0], 1.) or near(x[1], 0.))
-
+noslip = "std::abs(x[0]*x[1]*(1-x[0]))<1e-8"
+lid    = "std::abs(x[1]-1) < 1e-8"
 # Specify boundary conditions
 u_top = Constant(1.0)
 def create_bcs(V, sys_comp, **NS_namespace):
     bcs = dict((ui, []) for ui in sys_comp)    
-    bc0  = DirichletBC(V, 0., stationary_walls)
+    bc0  = DirichletBC(V, 0., noslip)
     bc00 = DirichletBC(V, u_top, lid)
     bc01 = DirichletBC(V, 0., lid)
     bcs['u0'] = [bc00, bc0]
     bcs['u1'] = [bc01, bc0]
-    #bcs['u0'] = [bc0, bc00]
-    #bcs['u1'] = [bc0, bc01]
     return bcs
 
 def start_timestep_hook(t, **NS_namespace):
@@ -82,7 +76,7 @@ def temporal_hook(tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace):
         plot(uv, title='Velocity')
         plot(p_, title='Pressure')
 
-def theend(u_, p_, uv, Vv, **NS_namespace):
+def theend_hook(u_, p_, uv, Vv, **NS_namespace):
     uv.assign(project(u_, Vv))
     plot(uv, title='Velocity')
     plot(p_, title='Pressure')

@@ -155,7 +155,7 @@ from common import *
 
 ################### Problem dependent parameters ####################
 ###  Should import a mesh and a dictionary called NS_parameters   ###
-###     See common/default_hooks.py for possible parameters       ###
+###       See problems/__init__.py for possible parameters        ###
 #####################################################################
 
 commandline_kwargs = parse_command_line()
@@ -177,7 +177,7 @@ if callable(mesh):
 assert(isinstance(mesh, Mesh))    
 
 # Import chosen functionality from solverhooks
-exec("from solvers.{} import *".format(NSsolver))
+exec("from solvers.{} import *".format(solver))
 
 # Create lists of components solved for
 dim = mesh.geometry().dim()
@@ -204,7 +204,7 @@ VV = dict((ui, V) for ui in uc_comp); VV['p'] = Q
 
 # Create dictionaries for the solutions at three timesteps
 q_  = dict((ui, Function(VV[ui], name=ui)) for ui in sys_comp)
-q_1 = dict((ui, Function(V, name=ui+"_1")) for ui in uc_comp)
+q_1 = dict((ui, Function(VV[ui], name=ui+"_1")) for ui in sys_comp)
 q_2 = dict((ui, Function(V, name=ui+"_2")) for ui in u_components)
 
 # Read in previous solution if restarting
@@ -220,7 +220,7 @@ U_AB = 1.5*u_1 - 0.5*u_2
 
 # Create short forms for accessing the solution vectors
 x_  = dict((ui, q_ [ui].vector()) for ui in sys_comp)     # Solution vectors t
-x_1 = dict((ui, q_1[ui].vector()) for ui in uc_comp)      # Solution vectors t - dt
+x_1 = dict((ui, q_1[ui].vector()) for ui in sys_comp)      # Solution vectors t - dt
 x_2 = dict((ui, q_2[ui].vector()) for ui in u_components) # Solution vectors t - 2*dt
 
 # Create vectors to hold rhs of equations
@@ -228,7 +228,8 @@ b     = dict((ui, Vector(x_[ui])) for ui in sys_comp)     # rhs vectors (final)
 b_tmp = dict((ui, Vector(x_[ui])) for ui in sys_comp)     # rhs temp storage vectors
 
 # Short forms pressure and scalars
-p_  = q_['p']               # pressure at t - dt/2
+p_  = q_ ['p']              # pressure at t
+p_1 = q_1['p']              # pressure at t - dt
 dp_ = Function(Q)           # pressure correction
 for ci in scalar_components:
     exec("{}_   = q_ ['{}']".format(ci, ci))
@@ -271,7 +272,7 @@ vars().update(pre_solve_hook(**vars()))
 
 #####################################################################
 # At this point only convection is left to be assembled. Enable ferari
-if parameters["form_compiler"].has_key("no_ferari") and not NSsolver == "IPCS":
+if parameters["form_compiler"].has_key("no_ferari") and not solver in ("IPCS", "Chorin"):
     parameters["form_compiler"].remove("no_ferari")
 
 tic()
@@ -306,15 +307,15 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         pressure_hook    (**vars())
         pressure_solve   (**vars())
         t0.stop()
-         
-        print_velocity_pressure_info(**vars())
 
-    # Update velocity if noniterative scheme is used
-    if inner_iter == 1:
+        # Update velocity if noniterative scheme is used
+        #if inner_iter == 1:
         t0 = OasisTimer("Velocity update")
         update_velocity(**vars())
         t0.stop()
-        
+                 
+        print_velocity_pressure_info(**vars())
+
     # Solve for scalars
     if len(scalar_components) > 0:
         scalar_assemble(**vars())
@@ -337,6 +338,8 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     for ci in scalar_components:
         x_1[ci].zero(); x_1[ci].axpy(1., x_[ci])
 
+    x_1['p'].zero(); x_1['p'].axpy(1.0, x_ ['p'])
+    
     # Print some information
     if tstep % print_intermediate_info == 0:
         info_green('Time = {0:2.4e}, timestep = {1:6d}, End time = {2:2.4e}'.format(t, tstep, T)) 
@@ -357,4 +360,4 @@ print 'Additional memory use of processor = {0}'.format(mymem)
 info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
 
 # Final hook
-theend(**vars())
+theend_hook(**vars())
