@@ -10,7 +10,7 @@ from IPCS_ABCN import __all__, attach_pressure_nullspace
 docstrings = {func: eval(func+".__doc__") for func in __all__}
 
 def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
-          pressure_degree, bcs, scalar_components, V, x_, U_AB,
+          bcs, scalar_components, V, Q, x_, U_AB,
           velocity_update_type, u_1, u_2, **NS_namespace):    
     """Preassemble mass and diffusion matrices. 
     
@@ -27,7 +27,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
 
         # Constant velocity divergence matrix
         Rx = P
-        if velocity_degree != pressure_degree:
+        if V != Q:
             Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
 
     # Mass matrix
@@ -66,6 +66,12 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
         lp = LocalAverageOperator(V)
         dp = Function(V) 
         d.update(lp=lp, dp=dp)
+
+    elif velocity_update_type.upper() == "GRADIENT_MATRIX":
+        from fenicstools.WeightedGradient import weighted_gradient_matrix
+        dP = weighted_gradient_matrix(mesh, range(dim), velocity_degree, constrained_domain)
+        dp = Function(V) 
+        d.update(dP=dP, dp=dp)        
     
     elif velocity_update_type.upper() == "LUMPING":
         ones = Function(V)
@@ -113,7 +119,7 @@ def assemble_first_inner_iter(A, dt, M, nu, K, b0, b_tmp, A_conv, x_2, x_1,
     A.axpy(1.5, A_conv, True) # Remove convection    
     [bc.apply(A) for bc in bcs['u0']]
 
-def tentative_velocity_solve(ui, A, bcs, x_, x_2, u_sol, b, udiff, 
+def velocity_tentative_solve(ui, A, bcs, x_, x_2, u_sol, b, udiff, 
                              **NS_namespace):
     """Linear algebra solve of tentative velocity component."""    
     [bc.apply(b[ui]) for bc in bcs[ui]]

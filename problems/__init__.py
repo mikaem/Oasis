@@ -150,7 +150,7 @@ def create_bcs(sys_comp, **NS_namespace):
     """Return dictionary of Dirichlet boundary conditions."""
     return dict((ui, []) for ui in sys_comp)
 
-def tentative_velocity_hook(**NS_namespace):
+def velocity_tentative_hook(**NS_namespace):
     """Called just prior to solving for tentative velocity."""
     pass
 

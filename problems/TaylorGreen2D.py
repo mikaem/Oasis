@@ -27,8 +27,8 @@ NS_parameters.update(
 )
 NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
                                    'report': False,
-                                   'relative_tolerance': 1e-12,
-                                   'absolute_tolerance': 1e-12}
+                                   'relative_tolerance': 1e-10,
+                                   'absolute_tolerance': 1e-10}
 
 from numpy import cos, pi, arctan
 def mesh(Nx, Ny, **params):
@@ -129,7 +129,7 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
             uen = norm(ue.vector())
             ue.vector().axpy(-1, q_[ui].vector())
             error = norm(ue.vector())/uen
-            err[ui] = "{0:2.6f}".format(error)
+            err[ui] = "{0:2.6e}".format(error)
             total_error[i] += error*dt            
         print "Error is ", err, " at time = ", t 
         

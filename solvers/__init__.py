@@ -3,9 +3,9 @@ __date__ = "2013-11-25"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 """Define all functions required by fractional step solver."""
-__all__ = ["assemble_first_inner_iter", "tentative_velocity_assemble",
-           "tentative_velocity_solve", "pressure_assemble", 
-           "pressure_solve", "update_velocity", "scalar_assemble", 
+__all__ = ["assemble_first_inner_iter", "velocity_tentative_assemble",
+           "velocity_tentative_solve", "pressure_assemble", 
+           "pressure_solve", "velocity_update", "scalar_assemble", 
            "scalar_solve", "get_solvers", "setup", 
            "print_velocity_pressure_info"]
 
@@ -31,12 +31,12 @@ def assemble_first_inner_iter(**NS_namespace):
     """Called first thing on a new velocity/pressure iteration."""
     pass
 
-def tentative_velocity_assemble(**NS_namespace):
-    """Assemble remaining system for tentative velocity component."""
+def velocity_tentative_solve(**NS_namespace):
+    """Linear algebra solve of tentative velocity component."""
     pass
 
-def tentative_velocity_solve(**NS_namespace):
-    """Linear algebra solve of tentative velocity component."""
+def velocity_tentative_assemble(**NS_namespace):
+    """Assemble remaining system for tentative velocity component."""
     pass
     
 def pressure_assemble(**NS_namespace):
@@ -47,7 +47,7 @@ def pressure_solve(**NS_namespace):
     """Solve pressure equation."""    
     pass
 
-def update_velocity(**NS_namespace):
+def velocity_update(**NS_namespace):
     """Update the velocity after finishing pressure velocity iterations."""
     pass
 

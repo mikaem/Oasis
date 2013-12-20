@@ -158,7 +158,7 @@ def initialize(V, Vv, q_, q_1, q_2, bcs, restart_folder, **NS_namespace):
         q_1['u2'].vector()[:] = q_['u2'].vector()[:]
         q_2['u2'].vector()[:] = q_['u2'].vector()[:]
     
-def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
+def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     if use_krylov_solvers:
         if ui == "u0":
             u_sol.parameters['relative_tolerance'] = 1e-9

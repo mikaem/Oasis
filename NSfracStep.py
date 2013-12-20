@@ -18,9 +18,9 @@ version is pure Adams-Bashforth.
 
 The differences between the versions of the solver are only visible in
 functions imported from the solverhooks folder:
-  solverhooks/IPCS_ABCN.py    # Implicit
-  solverhooks/IPCS_ABE.py     # Explicit
-  solverhooks/IPCS.py         # Naive
+  solvers/IPCS_ABCN.py    # Implicit
+  solvers/IPCS_ABE.py     # Explicit
+  solvers/IPCS.py         # Naive
 
 The third naive solver is very simple and not optimized. It is intended 
 for validation of the other versions. A solver is chosen through command-
@@ -176,7 +176,7 @@ if callable(mesh):
 
 assert(isinstance(mesh, Mesh))    
 
-# Import chosen functionality from solverhooks
+# Import chosen functionality from solvers
 exec("from solvers.{} import *".format(solver))
 
 # Create lists of components solved for
@@ -237,40 +237,32 @@ for ci in scalar_components:
 
 print_solve_info = use_krylov_solvers and krylov_solvers['monitor_convergence']
 
-###################   Boundary conditions     #######################
-
+# Boundary conditions
 bcs = create_bcs(**vars())
 
-###################   Initialize solution     #######################
-
+# Initialize solution
 initialize(**vars())
 
-###################  Fetch linear solvers     #######################
-
+#  Fetch linear algebra solvers 
 u_sol, p_sol, du_sol, c_sol = get_solvers(**vars())
 
-################### Get constant body forces  #######################
-
+# Get constant body forces
 f = body_force(**vars())
 assert(isinstance(f, Coefficient))
 b0 = dict((ui, assemble(v*f[i]*dx)) for i, ui in enumerate(u_components))
 
-###################    Get scalar sources     #######################
-
+# Get scalar sources
 fs = scalar_source(**vars())
 for ci in scalar_components:
     assert(isinstance(fs[ci], Coefficient))
     b0[ci] = assemble(v*fs[ci]*dx)
 
-################### Preassemble and allocate  #######################
-
+# Preassemble and allocate
 vars().update(setup(**vars()))
 
-################### Anything problem specific #######################
-
+# Anything problem specific
 vars().update(pre_solve_hook(**vars()))
 
-#####################################################################
 # At this point only convection is left to be assembled. Enable ferari
 if parameters["form_compiler"].has_key("no_ferari") and not solver in ("IPCS", "Chorin"):
     parameters["form_compiler"].remove("no_ferari")
@@ -297,9 +289,9 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         udiff[0] = 0.0
         for i, ui in enumerate(u_components):
             t1 = OasisTimer('Solving tentative velocity '+ui, print_solve_info)
-            tentative_velocity_assemble(**vars())
-            tentative_velocity_hook    (**vars())
-            tentative_velocity_solve   (**vars())
+            velocity_tentative_assemble(**vars())
+            velocity_tentative_hook    (**vars())
+            velocity_tentative_solve   (**vars())
             t1.stop()
             
         t0 = OasisTimer("Pressure solve", print_solve_info)
@@ -307,15 +299,14 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         pressure_hook    (**vars())
         pressure_solve   (**vars())
         t0.stop()
-
-        # Update velocity if noniterative scheme is used
-        #if inner_iter == 1:
-        t0 = OasisTimer("Velocity update")
-        update_velocity(**vars())
-        t0.stop()
                  
         print_velocity_pressure_info(**vars())
 
+    # Update velocity 
+    t0 = OasisTimer("Velocity update")
+    velocity_update(**vars())
+    t0.stop()
+    
     # Solve for scalars
     if len(scalar_components) > 0:
         scalar_assemble(**vars())

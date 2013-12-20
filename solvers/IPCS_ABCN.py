@@ -8,7 +8,7 @@ from solvers import *
 from solvers import __all__
 
 def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
-          pressure_degree, bcs, scalar_components, V, x_, dim, mesh,
+          bcs, scalar_components, V, Q, x_, dim, mesh,
           constrained_domain, velocity_update_type, **NS_namespace):
     """Preassemble mass and diffusion matrices. 
     
@@ -23,8 +23,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
         P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
 
         # Constant velocity divergence matrix
-        #Rx = P
-        if velocity_degree == pressure_degree:
+        if V == Q:
             Rx = P
         else:
             Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
@@ -36,7 +35,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
     K = assemble(inner(grad(u), grad(v))*dx)        
 
     # Pressure Laplacian. Either reuse K or assemble new
-    if velocity_degree == pressure_degree and bcs['p'] == []:
+    if V == Q and bcs['p'] == []:
         Ap = K
         
     else:
@@ -243,7 +242,7 @@ def attach_pressure_nullspace(p_sol, x_, Q):
     p_sol.set_nullspace(null_space)
     p_sol.null_space = null_space
 
-def tentative_velocity_assemble(ui, i, b, b_tmp, P, x_, v, p_, u_sol, **NS_namespace):
+def velocity_tentative_assemble(ui, i, b, b_tmp, P, x_, v, p_, u_sol, **NS_namespace):
     """Add pressure gradient to rhs of tentative velocity system."""
     b[ui].zero()
     b[ui].axpy(1., b_tmp[ui])
@@ -252,7 +251,7 @@ def tentative_velocity_assemble(ui, i, b, b_tmp, P, x_, v, p_, u_sol, **NS_names
     else:
         b[ui].axpy(-1., assemble(v*p_.dx(i)*dx))
         
-def tentative_velocity_solve(ui, A, bcs, x_, x_2, u_sol, b, udiff, 
+def velocity_tentative_solve(ui, A, bcs, x_, x_2, u_sol, b, udiff, 
                              use_krylov_solvers, **NS_namespace):    
     """Linear algebra solve of tentative velocity component."""    
     if use_krylov_solvers:
@@ -308,7 +307,7 @@ def pressure_solve(dp_, x_, Ap, b, p_sol, bcs, **NS_namespace):
     dp_.vector().axpy(-1., x_['p'])
     dp_.vector()._scale(-1.)
 
-def update_velocity(u_components, b, bcs, print_solve_info, du_sol, P, 
+def velocity_update(u_components, b, bcs, print_solve_info, du_sol, P, 
                     dp_, dt, v, x_, info_blue, velocity_update_type, **NS_namespace):
     """Update the velocity after regular pressure velocity iterations."""
     if velocity_update_type.upper() == "LAO":
