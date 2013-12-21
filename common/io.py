@@ -5,7 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from os import makedirs, getcwd, listdir, remove, system, path
 import cPickle
-from dolfin import MPI, Function, XDMFFile, HDF5File
+from dolfin import MPI, Function, XDMFFile, HDF5File, info_red
 
 __all__ = ["create_initial_folders", "save_solution", "save_tstep_solution_h5",
            "save_checkpoint_solution_h5", "check_if_kill", "check_if_reset_statistics",
@@ -159,7 +159,7 @@ def check_if_kill(folder):
     if collective > 0:
         if MPI.process_number() == 0:
             remove(path.join(folder, 'killoasis'))
-        info_red('killoasis Found! Stopping simulations cleanly...')
+            info_red('killoasis Found! Stopping simulations cleanly...')
         return True
     else:
         return False
@@ -173,7 +173,7 @@ def check_if_reset_statistics(folder):
     if collective > 0:        
         if MPI.process_number() == 0:
             remove(path.join(folder, 'resetoasis'))
-        info_red('resetoasis Found!')
+            info_red('resetoasis Found!')
         return True
     else:
         return False
