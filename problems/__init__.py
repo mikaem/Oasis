@@ -9,6 +9,18 @@ from os import getpid, path
 from collections import defaultdict
 from numpy import array, maximum, zeros
 
+try:
+    from fenicstools import getMemoryUsage
+
+except:    
+    def getMemoryUsage(rss=True):
+        mypid = getpid()
+        if rss:
+            mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
+        else:
+            mymemory = getoutput("ps -o %s" % mypid).split()[1]
+        return mymemory
+
 parameters["linear_algebra_backend"] = "PETSc"
 parameters["form_compiler"]["optimize"] = True
 parameters["form_compiler"]["cpp_optimize"] = True
@@ -90,21 +102,30 @@ def info_red(s, check=True):
     if MPI.process_number()==0 and check:
         print RED % s
 
-def getMyMemoryUsage():
-    mypid = getpid()
-    mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
-    return mymemory
-
-def dolfin_memory_usage(s):
-    # Check how much memory is actually used by dolfin before we allocate anything
-    dolfin_memory_use = getMyMemoryUsage()
-    info_red('Memory use {} = '.format(s) + dolfin_memory_use)
-    return dolfin_memory_use
-
 class OasisTimer(Timer):
     def __init__(self, task, verbose=False):
         Timer.__init__(self, task)
         info_blue(task, verbose)
+        
+class OasisMemoryUsage:
+    def __init__(self, s):
+        self.memory = 0
+        self.memory_vm = 0
+        self(s)
+        
+    def __call__(self, s, verbose=False):
+        self.prev = self.memory
+        self.prev_vm = self.memory_vm
+        self.memory = MPI.sum(getMemoryUsage())
+        self.memory_vm = MPI.sum(getMemoryUsage(False))
+        if MPI.process_number() == 0 and verbose:
+            info_blue('{0:26s}  {1:10d} MB {2:10d} MB {3:10d} MB {4:10d} MB'.format(s, 
+                   self.memory-self.prev, self.memory, self.memory_vm-self.prev_vm, self.memory_vm))
+
+# Print memory use up til now
+initial_memory_use = getMemoryUsage()
+initial_memory_use_vm = getMemoryUsage(False)
+oasis_memory = OasisMemoryUsage('Start')
 
 # Convenience functions
 def strain(u):
@@ -130,9 +151,6 @@ def recursive_update(dst, src):
         else:
             dst[key] = val
     return dst
-
-# Print memory use up til now
-initial_memory_use = dolfin_memory_usage('plain dolfin')
 
 def body_force(mesh, **NS_namespace):
     """Specify body force"""

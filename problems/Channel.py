@@ -50,9 +50,9 @@ else:
         check_save_h5 = 10,
         checkpoint = 10,
         save_step = 10,
-        Nx = 50,
-        Ny = 50,
-        Nz = 50,
+        Nx = 40,
+        Ny = 40,
+        Nz = 40,
         nu = nu,
         Re_tau = Re_tau,
         T = 1.0,
@@ -63,7 +63,7 @@ else:
         use_krylov_solvers = True
       )
     )
-    NS_parameters['krylov_solvers']['monitor_convergence'] = True
+    NS_parameters['krylov_solvers']['monitor_convergence'] = False
 
 ##############################################################
 
@@ -92,6 +92,7 @@ class PeriodicDomain(SubDomain):
             y[2] = x[2] - Lz
             
 constrained_domain = PeriodicDomain()
+#constrained_domain = None
 
 def inlet(x, on_bnd):
     return on_bnd and near(x[0], 0)
@@ -101,32 +102,34 @@ utau = nu * Re_tau
 def body_force(**NS_namespace):
     return Constant((utau**2, 0., 0.))
 
-def pre_solve_hook(Vv, V, Nx, Ny, Nz, mesh, **NS_namespace):    
+def pre_solve_hook(V, Nx, Ny, Nz, mesh, **NS_namespace):    
     """Called prior to time loop"""
-    uv = Function(Vv) 
-    tol = 1e-8
-    voluviz = StructuredGrid(V, [Nx, Ny+1, Nz], [tol, -Ly/2., -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-Lx/Nx, Ly, Lz-Lz/Nz], statistics=False)
-    stats = ChannelGrid(V, [Nx/5, Ny+1, Nz/5], [tol, -Ly/2., -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-Lx/Nx*5, Ly, Lz-Lz/Nz*5], statistics=True)
+    #uv = Function(Vv) 
+    #tol = 1e-8
+    #voluviz = StructuredGrid(V, [Nx, Ny+1, Nz], [tol, -Ly/2., -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-Lx/Nx, Ly, Lz-Lz/Nz], statistics=False)
+    #stats = ChannelGrid(V, [Nx/5, Ny+1, Nz/5], [tol, -Ly/2., -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-Lx/Nx*5, Ly, Lz-Lz/Nz*5], statistics=True)
     
-    Inlet = AutoSubDomain(inlet)
-    facets = FacetFunction('size_t', mesh)
-    facets.set_all(0)
-    Inlet.mark(facets, 1)    
-    normal = FacetNormal(mesh)
+    #Inlet = AutoSubDomain(inlet)
+    #facets = FacetFunction('size_t', mesh)
+    #facets.set_all(0)
+    #Inlet.mark(facets, 1)    
+    #normal = FacetNormal(mesh)
 
-    return dict(uv=uv, voluviz=voluviz, stats=stats, facets=facets, normal=normal)
+    #return dict(uv=uv, voluviz=voluviz, stats=stats, facets=facets, normal=normal)
+    
+    return {}
     
 def walls(x, on_bnd):
-    return on_bnd and (near(x[1], -Ly/2.) or near(x[1], Ly/2.))
+    return (near(x[1], -Ly/2.) or near(x[1], Ly/2.))
 
-def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, **NS_namespace):
-    bcs = dict((ui, []) for ui in sys_comp)    
-    bc = [DirichletBC(V, Constant(0), walls)]
+def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, mesh, **NS_namespace):
+    bcs = dict((ui, []) for ui in sys_comp)  
+    bc = [DirichletBC(V, Constant(0), walls, 'pointwise')]
     bcs['u0'] = bc
     bcs['u1'] = bc
     bcs['u2'] = bc
     bcs['p'] = []    
-    return bcs
+    return bcs    
 
 class RandomStreamVector(Expression):
     def __init__(self):
@@ -138,7 +141,8 @@ class RandomStreamVector(Expression):
     def value_shape(self):
         return (3,)  
 
-def initialize(V, Vv, q_, q_1, q_2, bcs, restart_folder, **NS_namespace):
+def initialize(Vv, V, q_, q_1, q_2, bcs, restart_folder, velocity_degree,
+               constrained_domain, mesh, **NS_namespace):
     if restart_folder is None:
         psi = interpolate(RandomStreamVector(), Vv)
         u0 = project(curl(psi), Vv)
@@ -157,7 +161,7 @@ def initialize(V, Vv, q_, q_1, q_2, bcs, restart_folder, **NS_namespace):
         q_2['u1'].vector()[:] = q_['u1'].vector()[:]
         q_1['u2'].vector()[:] = q_['u2'].vector()[:]
         q_2['u2'].vector()[:] = q_['u2'].vector()[:]
-    
+        
 def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     if use_krylov_solvers:
         if ui == "u0":
@@ -167,40 +171,43 @@ def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
             u_sol.parameters['relative_tolerance'] = 1e-8
             u_sol.parameters['absolute_tolerance'] = 1e-8
 
-def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats, update_statistics,
-                  check_save_h5, newfolder, check_flux,
-                  facets, normal, **NS_namespace):
-    if tstep % update_statistics == 0:
-        stats(q_['u0'], q_['u1'], q_['u2'])
+def temporal_hook(**NS_namespace):
+    pass
+
+#def temporal_hook(q_, u_, V, Vv, tstep, uv, voluviz, stats, update_statistics,
+                  #check_save_h5, newfolder, check_flux,
+                  #facets, normal, **NS_namespace):
+    #if tstep % update_statistics == 0:
+        #stats(q_['u0'], q_['u1'], q_['u2'])
         
-    if tstep % check_save_h5 == 0:
-        statsfolder = path.join(newfolder, "Stats")
-        h5folder = path.join(newfolder, "Voluviz")
-        stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
-        voluviz(q_['u0'])
-        voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_u0_{}.h5".format(tstep))
-        voluviz.probes.clear()
-        voluviz(q_['u1'])
-        voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_u1_{}.h5".format(tstep))
-        voluviz.probes.clear()
-        voluviz(q_['u2'])
-        voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_u2_{}.h5".format(tstep))
-        voluviz.probes.clear()
-        enstrophy = project(0.5*dot(curl(u_), curl(u_)), V)
-        voluviz(enstrophy)
-        voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_enstrophy_{}.h5".format(tstep))
-        voluviz.probes.clear()
-        enstrophy = project(0.5*QC(u_), V)
-        voluviz(enstrophy)
-        voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_Q_{}.h5".format(tstep))
-        voluviz.probes.clear()
+    #if tstep % check_save_h5 == 0:
+        #statsfolder = path.join(newfolder, "Stats")
+        #h5folder = path.join(newfolder, "Voluviz")
+        #stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
+        #voluviz(q_['u0'])
+        #voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_u0_{}.h5".format(tstep))
+        #voluviz.probes.clear()
+        #voluviz(q_['u1'])
+        #voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_u1_{}.h5".format(tstep))
+        #voluviz.probes.clear()
+        #voluviz(q_['u2'])
+        #voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_u2_{}.h5".format(tstep))
+        #voluviz.probes.clear()
+        #enstrophy = project(0.5*dot(curl(u_), curl(u_)), V)
+        #voluviz(enstrophy)
+        #voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_enstrophy_{}.h5".format(tstep))
+        #voluviz.probes.clear()
+        #enstrophy = project(0.5*QC(u_), V)
+        #voluviz(enstrophy)
+        #voluviz.toh5(0, tstep, filename=h5folder+"/snapshot_Q_{}.h5".format(tstep))
+        #voluviz.probes.clear()
         
-        #uv.assign(project(u_, Vv))
-        #plot(q_['p'])
-        #plot(uv)
-    if tstep % check_flux == 0:
-        u1 = assemble(dot(u_, normal)*ds(1), exterior_facet_domains=facets)
-        normv = norm(q_['u1'].vector())
-        normw = norm(q_['u2'].vector())
-        if MPI.process_number() == 0:
-            print "Flux = ", u1, " tstep = ", tstep, " norm = ", normv, normw
+        ##uv.assign(project(u_, Vv))
+        ##plot(q_['p'])
+        ##plot(uv)
+    #if tstep % check_flux == 0:
+        #u1 = assemble(dot(u_, normal)*ds(1), exterior_facet_domains=facets)
+        #normv = norm(q_['u1'].vector())
+        #normw = norm(q_['u2'].vector())
+        #if MPI.process_number() == 0:
+            #print "Flux = ", u1, " tstep = ", tstep, " norm = ", normv, normw

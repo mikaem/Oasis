@@ -198,7 +198,7 @@ u = TrialFunction(V)
 v = TestFunction(V)
 p = TrialFunction(Q)
 q = TestFunction(Q)
-
+    
 # Use dictionary to hold all FunctionSpaces
 VV = dict((ui, V) for ui in uc_comp); VV['p'] = Q
 
@@ -341,14 +341,14 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     # AB projection for pressure on next timestep
     if AB_projection_pressure and t < (T - tstep*DOLFIN_EPS) and not stop:
         x_['p'].axpy(0.5, dp_.vector())
-                            
+                                    
 total_timer.stop()
 list_timings()
 info_red('Total computing time = {0:f}'.format(total_timer.value()))
-final_memory_use = dolfin_memory_usage('at end')
-mymem = eval(final_memory_use)-eval(initial_memory_use)
-print 'Additional memory use of processor = {0}'.format(mymem)
-info_red('Total memory use of solver = ' + str(MPI.sum(mymem)))
+oasis_memory('Final memory use ')
+total_initial_dolfin_memory = MPI.sum(initial_memory_use)
+info_red('Memory use for importing dolfin = {} MB (RSS)'.format(total_initial_dolfin_memory))
+info_red('Total memory use of solver = ' + str(oasis_memory.memory - total_initial_dolfin_memory) + " MB (RSS)")
 
 # Final hook
 theend_hook(**vars())

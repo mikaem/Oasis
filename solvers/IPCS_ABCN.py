@@ -33,7 +33,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
 
     # Stiffness matrix (without viscosity coefficient)
     K = assemble(inner(grad(u), grad(v))*dx)        
-
+    
     # Pressure Laplacian. Either reuse K or assemble new
     if V == Q and bcs['p'] == []:
         Ap = K
@@ -45,7 +45,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
 
     # Allocate coefficient matrix (needs reassembling)
     A = Matrix(M)
-
+    
     # Create dictionary to be returned into global NS namespace
     d = dict(P=P, Rx=Rx, A=A, M=M, K=K, Ap=Ap)
 
@@ -84,7 +84,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
         Mu = Matrix(M) if len(scalar_components) > 0 else M # Copy if used by scalars
         [bc.apply(Mu) for bc in bcs['u0']]
         d.update(Mu=Mu)
-        
+    
     # Setup for solving convection
     u_ab = as_vector([Function(V) for i in range(len(u_components))])
     a_conv = 0.5*inner(v, dot(u_ab, nabla_grad(u)))*dx  # Faster version
