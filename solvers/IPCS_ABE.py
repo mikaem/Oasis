@@ -37,8 +37,10 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
     K = assemble(inner(grad(u), grad(v))*dx)        
 
     # Pressure Laplacian. Either reuse K or assemble new
-    Ap = K
-    if not (velocity_degree == pressure_degree and bcs['p'] == []):
+    if V == Q and bcs['p'] == []:
+        Ap = K
+        
+    else:
         Ap = assemble(inner(grad(q), grad(p))*dx) 
         [bc.apply(Ap) for bc in bcs['p']]
         Ap.compress()
