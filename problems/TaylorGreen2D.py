@@ -13,15 +13,15 @@ NS_parameters.update(
     Nx = 20, Ny = 20,
     folder = "taylorgreen2D_results",
     max_iter = 1,
-    iters_on_first_timestep = 1,
+    iters_on_first_timestep = 2,
     plot_interval = 1000,
     save_step = 10000,
     checkpoint = 10000,
     print_intermediate_info = 1000,
-    compute_error = 10,
-    use_krylov_solvers = True,
+    compute_error = 1,
+    use_krylov_solvers = False,
     low_memory_version = False,
-    velocity_degree = 2,
+    velocity_degree = 1,
     pressure_degree = 1,
     krylov_report = False
 )
@@ -93,6 +93,7 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
         plot(q_['u1'], title='v')
         plot(q_['p'], title='p')
     if tstep % compute_error == 0:
+        err = {}
         for i, ui in enumerate(sys_comp):
             deltat_ = dt/2. if ui is 'p' else 0.
             ue = Expression((initial_fields[ui]), t=t-deltat_, nu=nu)
@@ -100,9 +101,11 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
             uen = norm(ue.vector())
             ue.vector().axpy(-1, q_[ui].vector())
             error = norm(ue.vector())/uen
-            total_error[i] += error*dt            
+            err[ui] = "{0:2.6e}".format(norm(ue.vector()))
+            total_error[i] += error*dt     
+        print "Error is ", err, " at time = ", t 
         
-def theend_hook(q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespace):
+def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespace):
     final_error = zeros(len(sys_comp))
     for i, ui in enumerate(sys_comp):
         deltat = dt/2. if ui is 'p' else 0.
