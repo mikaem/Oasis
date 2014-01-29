@@ -59,8 +59,9 @@ def create_bcs(V, Q, sys_comp, **NS_namespace):
     bcs['p'] = [pc0, pc1]
     return bcs
 
-def pre_solve_hook(Vv, **NS_namespace):
-    return dict(uv=Function(Vv))
+def pre_solve_hook(mesh, **NS_namespace):
+    Vv = VectorFunctionSpace(mesh, 'CG', 1)
+    return dict(Vv=Vv, uv=Function(Vv))
 
 def start_timestep_hook(t, **NS_namespace):
     p_in.t = t

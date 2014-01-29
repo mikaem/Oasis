@@ -101,7 +101,7 @@ def body_force(**NS_namespace):
 
 def pre_solve_hook(V, q_, q_1, q_2, u_components, mesh, **NS_namespace):    
     """Called prior to time loop"""
-    Vv = VectorFunctionSpace(V.mesh(), 'CG', 1)
+    Vv = VectorFunctionSpace(V.mesh(), 'CG', 1, constrained_domain=constrained_domain)
     uv = Function(Vv) 
     tol = 5e-8
     

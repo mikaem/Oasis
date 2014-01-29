@@ -40,7 +40,7 @@ NS_parameters.update(dict(
     folder = "laminarchannel_results",
     max_iter = 1,
     velocity_degree = 1,
-    use_krylov_solvers = True
+    use_krylov_solvers = False
   )
 )
 
