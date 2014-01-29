@@ -5,7 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from os import makedirs, getcwd, listdir, remove, system, path
 import cPickle
-from dolfin import MPI, Function, XDMFFile, HDF5File, info_red
+from dolfin import MPI, Function, XDMFFile, HDF5File, info_red, VectorFunctionSpace
 
 __all__ = ["create_initial_folders", "save_solution", "save_tstep_solution_h5",
            "save_checkpoint_solution_h5", "check_if_kill", "check_if_reset_statistics",
@@ -56,12 +56,12 @@ def create_initial_folders(folder, restart_folder, sys_comp, tstep,
     return newfolder, tstepfiles
 
 def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint, 
-                  NS_parameters, tstepfiles, Vv, u_, u_components, scalar_components,
-                  output_timeseries_as_vector, **NS_namespace):
+                  NS_parameters, tstepfiles, u_, u_components, scalar_components,
+                  output_timeseries_as_vector, constrained_domain, **NS_namespace):
     """Called at end of timestep. Check for kill and save solution if required."""
     NS_parameters.update(t=t, tstep=tstep)
     if tstep % save_step == 0: 
-        save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, Vv, 
+        save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_domain,
                                output_timeseries_as_vector, u_components,
                                scalar_components, NS_parameters)
         
@@ -72,7 +72,7 @@ def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint,
         
     return killoasis
 
-def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, Vv,
+def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_domain,
                            output_timeseries_as_vector, u_components, 
                            scalar_components, NS_parameters):
     """Store solution on current timestep to XDMF file."""
@@ -80,6 +80,9 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, Vv,
     if output_timeseries_as_vector:
         # project or store velocity to vector function space
         if not hasattr(tstepfiles['u'], 'uv'): # First time around only
+            V = q_['u0'].function_space()
+            Vv = VectorFunctionSpace(V.mesh(), V.ufl_element().family(), V.ufl_element().degree(),
+                                     constrained_domain=constrained_domain)
             tstepfiles['u'].uv = Function(Vv)
             tstepfiles['u'].d = dict((ui, Vv.sub(i).dofmap().collapse(Vv.mesh())[1]) 
                                     for i, ui in enumerate(u_components))

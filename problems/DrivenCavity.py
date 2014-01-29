@@ -18,7 +18,7 @@ def mesh(Nx, Ny, skewness, **params):
             x[:] = ( arctan(pi*x)/arctan(pi) +1. ) / 2.
     return m
 
-T = 0.5
+T = 0.01
 #dt = 0.25*T/ceil(T/0.2/mesh.hmin())
 dt = 0.001
 # Override some problem specific parameters
@@ -38,13 +38,14 @@ recursive_update(NS_parameters,
         max_iter = 1,
         iters_on_first_timestep = 1,
         use_krylov_solvers = True,
-        krylov_solvers = dict(monitor_convergence=False,
+        krylov_solvers = dict(monitor_convergence=True,
                               relative_tolerance = 1e-8))
 )
 
-def pre_solve_hook(Vv, **NS_namespace):    
+def pre_solve_hook(Vv, mesh, velocity_degree, constrained_domain, **NS_namespace):    
     # Declare a Function used for plotting in temporal_hook
-    return dict(uv=Function(Vv))
+    Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
+    return dict(uv=Function(Vv), Vv=Vv)
 
 noslip = "std::abs(x[0]*x[1]*(1-x[0]))<1e-8"
 lid    = "std::abs(x[1]-1) < 1e-8"

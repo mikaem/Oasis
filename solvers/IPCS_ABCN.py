@@ -45,7 +45,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
 
     # Allocate coefficient matrix (needs reassembling)
     A = Matrix(M)
-    
+
     # Create dictionary to be returned into global NS namespace
     d = dict(P=P, Rx=Rx, A=A, M=M, K=K, Ap=Ap)
 
@@ -91,7 +91,6 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
     #a_conv = 0.5*inner(v, dot(U_AB, nabla_grad(u)))*dx
     a_scalar = a_conv    
     d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar)
-    
     return d
 
 def get_solvers(use_krylov_solvers, krylov_solvers, bcs, 
@@ -281,8 +280,7 @@ def pressure_assemble(b, Rx, x_, dt, q, u_, Ap, b_tmp, **NS_namespace):
     if Rx:
         for ui in Rx:
             b['p'].axpy(-1./dt, Rx[ui]*x_[ui])
-            #Rx[ui].transpmult(x_[ui], b_tmp['p'])
-            #b['p'].axpy(-1./dt, b_tmp['p'])
+            
     else:
         b['p'].axpy(-1./dt, assemble(div(u_)*q*dx))
     b['p'].axpy(1., Ap*x_['p'])
@@ -303,7 +301,6 @@ def pressure_solve(dp_, x_, Ap, b, p_sol, bcs, **NS_namespace):
     if hasattr(p_sol, 'normalize'):
         normalize(x_['p'])
 
-    #dp_.vector()[:] = x_['p'][:] - dp_.vector()[:]
     dp_.vector().axpy(-1., x_['p'])
     dp_.vector()._scale(-1.)
 

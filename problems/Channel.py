@@ -50,14 +50,15 @@ else:
         check_save_h5 = 10,
         checkpoint = 10,
         save_step = 10,
-        Nx = 40,
-        Ny = 40,
-        Nz = 40,
+        Nx = 12,
+        Ny = 12,
+        Nz = 12,
         nu = nu,
         Re_tau = Re_tau,
-        T = 1.0,
+        T = 0.05,
         dt = 0.05,
         velocity_degree = 1,
+        print_intermediate_info = 1,
         check_flux = 10,
         folder = "channel_results",
         use_krylov_solvers = True
@@ -102,7 +103,7 @@ utau = nu * Re_tau
 def body_force(**NS_namespace):
     return Constant((utau**2, 0., 0.))
 
-def pre_solve_hook(V, Nx, Ny, Nz, mesh, **NS_namespace):    
+def pre_solve_hook(V, u, v, Nx, Ny, Nz, mesh, **NS_namespace):    
     """Called prior to time loop"""
     #uv = Function(Vv) 
     #tol = 1e-8
@@ -116,7 +117,6 @@ def pre_solve_hook(V, Nx, Ny, Nz, mesh, **NS_namespace):
     #normal = FacetNormal(mesh)
 
     #return dict(uv=uv, voluviz=voluviz, stats=stats, facets=facets, normal=normal)
-    
     return {}
     
 def walls(x, on_bnd):
@@ -124,7 +124,7 @@ def walls(x, on_bnd):
 
 def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, mesh, **NS_namespace):
     bcs = dict((ui, []) for ui in sys_comp)  
-    bc = [DirichletBC(V, Constant(0), walls, 'pointwise')]
+    bc = [DirichletBC(V, Constant(0), walls, "pointwise")]
     bcs['u0'] = bc
     bcs['u1'] = bc
     bcs['u2'] = bc
@@ -144,23 +144,24 @@ class RandomStreamVector(Expression):
 def initialize(Vv, V, q_, q_1, q_2, bcs, restart_folder, velocity_degree,
                constrained_domain, mesh, **NS_namespace):
     if restart_folder is None:
-        psi = interpolate(RandomStreamVector(), Vv)
-        u0 = project(curl(psi), Vv)
-        u0x = project(u0[0], V, bcs=bcs['u0'])
-        u1x = project(u0[1], V, bcs=bcs['u0'])
-        u2x = project(u0[2], V, bcs=bcs['u0'])
+        #Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
+        #psi = interpolate(RandomStreamVector(), Vv)
+        #u0 = project(curl(psi), Vv)
+        #u0x = project(u0[0], V, bcs=bcs['u0'])
+        #u1x = project(u0[1], V, bcs=bcs['u0'])
+        #u2x = project(u0[2], V, bcs=bcs['u0'])
         y = interpolate(Expression("x[1] > 0 ? 1-x[1] : 1+x[1]"), V)
         uu = project(1.01*(utau/0.41*ln(conditional(y<1e-12, 1.e-12, y)*utau/nu)+5.*utau), V, bcs=bcs['u0'])
         q_['u0'].vector()[:] = uu.vector()[:] 
-        q_['u0'].vector().axpy(1.0, u0x.vector())
-        q_['u1'].vector()[:] = u1x.vector()[:]
-        q_['u2'].vector()[:] = u2x.vector()[:]
+        #q_['u0'].vector().axpy(1.0, u0x.vector())
+        #q_['u1'].vector()[:] = u1x.vector()[:]
+        #q_['u2'].vector()[:] = u2x.vector()[:]
         q_1['u0'].vector()[:] = q_['u0'].vector()[:]
         q_2['u0'].vector()[:] = q_['u0'].vector()[:]
-        q_1['u1'].vector()[:] = q_['u1'].vector()[:]
-        q_2['u1'].vector()[:] = q_['u1'].vector()[:]
-        q_1['u2'].vector()[:] = q_['u2'].vector()[:]
-        q_2['u2'].vector()[:] = q_['u2'].vector()[:]
+        #q_1['u1'].vector()[:] = q_['u1'].vector()[:]
+        #q_2['u1'].vector()[:] = q_['u1'].vector()[:]
+        #q_1['u2'].vector()[:] = q_['u2'].vector()[:]
+        #q_2['u2'].vector()[:] = q_['u2'].vector()[:]
         
 def velocity_tentative_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     if use_krylov_solvers:

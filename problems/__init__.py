@@ -19,13 +19,14 @@ except:
             mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
         else:
             mymemory = getoutput("ps -o %s" % mypid).split()[1]
-        return mymemory
+        print mymemory
+        return eval(mymemory)
 
 parameters["linear_algebra_backend"] = "PETSc"
 parameters["form_compiler"]["optimize"] = True
 parameters["form_compiler"]["cpp_optimize"] = True
 parameters["form_compiler"]["representation"] = "quadrature"
-parameters["form_compiler"]["cache_dir"] = "instant"
+#parameters["form_compiler"]["cache_dir"] = "instant"
 parameters["form_compiler"]["cpp_optimize_flags"] = "-O3 --fast-math"
 parameters["mesh_partitioner"] = "ParMETIS"
 parameters["form_compiler"].add("no_ferari", True)

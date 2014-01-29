@@ -174,7 +174,7 @@ parameters['krylov_solver'].update(krylov_solvers)
 if callable(mesh):
     mesh = mesh(**NS_parameters)
 
-assert(isinstance(mesh, Mesh))    
+assert(isinstance(mesh, Mesh)) 
 
 # Import chosen functionality from solvers
 exec("from solvers.{} import *".format(solver))
@@ -190,7 +190,6 @@ newfolder, tstepfiles = create_initial_folders(**vars())
 
 # Declare FunctionSpaces and arguments
 V = Q = FunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
-Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
 if velocity_degree != pressure_degree:
     Q = FunctionSpace(mesh, 'CG', pressure_degree, constrained_domain=constrained_domain)
 
@@ -285,7 +284,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         t0 = OasisTimer("Tentative velocity")
         if inner_iter == 1:
             assemble_first_inner_iter(**vars())
-         
+        
         udiff[0] = 0.0
         for i, ui in enumerate(u_components):
             t1 = OasisTimer('Solving tentative velocity '+ui, print_solve_info)
@@ -299,7 +298,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         pressure_hook    (**vars())
         pressure_solve   (**vars())
         t0.stop()
-                 
+                             
         print_velocity_pressure_info(**vars())
 
     # Update velocity 
