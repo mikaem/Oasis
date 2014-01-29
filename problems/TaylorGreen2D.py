@@ -4,7 +4,6 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from problems import *
-import numpy
 
 # Override some problem specific parameters
 NS_parameters.update(
@@ -19,6 +18,7 @@ NS_parameters.update(
     save_step = 10000,
     checkpoint = 10000,
     print_intermediate_info = 1000,
+    compute_error = 10,
     use_krylov_solvers = True,
     low_memory_version = False,
     velocity_degree = 2,
@@ -30,16 +30,8 @@ NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
                                    'relative_tolerance': 1e-10,
                                    'absolute_tolerance': 1e-10}
 
-from numpy import cos, pi, arctan
 def mesh(Nx, Ny, **params):
     return RectangleMesh(0, 0, 2, 2, Nx, Ny)
-    #m = UnitSquareMesh(Nx, Ny)
-    #x = m.coordinates()
-    #x[:] = (x - 0.5) * 2
-    ##x[:] = 0.5*(cos(pi*(x-1.) / 2.) + 1.)
-    #x[:] = ( arctan(pi*x)/arctan(pi) +1. ) / 2.
-    #x[:] *= 2.
-    #return m
 
 class PeriodicDomain(SubDomain):
     
@@ -69,25 +61,6 @@ initial_fields = dict(
 
 dpdx = ('sin(2*pi*x[0])*2*pi*exp(-4.*pi*pi*nu*t)/4.',
         'sin(2*pi*x[1])*2*pi*exp(-4.*pi*pi*nu*t)/4.')
-
-
-#initial_expressions = {}
-#for ui in ("u0", "u1", "p"):
-    #initial_expressions[ui] = Expression(initial_fields[ui], nu=0, t=0)
-
-#def create_bcs(sys_comp, u_components, VV, initial_expressions, nu, **NS_namespace):
-    #bcs = {}
-    #for ui in sys_comp:
-        #initial_expressions[ui].nu = nu
-        #bcs[ui] = [DirichletBC(VV[ui], initial_expressions[ui], DomainBoundary())]
-    #bcs['p'] = []
-    #return bcs
-
-#def start_timestep_hook(t, dt, sys_comp, initial_expressions, **NS_namespace):
-    #for ui in sys_comp:
-        #initial_expressions[ui].t = t
-        #if ui == "p":
-            #initial_expressions[ui].t = t-dt/2.
         
 def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
     """Initialize solution. 
@@ -97,7 +70,6 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
     """
     for ui in q_:
         deltat = dt/2. if ui is 'p' else 0.
-        #deltat = 0.
         vv = interpolate(Expression((initial_fields[ui]), t=t+deltat, nu=nu), VV[ui])
         q_[ui].vector()[:] = vv.vector()[:]
         if not ui == 'p':
@@ -108,32 +80,29 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
     q_1['p'].vector()[:] = q_['p'].vector()[:]
 
 total_error = zeros(3)
-def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_comp, **NS_namespace):
+def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_comp, 
+                  compute_error, **NS_namespace):
     """Function called at end of timestep.    
 
     Plot solution and compute error by comparing to analytical solution.
     Remember pressure is computed in between timesteps.
     
     """
-    #q_['p'].vector()[:] -= assemble(q_['p']*dx)/4. # For skewed mesh only
     if tstep % plot_interval == 0:
-        #plot(q_['u0'], title='u')
-        #plot(q_['u1'], title='v')
-        #plot(q_['p'], title='p')
-        err = {}
+        plot(q_['u0'], title='u')
+        plot(q_['u1'], title='v')
+        plot(q_['p'], title='p')
+    if tstep % compute_error == 0:
         for i, ui in enumerate(sys_comp):
             deltat_ = dt/2. if ui is 'p' else 0.
             ue = Expression((initial_fields[ui]), t=t-deltat_, nu=nu)
-            #error = errornorm(ue, q_[ui], degree_rise=0)
             ue = interpolate(ue, VV[ui])
             uen = norm(ue.vector())
             ue.vector().axpy(-1, q_[ui].vector())
             error = norm(ue.vector())/uen
-            err[ui] = "{0:2.6e}".format(error)
             total_error[i] += error*dt            
-        print "Error is ", err, " at time = ", t 
         
-def theend_hook(q_, t, dt, nu, VV, mesh, sys_comp, initial_fields, **NS_namespace):
+def theend_hook(q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespace):
     final_error = zeros(len(sys_comp))
     for i, ui in enumerate(sys_comp):
         deltat = dt/2. if ui is 'p' else 0.
@@ -142,9 +111,7 @@ def theend_hook(q_, t, dt, nu, VV, mesh, sys_comp, initial_fields, **NS_namespac
         uen = norm(ue.vector())
         ue.vector().axpy(-1, q_[ui].vector())
         final_error[i] = norm(ue.vector())/uen
-        #final_error[i] = errornorm(ue, q_[ui], degree_rise=0)
         
-    #hmin = min([e.length() for e in edges(Cell(mesh, 0))])
     hmin = mesh.hmin()
     print "hmin = {}".format(hmin)
     s0 = "Error"
