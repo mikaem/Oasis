@@ -11,8 +11,8 @@ import cPickle
 import random
 
 #restart_folder = 'channel_atan/data/128/Checkpoint'
-restart_folder = 'channel_results_180/data/13/Checkpoint'
-#restart_folder = None
+#restart_folder = 'channel_results_180/data/13/Checkpoint'
+restart_folder = None
 
 class ChannelGrid(StructuredGrid):
     """Grid for computing statistics"""
