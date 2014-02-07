@@ -8,3 +8,8 @@ Oasis
     </p>
   </figure>
 </p>
+
+<table>
+<tr><td><img src="https://raw.github.com/wiki/mikaem/oasis/figs/channel3D.gif" width="360" height="200" alt="Channel flow"/>
+<tr><td>Turbulent channel flow
+</table>
