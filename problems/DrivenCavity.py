@@ -42,7 +42,7 @@ recursive_update(NS_parameters,
                               relative_tolerance = 1e-8))
 )
 
-def pre_solve_hook(Vv, mesh, velocity_degree, constrained_domain, **NS_namespace):    
+def pre_solve_hook(mesh, velocity_degree, constrained_domain, **NS_namespace):    
     # Declare a Function used for plotting in temporal_hook
     Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
     return dict(uv=Function(Vv), Vv=Vv)
