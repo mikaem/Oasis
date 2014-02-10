@@ -18,8 +18,7 @@ except:
         if rss:
             mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
         else:
-            mymemory = getoutput("ps -o %s" % mypid).split()[1]
-        print mymemory
+            mymemory = getoutput("ps -o vsz %s" % mypid).split()[1]
         return eval(mymemory)
 
 parameters["linear_algebra_backend"] = "PETSc"
@@ -125,7 +124,6 @@ class OasisMemoryUsage:
 
 # Print memory use up til now
 initial_memory_use = getMemoryUsage()
-initial_memory_use_vm = getMemoryUsage(False)
 oasis_memory = OasisMemoryUsage('Start')
 
 # Convenience functions
