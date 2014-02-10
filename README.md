@@ -40,7 +40,7 @@ Installation
 Oasis requires a compatible installation of FEniCS, see the releases. 
 Oasis should be installed by cloning to a local repository. 
 
-  * git clone git@github.com:mikaem/Oasis.git
+  * git clone https://github.com/mikaem/Oasis.git
 
 
 Contact
