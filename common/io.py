@@ -11,11 +11,11 @@ __all__ = ["create_initial_folders", "save_solution", "save_tstep_solution_h5",
            "save_checkpoint_solution_h5", "check_if_kill", "check_if_reset_statistics",
            "init_from_restart"]
 
-def create_initial_folders(folder, restart_folder, sys_comp, tstep, 
+def create_initial_folders(folder, restart_folder, sys_comp, tstep, info_red,
                            scalar_components, output_timeseries_as_vector, 
                            **NS_namespace):
     """Create necessary folders."""
-    
+    info_red("Creating initial folders")
     # To avoid writing over old data create a new folder for each run
     if MPI.process_number() == 0:
         try:
@@ -23,6 +23,7 @@ def create_initial_folders(folder, restart_folder, sys_comp, tstep,
         except OSError:
             pass
 
+    MPI.barrier()
     newfolder = path.join(folder, 'data')
     if restart_folder:
         newfolder = path.join(newfolder, restart_folder.split('/')[-2])

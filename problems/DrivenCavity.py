@@ -83,7 +83,7 @@ def theend_hook(u_, p_, uv, Vv, **NS_namespace):
     plot(p_, title='Pressure')
 
     try:
-        from cbc.cfd.tools.Streamfunctions import StreamFunction
+        from fenicstools import StreamFunction
         psi = StreamFunction(u_, [], use_strong_bc=True)
         plot(psi, title='Streamfunction')
         interactive()
