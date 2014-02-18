@@ -25,16 +25,6 @@ NS_parameters.update(
     print_intermediate_info = 100,
     use_krylov_solvers = True)
 
-<<<<<<< HEAD
-def pre_solve_hook(mesh, velocity_degree, constrained_domain, **NS_namespace):    
-    # Declare a Function used for plotting in temporal_hook
-    Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
-    return dict(uv=Function(Vv), Vv=Vv)
-
-noslip = "std::abs(x[0]*x[1]*(1-x[0]))<1e-8"
-lid    = "std::abs(x[1]-1) < 1e-8"
-=======
->>>>>>> CPC
 # Specify boundary conditions
 noslip = "std::abs(x[0]*x[1]*(1-x[0]))<1e-8"
 top    = "std::abs(x[1]-1) < 1e-8"
@@ -67,11 +57,7 @@ def theend_hook(u_, p_, uv, Vv, **NS_namespace):
     plot(p_, title='Pressure')
 
     try:
-<<<<<<< HEAD
         from fenicstools import StreamFunction
-=======
-        from fenicstools.Streamfunctions import StreamFunction
->>>>>>> CPC
         psi = StreamFunction(u_, [], use_strong_bc=True)
         plot(psi, title='Streamfunction', interactive=True)
     except:

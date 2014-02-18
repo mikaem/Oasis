@@ -12,11 +12,6 @@ NS_parameters.update(
     dt = 0.001,
     Nx = 20, Ny = 20,
     folder = "taylorgreen2D_results",
-<<<<<<< HEAD
-=======
-    max_iter = 1,
-    iters_on_first_timestep = 2,
->>>>>>> CPC
     plot_interval = 1000,
     save_step = 10000,
     checkpoint = 10000,
@@ -106,12 +101,8 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
             error = norm(ue.vector())/uen
             err[ui] = "{0:2.6e}".format(norm(ue.vector()))
             total_error[i] += error*dt     
-<<<<<<< HEAD
         if MPI.process_number() == 0:
             print "Error is ", err, " at time = ", t 
-=======
-        print "Error is ", err, " at time = ", t 
->>>>>>> CPC
         
 def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespace):
     final_error = zeros(len(sys_comp))
