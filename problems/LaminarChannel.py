@@ -5,6 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from problems import *
 from numpy import pi, arctan, array
+set_log_active(False)
 
 # Create a mesh here
 L = 10.
@@ -40,7 +41,7 @@ NS_parameters.update(dict(
     folder = "laminarchannel_results",
     max_iter = 1,
     velocity_degree = 1,
-    use_krylov_solvers = True
+    use_krylov_solvers = False
   )
 )
 
@@ -70,10 +71,10 @@ def reference(Re, t, num_terms=100):
 def temporal_hook(tstep, q_, t, Re, **NS_namespace):
     if tstep % 20 == 0:        
         plot(q_['u0'])
-    u_exact = reference(Re, t)
     try:
-        u_computed = q_['u0'](array([1.0, 0.]))
+        # point is found on one processor, the others pass
+        u_computed = q_['u0'](array([L, 0.]))
+        u_exact = reference(Re, t)
         print "Error = ", (u_exact-u_computed)/u_exact
     except:
         pass
-    

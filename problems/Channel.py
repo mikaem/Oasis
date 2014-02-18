@@ -53,9 +53,9 @@ else:
     NS_parameters.update(
         update_statistics = 10,
         save_statistics = 100,
-        check_flux = 100,
+        check_flux = 10,
         checkpoint = 100,
-        save_step = 10,
+        save_step = 100,
         nu = nu,
         Re_tau = Re_tau,
         T = T,
