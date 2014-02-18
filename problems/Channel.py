@@ -10,9 +10,8 @@ from os import getcwd
 import cPickle
 import random
 
-#restart_folder = 'channel_atan/data/128/Checkpoint'
-restart_folder = 'channel_results_180/data/13/Checkpoint'
-#restart_folder = None
+#restart_folder = 'channel_results/data/3/Checkpoint'
+restart_folder = None
 
 class ChannelGrid(StructuredGrid):
     """Grid for computing statistics"""
@@ -33,7 +32,7 @@ if restart_folder:
     restart_folder = path.join(getcwd(), restart_folder)
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
-    NS_parameters['T'] = 200.
+    NS_parameters['T'] = NS_parameters['T'] + 200*NS_parameters['dt']
     NS_parameters['restart_folder'] = restart_folder
     globals().update(NS_parameters)
     
@@ -41,9 +40,9 @@ else:
     Lx = 4.*pi
     Ly = 2.
     Lz = 4.*pi/3.
-    Nx = 16
-    Ny = 16
-    Nz = 16
+    Nx = 32
+    Ny = 32
+    Nz = 32
     NS_parameters.update(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz)
     
     # Override some problem specific parameters
@@ -53,18 +52,18 @@ else:
     Re_tau = 178.12
     NS_parameters.update(
         update_statistics = 10,
-        save_statistics = 10,
+        save_statistics = 100,
         check_flux = 10,
-        checkpoint = 10,
-        save_step = 10,
+        checkpoint = 100,
+        save_step = 100,
         nu = nu,
         Re_tau = Re_tau,
         T = T,
         dt = dt,
         velocity_degree = 1,
-        folder = "channel_results_180",
+        folder = "channel_results",
         use_krylov_solvers = True,
-        use_lumping_of_mass_matrix = True
+        velocity_update_type = "lumping"
     )
 
 ##############################################################
@@ -165,13 +164,9 @@ def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     if use_krylov_solvers:
         # Make tolerance stricter in x-direction (direction of flow)
         if ui == "u0":            
-            u_sol.parameters['preconditioner']['reuse'] = False
-            u_sol.parameters['relative_tolerance'] = 1e-9
-            u_sol.parameters['absolute_tolerance'] = 1e-9
+            u_sol.parameters['preconditioner']['structure'] = 'same_nonzero_pattern'
         else:
-            u_sol.parameters['preconditioner']['reuse'] = True
-            u_sol.parameters['relative_tolerance'] = 1e-8
-            u_sol.parameters['absolute_tolerance'] = 1e-8
+            u_sol.parameters['preconditioner']['structure'] = 'same'
 
 def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
                   newfolder, folder, check_flux, save_statistics,

@@ -68,6 +68,6 @@ def start_timestep_hook(t, **NS_namespace):
     
 def temporal_hook(tstep, q_, u_, uv, Vv, plot_interval, **NS_namespace):
     if tstep % plot_interval == 0:
-        plot(q_['p'])
+        plot(q_['p'], title="Pressure")
         uv.assign(project(u_, Vv))
-        plot(uv)
+        plot(uv, title="Velocity")

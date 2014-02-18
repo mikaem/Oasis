@@ -16,15 +16,15 @@ def mesh(Nx, Ny, **params):
 
 # Override some problem specific parameters
 NS_parameters.update(
-  nu = 0.001,
-  T  = 1.0,
-  dt = 0.001,
-  Nx = 50,
-  Ny = 50,
-  plot_interval = 20,
-  print_intermediate_info = 100,
-  use_krylov_solvers = True)
-            
+    nu = 0.001,
+    T  = 1.0,
+    dt = 0.001,
+    Nx = 50,
+    Ny = 50,
+    plot_interval = 20,
+    print_intermediate_info = 100,
+    use_krylov_solvers = True)
+
 # Specify boundary conditions
 noslip = "std::abs(x[0]*x[1]*(1-x[0]))<1e-8"
 top    = "std::abs(x[1]-1) < 1e-8"
@@ -51,15 +51,14 @@ def temporal_hook(tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace):
         plot(uv, title='Velocity')
         plot(p_, title='Pressure')
 
-def theend(u_, p_, uv, Vv, **NS_namespace):
+def theend_hook(u_, p_, uv, Vv, **NS_namespace):
     uv.assign(project(u_, Vv))
     plot(uv, title='Velocity')
     plot(p_, title='Pressure')
 
     try:
-        from cbc.cfd.tools.Streamfunctions import StreamFunction
+        from fenicstools.Streamfunctions import StreamFunction
         psi = StreamFunction(u_, [], use_strong_bc=True)
-        plot(psi, title='Streamfunction')
-        interactive()
+        plot(psi, title='Streamfunction', interactive=True)
     except:
         pass
