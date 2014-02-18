@@ -12,8 +12,6 @@ NS_parameters.update(
     dt = 0.001,
     Nx = 20, Ny = 20,
     folder = "taylorgreen2D_results",
-    max_iter = 1,
-    iters_on_first_timestep = 2,
     plot_interval = 1000,
     save_step = 10000,
     checkpoint = 10000,
@@ -103,7 +101,8 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
             error = norm(ue.vector())/uen
             err[ui] = "{0:2.6e}".format(norm(ue.vector()))
             total_error[i] += error*dt     
-        print "Error is ", err, " at time = ", t 
+        if MPI.process_number() == 0:
+            print "Error is ", err, " at time = ", t 
         
 def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespace):
     final_error = zeros(len(sys_comp))
@@ -116,12 +115,14 @@ def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespac
         final_error[i] = norm(ue.vector())/uen
         
     hmin = mesh.hmin()
-    print "hmin = {}".format(hmin)
+    if MPI.process_number() == 0:
+        print "hmin = {}".format(hmin)
     s0 = "Error"
     s1 = "Error"
     for i, ui in enumerate(sys_comp):
         s0 += " {0:}={1:2.6e}".format(ui, total_error[i])
         s1 += " {0:}={1:2.6e}".format(ui, final_error[i])
-    print s0
-    print s1
+    if MPI.process_number() == 0:
+        print s0
+        print s1
     
