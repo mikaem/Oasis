@@ -328,8 +328,6 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     for ci in scalar_components:
         x_1[ci].zero(); x_1[ci].axpy(1., x_[ci])
 
-    x_1['p'].zero(); x_1['p'].axpy(1.0, x_ ['p'])
-    
     # Print some information
     if tstep % print_intermediate_info == 0:
         info_green('Time = {0:2.4e}, timestep = {1:6d}, End time = {2:2.4e}'.format(t, tstep, T)) 

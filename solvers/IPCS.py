@@ -14,28 +14,27 @@ from solvers import *
 from solvers import __all__
 
 def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
-          nu, p_, p_1, dp_, mesh, f, fs, q, p, u_, Schmidt,
+          nu, p_, dp_, mesh, f, fs, q, p, u_, Schmidt,
           scalar_components, **NS_namespace):
     """Set up all equations to be solved."""
     # Implicit Crank Nicholson velocity at t - dt/2
     U_CN = dict((ui, 0.5*(u+q_1[ui])) for ui in uc_comp)
-    p_CN = 0.5*(p_+p_1)
 
     F = {}
     Fu = {}
     for i, ui in enumerate(u_components):
         # Tentative velocity step
         F[ui] = (1./dt)*inner(u - q_1[ui], v)*dx + inner(dot(U_AB, nabla_grad(U_CN[ui])), v)*dx + \
-                nu*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_CN.dx(i), v)*dx - inner(f[i], v)*dx
+                nu*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx
             
         #F[ui] = (1./dt)*inner(u - q_1[ui], v)*dx + inner(1.5*dot(u_1, nabla_grad(q_1[ui]))-0.5*dot(u_2, nabla_grad(q_2[ui])), v)*dx + \
                 #nu*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx
         
         # Velocity update
-        Fu[ui] = inner(u, v)*dx - inner(q_[ui], v)*dx + 0.5*dt*inner(dp_.dx(i), v)*dx
+        Fu[ui] = inner(u, v)*dx - inner(q_[ui], v)*dx + dt*inner(dp_.dx(i), v)*dx
 
     # Pressure update
-    Fp = inner(grad(q), grad(p))*dx - inner(grad(p_), grad(q))*dx + (2./dt)*div(u_)*q*dx 
+    Fp = inner(grad(q), grad(p))*dx - inner(grad(p_), grad(q))*dx + (1./dt)*div(u_)*q*dx 
 
     # Scalar with SUPG
     h = CellSize(mesh)
