@@ -14,7 +14,7 @@ NS_parameters.update(
     folder = "taylorgreen2D_results",
     max_iter = 1,
     iters_on_first_timestep = 2,
-    plot_interval = 1000,
+    plot_interval = 10,
     save_step = 10000,
     checkpoint = 10000,
     print_intermediate_info = 1000,
@@ -124,4 +124,5 @@ def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespac
         s1 += " {0:}={1:2.6e}".format(ui, final_error[i])
     print s0
     print s1
+    interactive()
     
