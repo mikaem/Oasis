@@ -39,9 +39,10 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
         Ap = K
         
     else:
-        Ap = assemble(inner(grad(q), grad(p))*dx) 
-        [bc.apply(Ap) for bc in bcs['p']]
-        Ap.compress()
+        Bp = assemble(inner(grad(q), grad(p))*dx) 
+        [bc.apply(Bp) for bc in bcs['p']]
+        Ap = Matrix()
+        Bp.compressed(Ap)
 
     # Allocate coefficient matrix (needs reassembling)
     A = Matrix(M)
@@ -141,7 +142,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         #p_sol = PETScKrylovSolver('gmres', p_prec)
         #p_sol.p_prec = p_prec
         if bcs['p'] == []:
-            p_sol = KrylovSolver('minres', 'hypre_amg')
+            p_sol = KrylovSolver('cg', 'hypre_amg')
         else:
             p_sol = KrylovSolver('gmres', 'hypre_amg')
         

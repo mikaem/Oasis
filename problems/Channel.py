@@ -129,7 +129,7 @@ def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, **NS_namespace):
 
 class RandomStreamVector(Expression):
     def __init__(self):
-        random.seed(2 + MPI.process_number())
+        random.seed(2 + MPI.rank(mpi_comm_world()))
     def eval(self, values, x):
         values[0] = 0.0005*random.random()
         values[1] = 0.0005*random.random()
@@ -188,7 +188,7 @@ def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
         u1 = assemble(dot(u_, normal)*ds(1), exterior_facet_domains=facets)
         normv = norm(q_['u1'].vector())
         normw = norm(q_['u2'].vector())
-        if MPI.process_number() == 0:
+        if MPI.rank(mpi_comm_world()) == 0:
            print "Flux = ", u1, " tstep = ", tstep, " norm = ", normv, normw
         
 def theend(newfolder, tstep, stats, **NS_namespace):

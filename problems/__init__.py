@@ -91,15 +91,15 @@ BLUE  = "\033[1;37;34m%s\033[0m"
 GREEN = "\033[1;37;32m%s\033[0m"
 
 def info_blue(s, check=True):
-    if MPI.process_number()==0 and check:
+    if MPI.rank(mpi_comm_world())==0 and check:
         print BLUE % s
 
 def info_green(s, check=True):
-    if MPI.process_number()==0 and check:
+    if MPI.rank(mpi_comm_world())==0 and check:
         print GREEN % s
     
 def info_red(s, check=True):
-    if MPI.process_number()==0 and check:
+    if MPI.rank(mpi_comm_world())==0 and check:
         print RED % s
 
 class OasisTimer(Timer):
@@ -116,9 +116,9 @@ class OasisMemoryUsage:
     def __call__(self, s, verbose=False):
         self.prev = self.memory
         self.prev_vm = self.memory_vm
-        self.memory = MPI.sum(getMemoryUsage())
-        self.memory_vm = MPI.sum(getMemoryUsage(False))
-        if MPI.process_number() == 0 and verbose:
+        self.memory = MPI.sum(mpi_comm_world(), getMemoryUsage())
+        self.memory_vm = MPI.sum(mpi_comm_world(), getMemoryUsage(False))
+        if MPI.rank(mpi_comm_world()) == 0 and verbose:
             info_blue('{0:26s}  {1:10d} MB {2:10d} MB {3:10d} MB {4:10d} MB'.format(s, 
                    self.memory-self.prev, self.memory, self.memory_vm-self.prev_vm, self.memory_vm))
 

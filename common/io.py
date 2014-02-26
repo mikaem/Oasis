@@ -5,7 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from os import makedirs, getcwd, listdir, remove, system, path
 import cPickle
-from dolfin import MPI, Function, XDMFFile, HDF5File, info_red, VectorFunctionSpace
+from dolfin import MPI, Function, XDMFFile, HDF5File, info_red, VectorFunctionSpace, mpi_comm_world
 
 __all__ = ["create_initial_folders", "save_solution", "save_tstep_solution_h5",
            "save_checkpoint_solution_h5", "check_if_kill", "check_if_reset_statistics",
@@ -17,13 +17,13 @@ def create_initial_folders(folder, restart_folder, sys_comp, tstep, info_red,
     """Create necessary folders."""
     info_red("Creating initial folders")
     # To avoid writing over old data create a new folder for each run
-    if MPI.process_number() == 0:
+    if MPI.rank(mpi_comm_world()) == 0:
         try:
             makedirs(folder)
         except OSError:
             pass
 
-    MPI.barrier()
+    MPI.barrier(mpi_comm_world())
     newfolder = path.join(folder, 'data')
     if restart_folder:
         newfolder = path.join(newfolder, restart_folder.split('/')[-2])
@@ -35,8 +35,8 @@ def create_initial_folders(folder, restart_folder, sys_comp, tstep, info_red,
             previous = max(map(eval, previous)) if previous else 0
             newfolder = path.join(newfolder, str(previous + 1))
 
-    MPI.barrier()
-    if MPI.process_number() == 0:
+    MPI.barrier(mpi_comm_world())
+    if MPI.rank(mpi_comm_world()) == 0:
         if not restart_folder:
             makedirs(path.join(newfolder, "Voluviz"))
             makedirs(path.join(newfolder, "Stats"))
@@ -51,7 +51,7 @@ def create_initial_folders(folder, restart_folder, sys_comp, tstep, info_red,
         comps = ['p', 'u'] + scalar_components 
         
     for ui in comps:
-        tstepfiles[ui] = XDMFFile(path.join(tstepfolder, ui+'_from_tstep_{}.xdmf'.format(tstep)))
+        tstepfiles[ui] = XDMFFile(mpi_comm_world(), path.join(tstepfolder, ui+'_from_tstep_{}.xdmf'.format(tstep)))
         tstepfiles[ui].parameters["rewrite_function_mesh"] = False
     
     return newfolder, tstepfiles
@@ -107,7 +107,7 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
         for ui in q_:
             tstepfiles[ui] << (q_[ui], float(tstep))
         
-    if MPI.process_number() == 0:
+    if MPI.rank(mpi_comm_world()) == 0:
         if not path.exists(path.join(timefolder, "params.dat")):
             f = open(path.join(timefolder, 'params.dat'), 'w')
             cPickle.dump(NS_parameters,  f)
@@ -124,34 +124,34 @@ def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, u_components,
     
     """
     checkpointfolder = path.join(newfolder, "Checkpoint")
-    NS_parameters["num_processes"] = MPI.num_processes()
-    if MPI.process_number() == 0:
+    NS_parameters["num_processes"] = MPI.size(mpi_comm_world())
+    if MPI.rank(mpi_comm_world()) == 0:
         if path.exists(path.join(checkpointfolder, "params.dat")):
             system('cp {0} {1}'.format(path.join(checkpointfolder, "params.dat"),
                                         path.join(checkpointfolder, "params_old.dat")))
         f = open(path.join(checkpointfolder, "params.dat"), 'w')
         cPickle.dump(NS_parameters,  f)
         
-    MPI.barrier()
+    MPI.barrier(mpi_comm_world())
     for ui in q_:
         h5file = path.join(checkpointfolder, ui+'.h5')
         oldfile = path.join(checkpointfolder, ui+'_old.h5')
         # For safety reasons...
         if path.exists(h5file):
-            if MPI.process_number() == 0:
+            if MPI.rank(mpi_comm_world()) == 0:
                 system('cp {0} {1}'.format(h5file, oldfile))
-        MPI.barrier()
+        MPI.barrier(mpi_comm_world())
         ###
-        newfile = HDF5File(h5file, 'w')
+        newfile = HDF5File(mpi_comm_world(), h5file, 'w')
         newfile.flush()
         newfile.write(q_[ui].vector(), '/current')
         if ui in u_components:
             newfile.write(q_1[ui].vector(), '/previous')
         if path.exists(oldfile):
-            if MPI.process_number() == 0:
+            if MPI.rank(mpi_comm_world()) == 0:
                 system('rm {0}'.format(oldfile))
-        MPI.barrier()
-    if MPI.process_number() == 0 and path.exists(path.join(checkpointfolder, "params_old.dat")):
+        MPI.barrier(mpi_comm_world())
+    if MPI.rank(mpi_comm_world()) == 0 and path.exists(path.join(checkpointfolder, "params_old.dat")):
         system('rm {0}'.format(path.join(checkpointfolder, "params_old.dat")))
         
 def check_if_kill(folder):
@@ -159,9 +159,9 @@ def check_if_kill(folder):
     found = 0
     if 'killoasis' in listdir(folder):
         found = 1
-    collective = MPI.sum(found)
+    collective = MPI.sum(mpi_comm_world(), found)
     if collective > 0:
-        if MPI.process_number() == 0:
+        if MPI.rank(mpi_comm_world()) == 0:
             remove(path.join(folder, 'killoasis'))
             info_red('killoasis Found! Stopping simulations cleanly...')
         return True
@@ -173,9 +173,9 @@ def check_if_reset_statistics(folder):
     found = 0
     if 'resetoasis' in listdir(folder):
         found = 1
-    collective = MPI.sum(found)    
+    collective = MPI.sum(mpi_comm_world(), found)    
     if collective > 0:        
-        if MPI.process_number() == 0:
+        if MPI.rank(mpi_comm_world()) == 0:
             remove(path.join(folder, 'resetoasis'))
             info_red('resetoasis Found!')
         return True
