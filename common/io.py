@@ -188,8 +188,8 @@ def init_from_restart(restart_folder, sys_comp, uc_comp, u_components,
     if restart_folder:
         for ui in sys_comp:
             filename = path.join(restart_folder, ui + '.h5')
-            hdf5_file = HDF5File(filename, "r")
-            hdf5_file.read(q_[ui].vector(), "/current")      
+            hdf5_file = HDF5File(mpi_comm_world(), filename, "r")
+            hdf5_file.read(q_[ui].vector(), "/current", False)      
             q_[ui].vector().apply('insert')
             # Check for the solution at a previous timestep as well
             if ui in uc_comp:
