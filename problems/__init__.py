@@ -179,7 +179,7 @@ def scalar_hook(**NS_namespace):
     """Called prior to scalar solve."""
     pass
 
-def start_timestep_hook(**NS_parameters):
+def start_timestep_hook(**NS_namespace):
     """Called at start of new timestep"""
     pass
 
