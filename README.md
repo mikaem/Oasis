@@ -7,6 +7,13 @@ Oasis
     Turbulent channel flow
 </p>
 
+<p align="center">
+<iframe width="560" height="315" src="//www.youtube.com/embed/ZTlPbd3iYuo" frameborder="0" allowfullscreen></iframe>
+</p>
+<p align="center">
+    Flow instabilities in the carotid siphon
+</p>
+
 
 Description
 -----------
