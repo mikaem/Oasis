@@ -7,7 +7,6 @@ Oasis
     Turbulent channel flow
 </p>
 
-
 Description
 -----------
 
