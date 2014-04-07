@@ -60,9 +60,9 @@ def scalar_solve(**NS_namespace):
     pass
 
 def print_velocity_pressure_info(num_iter, print_velocity_pressure_convergence, norm,
-                                 info_blue, inner_iter, udiff, dp_, **NS_namespace):
-        if num_iter > 1 and print_velocity_pressure_convergence:
-            if inner_iter == 1: 
-                info_blue('  Inner iterations velocity pressure:')
-                info_blue('                 error u  error p')
-            info_blue('    Iter = {0:4d}, {1:2.2e} {2:2.2e}'.format(inner_iter, udiff[0], norm(dp_.vector())))
+                                 info_blue, inner_iter, udiff, dp_, **NS_namespace):        
+    if num_iter > 1 and print_velocity_pressure_convergence:
+        if inner_iter == 1: 
+            info_blue('  Inner iterations velocity pressure:')
+            info_blue('                 error u  error p')
+        info_blue('    Iter = {0:4d}, {1:2.2e} {2:2.2e}'.format(inner_iter, udiff[0], norm(dp_.vector())))

@@ -70,7 +70,7 @@ NS_parameters = dict(
     report = False,
     error_on_nonconvergence = False,
     nonzero_initial_guess = True,
-    maximum_iterations = 100,
+    maximum_iterations = 200,
     relative_tolerance = 1e-8,
     absolute_tolerance = 1e-8)
 )
@@ -150,6 +150,15 @@ def recursive_update(dst, src):
         else:
             dst[key] = val
     return dst
+
+def add_function_to_tstepfiles(function, newfolder, tstepfiles, tstep):
+    name = function.name()
+    tstepfolder = path.join(newfolder, "Timeseries")
+    tstepfiles[name] = XDMFFile(mpi_comm_world(), 
+                                path.join(tstepfolder, 
+                                '{}_from_tstep_{}.xdmf'.format(name, tstep)))
+    tstepfiles[name].function = function
+    tstepfiles[name].parameters["rewrite_function_mesh"] = False
 
 def body_force(mesh, **NS_namespace):
     """Specify body force"""

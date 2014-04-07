@@ -219,7 +219,7 @@ U_AB = 1.5*u_1 - 0.5*u_2
 
 # Create short forms for accessing the solution vectors
 x_  = dict((ui, q_ [ui].vector()) for ui in sys_comp)     # Solution vectors t
-x_1 = dict((ui, q_1[ui].vector()) for ui in sys_comp)      # Solution vectors t - dt
+x_1 = dict((ui, q_1[ui].vector()) for ui in sys_comp)     # Solution vectors t - dt
 x_2 = dict((ui, q_2[ui].vector()) for ui in u_components) # Solution vectors t - 2*dt
 
 # Create vectors to hold rhs of equations

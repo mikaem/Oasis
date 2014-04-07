@@ -80,32 +80,36 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
     timefolder = path.join(newfolder, 'Timeseries')
     if output_timeseries_as_vector:
         # project or store velocity to vector function space
-        if not hasattr(tstepfiles['u'], 'uv'): # First time around only
-            V = q_['u0'].function_space()
-            Vv = VectorFunctionSpace(V.mesh(), V.ufl_element().family(), V.ufl_element().degree(),
-                                     constrained_domain=constrained_domain)
-            tstepfiles['u'].uv = Function(Vv)
-            tstepfiles['u'].d = dict((ui, Vv.sub(i).dofmap().collapse(Vv.mesh())[1]) 
-                                    for i, ui in enumerate(u_components))
+        for comp, tstepfile in tstepfiles.iteritems():
+            if comp == "u":
+                if not hasattr(tstepfile, 'uv'): # First time around only
+                    V = q_['u0'].function_space()
+                    Vv = VectorFunctionSpace(V.mesh(), V.ufl_element().family(), V.ufl_element().degree(),
+                                            constrained_domain=constrained_domain)
+                    tstepfile.uv = Function(Vv)
+                    tstepfile.d = dict((ui, Vv.sub(i).dofmap().collapse(Vv.mesh())[1]) 
+                                       for i, ui in enumerate(u_components))
 
-        # The short but timeconsuming way:
-        #tstepfiles['u'].uv.assign(project(u_, Vv))
-        
-        # Or the faster, but more comprehensive way:
-        for ui in u_components:
-            q_[ui].update()    
-            vals = tstepfiles['u'].d[ui].values()
-            keys = tstepfiles['u'].d[ui].keys()
-            tstepfiles['u'].uv.vector()[vals] = q_[ui].vector()[keys]
-        tstepfiles['u'] << (tstepfiles['u'].uv, float(tstep))
-        
-        # Store the rest of the solution functions
-        for ui in ['p']+scalar_components:
-            tstepfiles[ui] << (q_[ui], float(tstep))
+                # The short but timeconsuming way:
+                #tstepfile.uv.assign(project(u_, Vv))
+                
+                # Or the faster, but more comprehensive way:
+                for ui in u_components:
+                    q_[ui].update()    
+                    vals = tstepfile.d[ui].values()
+                    keys = tstepfile.d[ui].keys()
+                    tstepfile.uv.vector()[vals] = q_[ui].vector()[keys]
+                tstepfile << (tstepfile.uv, float(tstep))
+            
+            elif comp in q_:                
+                tstepfile << (q_[comp], float(tstep))
+            
+            else:
+                tstepfile << (tstepfile.function, float(tstep))
             
     else:
-        for ui in q_:
-            tstepfiles[ui] << (q_[ui], float(tstep))
+        for comp, tstepfile in tstepfiles.iteritems():
+            tstepfile << (q_[comp], float(tstep))
         
     if MPI.rank(mpi_comm_world()) == 0:
         if not path.exists(path.join(timefolder, "params.dat")):
@@ -197,5 +201,5 @@ def init_from_restart(restart_folder, sys_comp, uc_comp, u_components,
                 q_1[ui].vector().axpy(1., q_[ui].vector())
                 q_1[ui].vector().apply('insert')
                 if ui in u_components:
-                    hdf5_file.read(q_2[ui].vector(), "/previous")
+                    hdf5_file.read(q_2[ui].vector(), "/previous", False)
                     q_2[ui].vector().apply('insert')

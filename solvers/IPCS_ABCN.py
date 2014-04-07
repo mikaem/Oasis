@@ -63,14 +63,10 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
             d.update(Tb=Tb, bb=bb, bx=bx)    
     
     # Allocate for velocity update 
-    if velocity_update_type.upper() == "LAO":        
-        lp = LocalAverageOperator(V)
-        dp = Function(V) 
-        d.update(lp=lp, dp=dp)
-    
-    elif velocity_update_type.upper() == "GRADIENT_MATRIX":
+    if velocity_update_type.upper() == "GRADIENT_MATRIX":
         from fenicstools.WeightedGradient import weighted_gradient_matrix
-        dP = weighted_gradient_matrix(mesh, range(dim), velocity_degree, constrained_domain)
+        dP = weighted_gradient_matrix(mesh, range(dim), degree=velocity_degree, 
+                                      constrained_domain=constrained_domain)
         dp = Function(V) 
         d.update(dP=dP, dp=dp)
         
@@ -293,7 +289,7 @@ def pressure_solve(dp_, x_, Ap, b, p_sol, bcs, **NS_namespace):
     dp_.vector().axpy(1., x_['p'])
     # KrylovSolvers use nullspace for normalization of pressure
     if hasattr(p_sol, 'null_space'):
-        p_sol.null_space.orthogonalize(b['p']);
+        p_sol.null_space.orthogonalize(b['p'])
 
     t1 = Timer("Pressure Linear Algebra Solve")
     p_sol.solve(Ap, x_['p'], b['p'])
