@@ -31,7 +31,7 @@ Oasis is Copyright (2013-2014) by the authors.
 Documentation
 -------------
 
-See [wiki](https://github.com/mikaem/oasis/wiki) or [User Manual](https://github.com/mikaem/oasis/doc/usermanual.pdf)
+See [wiki](https://github.com/mikaem/oasis/wiki) or [User Manual](https://github.com/mikaem/Oasis/tree/master/doc/usermanual.pdf)
 
 Installation
 ------------
