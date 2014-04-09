@@ -14,7 +14,7 @@ H = 0.41
 L = 2.2
 D = 0.1
 center = 0.2
-case = {
+cases = {
       1: {'Um': 0.3,
           'Re': 20.0},
       
@@ -55,14 +55,10 @@ else:
 scalar_components = ["alfa"]
 Schmidt["alfa"] = 0.1
 
-def post_import_problem(NS_parameters, **NS_namespace):
-    """ Choose case - check if case is defined through command line."""
-    c = 1 # default is case 1
-    if "case" in NS_parameters:        
-        if NS_parameters["case"] in [1, 2]:
-            c = NS_parameters["case"]
-    Um = case[c]["Um"]
-    Re = case[c]["Re"]
+def post_import_problem(case=1, **NS_namespace):
+    """ Choose case - case could be defined through command line."""
+    Um = cases[case]["Um"]
+    Re = cases[case]["Re"]
     Umean = 2./3.* Um
     nu = Umean*D/Re
     NS_parameters.update(nu=nu, Re=Re, Um=Um, Umean=Umean)
@@ -114,7 +110,7 @@ def temporal_hook(q_, tstep, u_, Vv, V, uv, p_, plot_interval, omega,
             omega.assign(project(curl(u_), V, 
                          bcs=[DirichletBC(V, 0, DomainBoundary())]))
 
-def theend_hook(q_, u_, p_, uv, Vv, mesh, ds, V, **NS_namespace):
+def theend_hook(q_, u_, p_, uv, Vv, mesh, ds, V, nu, **NS_namespace):
     uv.assign(project(u_, Vv))
     plot(uv, title='Velocity')
     plot(p_, title='Pressure')

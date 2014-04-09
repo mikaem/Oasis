@@ -32,13 +32,13 @@ default_solver = 'default'
 exec("from solvers.NSCoupled.{} import *".format(commandline_kwargs.get('solver', default_solver)))
 
 # Create lists of components solved for
-dim = mesh.geometry().dim()
 u_components = ['u']
 sys_comp =  ['up'] + scalar_components
 
 # Set up initial folders for storing results
 #newfolder, tstepfiles = create_initial_folders(**vars())
 
+# Get the chosen mixed elment
 element = commandline_kwargs.get("element", "CR")
 vars().update(elements[element])
 
@@ -82,12 +82,11 @@ u_, p_ = split(up_)
 u_1, p_1 = split(up_1)
 
 # Create short forms for accessing the solution vectors
-x_  = dict((ui, q_ [ui].vector()) for ui in sys_comp)     # Solution vectors t
-x_1 = dict((ui, q_1[ui].vector()) for ui in sys_comp)     # Solution vectors t - dt
+x_  = dict((ui, q_ [ui].vector()) for ui in sys_comp)     # Solution vectors 
+x_1 = dict((ui, q_1[ui].vector()) for ui in sys_comp)     # Solution vectors previous iteration
 
 # Create vectors to hold rhs of equations
-b     = dict((ui, Vector(x_[ui])) for ui in sys_comp)     # rhs vectors (final)
-b_tmp = dict((ui, Vector(x_[ui])) for ui in sys_comp)     # rhs temp storage vectors
+b = dict((ui, Vector(x_[ui])) for ui in sys_comp)
 
 # Short form scalars
 for ci in scalar_components:
@@ -117,6 +116,7 @@ for ci in scalar_components:
 # Preassemble and allocate
 vars().update(setup(**vars()))
 
+# Assemble rhs once, before entering loop
 b["up"] = assemble(F, tensor=b["up"])
 for bc in bcs["up"]:
     bc.apply(b["up"], up_.vector())
@@ -155,7 +155,8 @@ while iter < max_iter and error > max_error:
 
     iter += 1
 
-#save_solution(**vars())
+# FIXME not implemented yet for coupled
+#save_solution(**vars()) 
                                               
 total_timer.stop()
 list_timings()

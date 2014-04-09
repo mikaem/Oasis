@@ -31,11 +31,3 @@ def NS_solve(A, up_1, b, omega, up_, F, bcs, up_sol,
     b["up"] = assemble(F, tensor=b["up"])
     for bc in bcs["up"]:
         bc.apply(b["up"], up_.vector())
-
-def scalar_assemble(**NS_namespace):
-    """Assemble scalar equation."""
-    pass
-
-def scalar_solve(**NS_namespace):
-    """Solve scalar equation."""
-    pass
