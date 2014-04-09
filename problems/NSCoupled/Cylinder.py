@@ -4,7 +4,10 @@ __copyright__ = "Copyright (C) 2014 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSCoupled import *
-from ..Cylinder import *
+
+# Reuse some code from NSfracStep case
+from ..NSfracStep.Cylinder import mesh, H, L, D, center, case, Inlet, \
+  Wall, Cyl, Outlet, post_import_problem
 
 # Override some problem specific parameters
 NS_parameters.update(

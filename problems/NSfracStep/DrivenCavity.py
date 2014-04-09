@@ -4,15 +4,25 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSfracStep import *
-from ..DrivenCavity import *
+from numpy import cos, pi
+
+# Create a mesh
+def mesh(Nx=50, Ny=50, **params):
+    m = UnitSquareMesh(Nx, Ny)
+    x = m.coordinates()
+    x[:] = (x - 0.5) * 2
+    x[:] = 0.5*(cos(pi*(x-1.) / 2.) + 1.)
+    return m
+
+noslip = "std::abs(x[0]*x[1]*(1-x[0]))<1e-8"
+top    = "std::abs(x[1]-1) < 1e-8"
+bottom = "std::abs(x[1]) < 1e-8"
 
 # Override some problem specific parameters
 NS_parameters.update(
     nu = 0.001,
     T  = 1.0,
     dt = 0.001,
-    Nx = 50,
-    Ny = 50,
     plot_interval = 20,
     print_intermediate_info = 100,
     use_krylov_solvers = True)

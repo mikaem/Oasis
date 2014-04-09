@@ -4,9 +4,29 @@ __copyright__ = "Copyright (C) 2014 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSfracStep import *
-from ..Cylinder import *
 from os import getcwd
 import cPickle
+
+#mesh = Mesh("/home/mikael/MySoftware/Oasis/mesh/cyl_dense.xml")
+mesh = Mesh("/home/mikael/MySoftware/Oasis/mesh/cyl_dense2.xml")
+
+H = 0.41
+L = 2.2
+D = 0.1
+center = 0.2
+case = {
+      1: {'Um': 0.3,
+          'Re': 20.0},
+      
+      2: {'Um': 1.5,
+          'Re': 100.0}
+      }
+
+# Specify boundary conditions
+Inlet = AutoSubDomain(lambda x, on_bnd: on_bnd and x[0] < 1e-8)
+Wall = AutoSubDomain(lambda x, on_bnd: on_bnd and near(x[1]*(H-x[1]), 0))
+Cyl = AutoSubDomain(lambda x, on_bnd: on_bnd and x[0]>1e-6 and x[0]<1 and x[1] < 3*H/4 and x[1] > H/4)
+Outlet = AutoSubDomain(lambda x, on_bnd: on_bnd and x[0] > L-1e-8)
 
 #restart_folder = "results/data/8/Checkpoint"
 restart_folder = None
@@ -34,6 +54,19 @@ else:
 
 scalar_components = ["alfa"]
 Schmidt["alfa"] = 0.1
+
+def post_import_problem(NS_parameters, **NS_namespace):
+    """ Choose case - check if case is defined through command line."""
+    c = 1 # default is case 1
+    if "case" in NS_parameters:        
+        if NS_parameters["case"] in [1, 2]:
+            c = NS_parameters["case"]
+    Um = case[c]["Um"]
+    Re = case[c]["Re"]
+    Umean = 2./3.* Um
+    nu = Umean*D/Re
+    NS_parameters.update(nu=nu, Re=Re, Um=Um, Umean=Umean)
+    return NS_parameters
 
 def create_bcs(V, Q, Um, **NS_namespace):
     inlet = Expression("4.*{0}*x[1]*({1}-x[1])/pow({1}, 2)".format(Um, H))

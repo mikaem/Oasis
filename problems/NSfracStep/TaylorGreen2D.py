@@ -3,7 +3,7 @@ __date__ = "2013-06-25"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
-from problems import *
+from ..NSfracStep import *
 
 # Override some problem specific parameters
 NS_parameters.update(
@@ -101,7 +101,7 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
             error = norm(ue.vector())/uen
             err[ui] = "{0:2.6e}".format(norm(ue.vector()))
             total_error[i] += error*dt     
-        if MPI.process_number() == 0:
+        if MPI.rank(mpi_comm_world()) == 0:
             print "Error is ", err, " at time = ", t 
         
 def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespace):
@@ -115,14 +115,14 @@ def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespac
         final_error[i] = norm(ue.vector())/uen
         
     hmin = mesh.hmin()
-    if MPI.process_number() == 0:
+    if MPI.rank(mpi_comm_world()) == 0:
         print "hmin = {}".format(hmin)
     s0 = "Error"
     s1 = "Error"
     for i, ui in enumerate(sys_comp):
         s0 += " {0:}={1:2.6e}".format(ui, total_error[i])
         s1 += " {0:}={1:2.6e}".format(ui, final_error[i])
-    if MPI.process_number() == 0:
+    if MPI.rank(mpi_comm_world()) == 0:
         print s0
         print s1
     

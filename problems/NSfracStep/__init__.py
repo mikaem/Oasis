@@ -6,7 +6,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from problems import *
 
 # Default parameters NSfracStep solver
-NS_parameters = dict(
+NS_parameters.update(
   # Physical constants and solver parameters
   nu = 0.01,             # Kinematic viscosity
   t = 0.0,               # Time
