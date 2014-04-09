@@ -161,11 +161,14 @@ from common import *
 commandline_kwargs = parse_command_line()
 
 default_problem = 'DrivenCavity'
-exec("from problems.{} import *".format(commandline_kwargs.get('problem', default_problem)))
+exec("from problems.NSfracStep.{} import *".format(commandline_kwargs.get('problem', default_problem)))
 
 # Update NS_parameters with parameters modified through the command line 
 NS_parameters.update(commandline_kwargs)
 vars().update(NS_parameters)  
+
+
+vars().update(post_import_problem(**vars()))
 
 # Update dolfin parameters
 parameters['krylov_solver'].update(krylov_solvers)
@@ -177,7 +180,7 @@ if callable(mesh):
 assert(isinstance(mesh, Mesh)) 
 
 # Import chosen functionality from solvers
-exec("from solvers.{} import *".format(solver))
+exec("from solvers.NSfracStep.{} import *".format(solver))
 
 # Create lists of components solved for
 dim = mesh.geometry().dim()
