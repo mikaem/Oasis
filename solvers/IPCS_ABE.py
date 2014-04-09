@@ -64,12 +64,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
             d.update(Tb=Tb, bb=bb, bx=bx)    
     
     # Allocate for velocity update 
-    if velocity_update_type.upper() == "LAO":        
-        lp = LocalAverageOperator(V)
-        dp = Function(V) 
-        d.update(lp=lp, dp=dp)
-
-    elif velocity_update_type.upper() == "GRADIENT_MATRIX":
+    if velocity_update_type.upper() == "GRADIENT_MATRIX":
         from fenicstools.WeightedGradient import weighted_gradient_matrix
         dP = weighted_gradient_matrix(mesh, range(dim), velocity_degree, constrained_domain)
         dp = Function(V) 
@@ -112,7 +107,7 @@ def assemble_first_inner_iter(A, dt, M, nu, K, b0, b_tmp, A_conv, x_2, x_1,
         b_tmp[ui].axpy(1.0, b0[ui])                 # body force
         b_tmp[ui].axpy(0.5, A_conv*x_2[ui])
         
-    A_conv = assemble(a_conv, tensor=A_conv, reset_sparsity=False)
+    A_conv = assemble(a_conv, tensor=A_conv)
     A.axpy(-1.5, A_conv, True)
     for ui in u_components:            
         b_tmp[ui].axpy(1.0, A*x_1[ui])              # Add transient and diffusion
@@ -222,7 +217,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, sys_comp, bcs, x_,
     
 def scalar_assemble(Ta, a_scalar, dt, M, scalar_components, 
                     b, nu, Schmidt, K, x_1, b0, **NS_namespace):
-    Ta = assemble(a_scalar, tensor=Ta, reset_sparsity=False)
+    Ta = assemble(a_scalar, tensor=Ta)
     Ta._scale(-1.)            # Negative convection on the rhs 
     Ta.axpy(1./dt, M, True)   # Add mass
     

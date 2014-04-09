@@ -69,6 +69,10 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
                                       constrained_domain=constrained_domain)
         dp = Function(V) 
         d.update(dP=dP, dp=dp)
+        from fenicstools import divergence_matrix
+        C = divergence_matrix(mesh)
+        MA = assemble(q*TrialFunction(FunctionSpace(mesh, "DG", 0))*dx)
+        d.update(C=C, MA=MA)
         
     elif velocity_update_type.upper() == "LUMPING":
         ones = Function(V)
@@ -206,7 +210,7 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components,
         u_ab[i].vector().axpy(1.5, x_1[ui])
         u_ab[i].vector().axpy(-0.5, x_2[ui])
 
-    A = assemble(a_conv, tensor=A, reset_sparsity=False) 
+    A = assemble(a_conv, tensor=A) 
     A._scale(-1.)            # Negative convection on the rhs 
     A.axpy(1./dt, M, True)   # Add mass
     
@@ -348,7 +352,7 @@ def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components,
     """Assemble scalar equation."""    
     # Just in case you want to use a different scalar convection
     if not a_scalar is a_conv:
-        Ta = assemble(a_scalar, tensor=Ta, reset_sparsity=False)
+        Ta = assemble(a_scalar, tensor=Ta)
         Ta._scale(-1.)            # Negative convection on the rhs 
         Ta.axpy(1./dt, M, True)   # Add mass
         

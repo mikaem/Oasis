@@ -23,7 +23,8 @@ NS_parameters.update(
     Ny = 50,
     plot_interval = 20,
     print_intermediate_info = 100,
-    use_krylov_solvers = True)
+    use_krylov_solvers = True,
+    velocity_update_type = "gradient_matrix")
 
 scalar_components = ["alfa", "beta"]
 Schmidt["alfa"] = 1.
@@ -60,14 +61,14 @@ def temporal_hook(q_, tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace):
         plot(q_['alfa'], title='alfa')
         plot(q_['beta'], title='beta')
 
-def theend_hook(u_, p_, uv, Vv, **NS_namespace):
+def theend_hook(u_, p_, uv, Vv, mesh, **NS_namespace):
     uv.assign(project(u_, Vv))
     plot(uv, title='Velocity')
     plot(p_, title='Pressure')
 
     try:
         from fenicstools import StreamFunction
-        psi = StreamFunction(u_, [], use_strong_bc=True)
+        psi = StreamFunction(u_, [], mesh, use_strong_bc=True)
         plot(psi, title='Streamfunction', interactive=True)
     except:
         pass
