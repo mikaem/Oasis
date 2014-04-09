@@ -6,7 +6,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from ..NSCoupled import *
 
 # Reuse some code from NSfracStep case
-from ..NSfracStep.Cylinder import mesh, H, L, D, center, case, Inlet, \
+from ..NSfracStep.Cylinder import mesh, H, L, D, center, cases, Inlet, \
   Wall, Cyl, Outlet, post_import_problem
 
 # Override some problem specific parameters

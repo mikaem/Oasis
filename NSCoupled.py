@@ -7,7 +7,7 @@ from common import *
 
 ################### Problem dependent parameters ####################
 ###  Should import a mesh and a dictionary called NS_parameters   ###
-###       See problems/__init__.py for possible parameters        ###
+###  See problems/NSCoupled/__init__.py for possible parameters   ###
 #####################################################################
 
 commandline_kwargs = parse_command_line()
