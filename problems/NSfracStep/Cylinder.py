@@ -4,29 +4,9 @@ __copyright__ = "Copyright (C) 2014 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSfracStep import *
+from ..Cylinder import *
 from os import getcwd
 import cPickle
-
-#mesh = Mesh("/home/mikael/MySoftware/Oasis/mesh/cyl_dense.xml")
-mesh = Mesh("/home/mikael/MySoftware/Oasis/mesh/cyl_dense2.xml")
-
-H = 0.41
-L = 2.2
-D = 0.1
-center = 0.2
-cases = {
-      1: {'Um': 0.3,
-          'Re': 20.0},
-      
-      2: {'Um': 1.5,
-          'Re': 100.0}
-      }
-
-# Specify boundary conditions
-Inlet = AutoSubDomain(lambda x, on_bnd: on_bnd and x[0] < 1e-8)
-Wall = AutoSubDomain(lambda x, on_bnd: on_bnd and near(x[1]*(H-x[1]), 0))
-Cyl = AutoSubDomain(lambda x, on_bnd: on_bnd and x[0]>1e-6 and x[0]<1 and x[1] < 3*H/4 and x[1] > H/4)
-Outlet = AutoSubDomain(lambda x, on_bnd: on_bnd and x[0] > L-1e-8)
 
 #restart_folder = "results/data/8/Checkpoint"
 restart_folder = None
@@ -54,15 +34,6 @@ else:
 
 scalar_components = ["alfa"]
 Schmidt["alfa"] = 0.1
-
-def post_import_problem(case=1, **NS_namespace):
-    """ Choose case - case could be defined through command line."""
-    Um = cases[case]["Um"]
-    Re = cases[case]["Re"]
-    Umean = 2./3.* Um
-    nu = Umean*D/Re
-    NS_parameters.update(nu=nu, Re=Re, Um=Um, Umean=Umean)
-    return NS_parameters
 
 def create_bcs(V, Q, Um, **NS_namespace):
     inlet = Expression("4.*{0}*x[1]*({1}-x[1])/pow({1}, 2)".format(Um, H))
@@ -94,10 +65,11 @@ def pre_solve_hook(mesh, velocity_degree, constrained_domain, V,
     add_function_to_tstepfiles(omega, newfolder, tstepfiles, tstep)
     return dict(Vv=Vv, uv=Function(Vv), omega=omega)
 
-def temporal_hook(q_, tstep, u_, Vv, V, uv, p_, plot_interval, omega, 
+def temporal_hook(q_, tstep, u_, V, uv, p_, plot_interval, omega, 
                   save_step, **NS_namespace):
     if tstep % plot_interval == 0:
-        uv.assign(project(u_, Vv))
+        assign(uv.sub(0), u_[0])
+        assign(uv.sub(1), u_[1])
         plot(uv, title='Velocity')
         plot(p_, title='Pressure')
         plot(q_['alfa'], title='alfa')
@@ -110,8 +82,9 @@ def temporal_hook(q_, tstep, u_, Vv, V, uv, p_, plot_interval, omega,
             omega.assign(project(curl(u_), V, 
                          bcs=[DirichletBC(V, 0, DomainBoundary())]))
 
-def theend_hook(q_, u_, p_, uv, Vv, mesh, ds, V, nu, **NS_namespace):
-    uv.assign(project(u_, Vv))
+def theend_hook(q_, u_, p_, uv, mesh, ds, V, nu, **NS_namespace):
+    assign(uv.sub(0), u_[0])
+    assign(uv.sub(1), u_[1])
     plot(uv, title='Velocity')
     plot(p_, title='Pressure')
     plot(q_['alfa'], title='alfa')

@@ -150,8 +150,21 @@ def pre_solve_hook(**NS_namespace):
 def theend_hook(**NS_namespace):
     """Called at the very end."""
     pass
-  
-def post_import_problem(**NS_namespace):
-    """Called after importing from problem and after updating commandline 
-    parameters."""
-    return {}
+
+def post_import_problem(NS_parameters, mesh, commandline_kwargs, 
+                        **NS_namespace):
+    """Called after importing from problem."""   
+    
+    # Update NS_parameters with all parameters modified through command line 
+    NS_parameters.update(commandline_kwargs)
+
+    # If the mesh is a callable function, then create the mesh here.
+    if callable(mesh):
+        mesh = mesh(**NS_parameters)
+
+    assert(isinstance(mesh, Mesh)) 
+    
+    # Returned dictionary to be updated in the NS namespace
+    d = dict(mesh=mesh)
+    d.update(NS_parameters)
+    return d

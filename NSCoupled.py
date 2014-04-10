@@ -15,21 +15,11 @@ commandline_kwargs = parse_command_line()
 default_problem = 'DrivenCavity'
 exec("from problems.NSCoupled.{} import *".format(commandline_kwargs.get('problem', default_problem)))
 
-# Update NS_parameters with parameters modified through the command line 
-NS_parameters.update(commandline_kwargs)
-vars().update(NS_parameters)  
-
+# Update current namespace with NS_parameters and commandline_kwargs ++
 vars().update(post_import_problem(**vars()))
 
-# If the mesh is a callable function, then create the mesh here.
-if callable(mesh):
-    mesh = mesh(**NS_parameters)
-
-assert(isinstance(mesh, Mesh)) 
-
 # Import chosen functionality from solvers
-default_solver = 'default'
-exec("from solvers.NSCoupled.{} import *".format(commandline_kwargs.get('solver', default_solver)))
+exec("from solvers.NSCoupled.{} import *".format(solver))
 
 # Create lists of components solved for
 u_components = ['u']
@@ -54,7 +44,7 @@ Q = FunctionSpace(mesh, family["p"], degree["p"], constrained_domain=constrained
 
 # MINI element has bubble, add to V
 if bubble:
-    V = V + VectorFunctionSpace(mesh, "Bubble", 3)
+    V = V + VectorFunctionSpace(mesh, "Bubble", mesh.geometry().dim()+1)
 
 # Create Mixed space
 VQ = V * Q

@@ -4,7 +4,7 @@ __copyright__ = "Copyright (C) 2014 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSCoupled import *
-from ..NSfracStep.DrivenCavity import mesh, noslip, top, bottom
+from ..DrivenCavity import *
 
 # Override some problem specific parameters
 NS_parameters.update(
