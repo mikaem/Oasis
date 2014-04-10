@@ -9,9 +9,9 @@ from ..NSCoupled import __all__
 
 def setup(u_, p_, up_, up, u, p, v, q, nu, **NS_namespace):
     """Set up all equations to be solved."""
-    F_nonlinear = inner(dot(grad(u_), u_), v)*dx
-    F_linear    = nu*inner(grad(u_), grad(v))*dx - inner(p_, div(v))*dx \
-                  - inner(q, div(u_))*dx
+    F_nonlinear = inner(dot(grad(u_), u_), v)*dx()
+    F_linear    = nu*inner(grad(u_), grad(v))*dx() - inner(p_, div(v))*dx() \
+                  - inner(q, div(u_))*dx()
 
     F = F_linear + F_nonlinear
     J_linear    = derivative(F_linear, up_, up)

@@ -82,7 +82,7 @@ def temporal_hook(q_, tstep, u_, V, uv, p_, plot_interval, omega,
             omega.assign(project(curl(u_), V, 
                          bcs=[DirichletBC(V, 0, DomainBoundary())]))
 
-def theend_hook(q_, u_, p_, uv, mesh, ds, V, nu, **NS_namespace):
+def theend_hook(q_, u_, p_, uv, mesh, ds, V, nu, Umean, D, **NS_namespace):
     assign(uv.sub(0), u_[0])
     assign(uv.sub(1), u_[1])
     plot(uv, title='Velocity')
