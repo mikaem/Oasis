@@ -1,7 +1,15 @@
 from dolfin import Mesh, AutoSubDomain, near
+import os
 
-#mesh = Mesh("/home/mikael/MySoftware/Oasis/mesh/cyl_dense.xml")
-mesh = Mesh("/home/mikael/MySoftware/Oasis/mesh/cyl_dense2.xml")
+if not os.path.isfile("mesh/cylinder.xml"):
+    try:
+        os.system("gmsh mesh/cylinder.geo -2 -o mesh/cylinder.msh")
+        os.system("dolfin-convert mesh/cylinder.msh mesh/cylinder.xml")
+        os.system("rm mesh/cylinder.msh")
+    except RuntimeError:
+        raise "Gmsh is required to run this demo"
+      
+mesh = Mesh("mesh/cylinder.xml")
 
 H = 0.41
 L = 2.2
