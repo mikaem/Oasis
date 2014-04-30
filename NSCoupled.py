@@ -1,7 +1,7 @@
-__author__ = "Mikael Mortensen <mikaem@math.uio.no>"
-__date__ = "2014-04-04"
-__copyright__ = "Copyright (C) 2014 " + __author__
-__license__  = "GNU Lesser GPL version 3 or any later version"
+__author__ = 'Mikael Mortensen <mikaem@math.uio.no>'
+__date__ = '2014-04-04'
+__copyright__ = 'Copyright (C) 2014 ' + __author__
+__license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from common import *
 
@@ -13,38 +13,35 @@ from common import *
 commandline_kwargs = parse_command_line()
 
 default_problem = 'DrivenCavity'
-exec("from problems.NSCoupled.{} import *".format(commandline_kwargs.get('problem', default_problem)))
+exec('from problems.NSCoupled.{} import *'.format(commandline_kwargs.get('problem', default_problem)))
 
 # Update current namespace with NS_parameters and commandline_kwargs ++
 vars().update(post_import_problem(**vars()))
 
 # Import chosen functionality from solvers
-exec("from solvers.NSCoupled.{} import *".format(solver))
+exec('from solvers.NSCoupled.{} import *'.format(solver))
 
 # Create lists of components solved for
 u_components = ['u']
 sys_comp =  ['up'] + scalar_components
 
-# Set up initial folders for storing results
-#newfolder, tstepfiles = create_initial_folders(**vars())
-
 # Get the chosen mixed elment
-element = commandline_kwargs.get("element", "CR")
+element = commandline_kwargs.get('element', 'CR')
 vars().update(elements[element])
 
 # TaylorHood may overload degree of elements
-if element == "TaylorHood":
-    degree["u"] = commandline_kwargs.get('velocity_degree', degree["u"])
-    degree["p"] = commandline_kwargs.get('pressure_degree', degree["p"])
-    # Should assert that degree["p"] = degree["u"]-1 ??
+if element == 'TaylorHood':
+    degree['u'] = commandline_kwargs.get('velocity_degree', degree['u'])
+    degree['p'] = commandline_kwargs.get('pressure_degree', degree['p'])
+    # Should assert that degree['p'] = degree['u']-1 ??
     
 # Declare FunctionSpaces and arguments
-V = VectorFunctionSpace(mesh, family["u"], degree["u"], constrained_domain=constrained_domain)
-Q = FunctionSpace(mesh, family["p"], degree["p"], constrained_domain=constrained_domain)
+V = VectorFunctionSpace(mesh, family['u'], degree['u'], constrained_domain=constrained_domain)
+Q = FunctionSpace(mesh, family['p'], degree['p'], constrained_domain=constrained_domain)
 
 # MINI element has bubble, add to V
 if bubble:
-    V = V + VectorFunctionSpace(mesh, "Bubble", mesh.geometry().dim()+1)
+    V = V + VectorFunctionSpace(mesh, 'Bubble', mesh.geometry().dim()+1)
 
 # Create Mixed space
 VQ = V * Q
@@ -54,20 +51,21 @@ up = TrialFunction(VQ)
 u, p = split(up)
 v, q = TestFunctions(VQ)
 
-# For scalars use Q space
-c  = TrialFunction(Q)
-ct = TestFunction(Q)
+# For scalars use CG space
+CG = FunctionSpace(mesh, 'CG', 1, constrained_domain=constrained_domain)
+c  = TrialFunction(CG)
+ct = TestFunction(CG)
 
 VV = dict(up=VQ)
-VV.update(dict((ui, Q) for ui in scalar_components))
+VV.update(dict((ui, CG) for ui in scalar_components))
 
 # Create dictionaries for the solutions at two timesteps
 q_  = dict((ui, Function(VV[ui], name=ui)) for ui in sys_comp)
-q_1 = dict((ui, Function(VV[ui], name=ui+"_1")) for ui in sys_comp)
+q_1 = dict((ui, Function(VV[ui], name=ui+'_1')) for ui in sys_comp)
 
 # Short forms
-up_  = q_ ["up"] # Solution at next iteration
-up_1 = q_1["up"] # Solution at previous iteration 
+up_  = q_ ['up'] # Solution at next iteration
+up_1 = q_1['up'] # Solution at previous iteration 
 u_, p_ = split(up_)
 u_1, p_1 = split(up_1)
 
@@ -94,67 +92,79 @@ up_sol, c_sol = get_solvers(**vars())
 
 # Get constant body forces
 f = body_force(**vars())
-assert(isinstance(f, Coefficient))
-b0 = dict(up=assemble(dot(v, f)*dx))
 
 # Get scalar sources
 fs = scalar_source(**vars())
-for ci in scalar_components:
-    assert(isinstance(fs[ci], Coefficient))
-    b0[ci] = assemble(ct*fs[ci]*dx)
 
 # Preassemble and allocate
 vars().update(setup(**vars()))
 
-# Assemble rhs once, before entering loop
-b["up"] = assemble(F, tensor=b["up"])
-for bc in bcs["up"]:
-    bc.apply(b["up"], up_.vector())
-
 # Anything problem specific
 vars().update(pre_solve_hook(**vars()))
 
-tic()
-total_timer = OasisTimer("Start iterations", True)
-iter = 0
-while iter < max_iter and error > max_error:
-    start_new_iter_hook(**vars())
-
-    NS_assemble(**vars())
-    NS_hook(**vars())
-    NS_solve(**vars())
-        
-    # Solve for scalars
-    if len(scalar_components) > 0:
-        scalar_assemble(**vars())
-        for ci in scalar_components:    
-            t1 = OasisTimer('Solving scalar {}'.format(ci), print_solve_info)
-            scalar_hook (**vars())
-            scalar_solve(**vars())
-            t1.stop()
-            
-    error = b["up"].norm("l2")
+def iterate(iters=max_iter):
+    # Newton iterations for steady flow
+    iter = 0
+    error = 1
     
-    print_velocity_pressure_info(**vars())
-        
-    end_iter_hook(**vars())
+    while iter < iters and error > max_error:        
+        start_iter_hook(**globals())
+        NS_assemble(**globals())
+        NS_hook(**globals())
+        NS_solve(**globals())                        
+        end_iter_hook(**globals())
 
-    # Update to next iteration
-    for ui in sys_comp:
-        x_1[ui].zero(); x_1[ui].axpy(1.0, x_ [ui])
+        # Update to next iteration
+        for ui in sys_comp:
+            x_1[ui].zero(); x_1[ui].axpy(1.0, x_ [ui])
+            
+        error = b['up'].norm('l2')                    
+        print_velocity_pressure_info(**locals())
 
-    iter += 1
+        iter += 1
+    
+def iterate_scalar(iters=max_iter, errors=max_error):
+    # Newton iterations for scalars
+    if len(scalar_components) > 0:
+        err = {ci: 1 for ci in scalar_components}
+        for ci in scalar_components:
+            globals().update(ci=ci)
+            citer = 0
+            while citer < iters and err[ci] > errors:
+                scalar_assemble(**globals())
+                scalar_hook (**globals())
+                scalar_solve(**globals())
+                err[ci] = b[ci].norm('l2')
+                print 'Iter {}, Error {} = {}'.format(citer, ci, err[ci])
+                citer += 1
 
-# FIXME not implemented yet for coupled
-#save_solution(**vars()) 
-                                              
-total_timer.stop()
+timer = OasisTimer('Start Newton iterations flow', True)
+# Assemble rhs once, before entering iterations (velocity components)
+b['up'] = assemble(Fs['up'], tensor=b['up'])
+for bc in bcs['up']:
+    bc.apply(b['up'], x_['up'])
+
+iterate(max_iter)
+timer.stop()
+
+# Assuming there is no feedback to the flow solver from the scalar field, 
+# we solve the scalar only after converging the flow
+scalar_timer = OasisTimer('Start Newton iterations scalars', True)
+# Assemble rhs once, before entering iterations (velocity components)
+for scalar in scalar_components:
+    b[scalar] = assemble(Fs[scalar], tensor=b[scalar])
+    for bc in bcs[scalar]:
+        bc.apply(b[scalar], x_[scalar])
+
+iterate_scalar()
+scalar_timer.stop()
+
 list_timings()
-info_red('Total computing time = {0:f}'.format(total_timer.value()))
+info_red('Total computing time = {0:f}'.format(timer.value()))
 oasis_memory('Final memory use ')
 total_initial_dolfin_memory = MPI.sum(mpi_comm_world(), initial_memory_use)
 info_red('Memory use for importing dolfin = {} MB (RSS)'.format(total_initial_dolfin_memory))
-info_red('Total memory use of solver = ' + str(oasis_memory.memory - total_initial_dolfin_memory) + " MB (RSS)")
+info_red('Total memory use of solver = ' + str(oasis_memory.memory - total_initial_dolfin_memory) + ' MB (RSS)')
 
 # Final hook
 theend_hook(**vars())

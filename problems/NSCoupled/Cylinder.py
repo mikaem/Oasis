@@ -13,17 +13,27 @@ NS_parameters.update(
     plot_interval = 10,
     velocity_degree = 2)
 
-def create_bcs(VQ, Um, **NS_namespace):
+scalar_components = ["c", "d"]
+
+def scalar_source(c_, d_, **NS_namespace):
+    return {"c": -Constant(0.1)*c_*c_, "d": -Constant(0.25)*c_*d_*d_}
+
+def create_bcs(VQ, Um, CG, **NS_namespace):
     inlet = Expression(("4.*{0}*x[1]*({1}-x[1])/pow({1}, 2)".format(Um, H), "0"))
     ux = Expression(("0.00*x[1]", "-0.00*(x[0]-{})".format(center)))
     bc0 = DirichletBC(VQ.sub(0), inlet, Inlet)
     bc1 = DirichletBC(VQ.sub(0), ux, Cyl)
     bc2 = DirichletBC(VQ.sub(0), (0, 0), Wall)
-    return dict(up = [bc0, bc1, bc2])
+    return dict(up = [bc0, bc1, bc2], 
+                c = [DirichletBC(CG, 1, Cyl),
+                     DirichletBC(CG, 0, Inlet)],
+                d = [DirichletBC(CG, 2, Cyl),
+                     DirichletBC(CG, 0, Inlet)])
 
-def theend_hook(u_, p_, up_, mesh, ds, VQ, nu, Umean, **NS_namespace):
+def theend_hook(u_, p_, up_, mesh, ds, VQ, nu, Umean, c_, **NS_namespace):
     plot(u_, title='Velocity')
     plot(p_, title='Pressure')
+    plot(c_, title='Scalar')
 
     R = VectorFunctionSpace(mesh, 'R', 0)
     c = TestFunction(R)

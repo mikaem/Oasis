@@ -33,9 +33,10 @@ parameters["form_compiler"].add("no_ferari", True)
 
 # Default parameters for all solvers
 NS_parameters = dict(
-  # Physical constants and solver parameters
-  nu = 0.01,
-  folder = "results"
+  nu = 0.01,             # Kinematic viscosity
+  folder = 'results',    # Relative folder for storing results 
+  velocity_degree = 2,   # default velocity degree
+  pressure_degree = 1    # default pressure degree
   )
 
 constrained_domain = None
@@ -46,6 +47,10 @@ scalar_components = []
 # With diffusivities given as a Schmidt number defined by:
 #   Schmidt = nu / D (= momentum diffusivity / mass diffusivity)
 Schmidt = defaultdict(lambda: 1.)
+
+Scalar = defaultdict(lambda: dict(Schmidt=1.0,
+                                  family="CG",
+                                  degree=1))
 
 # The following helper functions are available in dolfin
 # They are redefined here for printing only on process 0. 

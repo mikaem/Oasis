@@ -36,26 +36,28 @@ def initialize(x_1, x_2, bcs, **NS_namespace):
     for ui in x_2:    
         [bc.apply(x_2[ui]) for bc in bcs[ui]]
 
-def pre_solve_hook(mesh, velocity_degree, constrained_domain, **NS_namespace):
-    Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
-    return dict(Vv=Vv, uv=Function(Vv))
+def pre_solve_hook(mesh, velocity_degree, **NS_namespace):
+    Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree)
+    return dict(uv=Function(Vv))
 
-def temporal_hook(q_, tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace):
+def temporal_hook(q_, tstep, u_, uv, p_, plot_interval, **NS_namespace):
     if tstep % plot_interval == 0:
-        uv.assign(project(u_, Vv))
+        assign(uv.sub(0), u_[0])
+        assign(uv.sub(1), u_[1])
         plot(uv, title='Velocity')
         plot(p_, title='Pressure')
         plot(q_['alfa'], title='alfa')
         plot(q_['beta'], title='beta')
 
-def theend_hook(u_, p_, uv, Vv, **NS_namespace):
-    uv.assign(project(u_, Vv))
+def theend_hook(u_, p_, uv, mesh, **NS_namespace):
+    assign(uv.sub(0), u_[0])
+    assign(uv.sub(1), u_[1])
     plot(uv, title='Velocity')
     plot(p_, title='Pressure')
 
     try:
         from fenicstools import StreamFunction
-        psi = StreamFunction(u_, [], use_strong_bc=True)
+        psi = StreamFunction(uv, [], mesh, use_strong_bc=True)
         plot(psi, title='Streamfunction', interactive=True)
     except:
         pass

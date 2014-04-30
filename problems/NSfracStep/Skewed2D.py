@@ -14,8 +14,6 @@ NS_parameters.update(
     use_krylov_solvers = True,
     print_velocity_pressure_convergence = True)
 
-globals().update(NS_parameters)
-
 def create_bcs(V, Q, mesh, **NS_namespace):
     # Create inlet profile by solving Poisson equation on boundary
     u_inlet = Expression("10*x[1]*(0.2-x[1])")
@@ -27,14 +25,13 @@ def create_bcs(V, Q, mesh, **NS_namespace):
                 p  = [DirichletBC(Q, 0, outlet)])
 
 def pre_solve_hook(mesh, V, **NS_namespace):
-    Vv = VectorFunctionSpace(mesh, "CG", V.ufl_element().degree())
-    uv = Function(Vv)
-    return dict(uv=uv, Vv=Vv)
+    Vv = VectorFunctionSpace(mesh, "CG", V.ufl_element().degree())    
+    return dict(uv=Function(Vv), Vv=Vv, n=FacetNormal(mesh))
     
 def temporal_hook(u_, p_, mesh, tstep, print_intermediate_info, 
-                  uv, **NS_namespace):
+                  uv, n, plot_interval, **NS_namespace):
     if tstep % print_intermediate_info == 0:
-        print "Continuity ", assemble(dot(u_, FacetNormal(mesh))*ds())
+        print "Continuity ", assemble(dot(u_, n)*ds())
     
     if tstep % plot_interval == 0:
         assign(uv.sub(0), u_[0])

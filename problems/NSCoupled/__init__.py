@@ -7,8 +7,7 @@ from problems import *
 
 # Default parameters NSfracStep solver
 NS_parameters.update(
-  # Physical constants and solver parameters
-  nu = 0.01,             # Kinematic viscosity
+  # Solver parameters
   omega = 1.0,           # Underrelaxation factor
   
   # Some discretization options
@@ -21,13 +20,12 @@ NS_parameters.update(
   
   # Parameters used to tweek output  
   plot_interval = 10,    
-  folder = 'results',    # Relative folder for storing results 
 )
 
 def NS_hook(**NS_namespace):
     pass
 
-def start_new_iter_hook(**NS_namespace):
+def start_iter_hook(**NS_namespace):
     pass
   
 def end_iter_hook(**NS_namespace):

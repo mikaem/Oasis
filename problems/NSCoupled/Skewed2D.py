@@ -14,8 +14,6 @@ NS_parameters.update(
     max_iter = 100,
     max_error = 1e-12)
 
-globals().update(NS_parameters)
-
 def create_bcs(V, VQ, mesh, **NS_namespace):
     # Create inlet profile by solving Poisson equation on boundary
     u_inlet = Expression(("10*x[1]*(0.2-x[1])", "0"))

@@ -8,7 +8,6 @@ from problems import *
 # Default parameters NSfracStep solver
 NS_parameters.update(
   # Physical constants and solver parameters
-  nu = 0.01,             # Kinematic viscosity
   t = 0.0,               # Time
   tstep = 0,             # Timestep
   T = 1.0,               # End time
@@ -16,8 +15,6 @@ NS_parameters.update(
   
   # Some discretization options
   AB_projection_pressure = False,  # Use Adams Bashforth projection as first estimate for pressure on new timestep
-  velocity_degree = 2,
-  pressure_degree = 1,  
   solver = "IPCS_ABCN",  # "IPCS_ABCN", "IPCS_ABE", "IPCS", "Chorin"
   
   # Parameters used to tweek solver  
@@ -34,7 +31,6 @@ NS_parameters.update(
   plot_interval = 10,    
   checkpoint = 10,       # Overwrite solution in Checkpoint folder each checkpoint tstep
   save_step = 10,        # Store solution in new folder each save_step tstep
-  folder = 'results',    # Relative folder for storing results 
   restart_folder = None, # If restarting solution, set the folder holding the solution to start from here
   output_timeseries_as_vector = True, # Store velocity as vector in Timeseries 
   

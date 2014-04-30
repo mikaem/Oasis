@@ -29,18 +29,19 @@ else:
         plot_interval = 10,
         velocity_degree = 2,
         print_intermediate_info = 100,
-        velocity_update_type = 'gradient_matrix',
-        use_krylov_solvers = True)
+        #velocity_update_type = 'gradient_matrix',
+        use_krylov_solvers = True,
+        krylov_solvers = dict(monitor_convergence=True))
 
 scalar_components = ["alfa"]
 Schmidt["alfa"] = 0.1
 
-def create_bcs(V, Q, Um, **NS_namespace):
+def create_bcs(V, Q, Um, H, **NS_namespace):
     inlet = Expression("4.*{0}*x[1]*({1}-x[1])/pow({1}, 2)".format(Um, H))
     ux = Expression("0.00*x[1]")
     uy = Expression("-0.00*(x[0]-{})".format(center))
-    bc00  = DirichletBC(V, inlet, Inlet)
-    bc01  = DirichletBC(V, 0, Inlet)    
+    bc00 = DirichletBC(V, inlet, Inlet)
+    bc01 = DirichletBC(V, 0, Inlet)    
     bc10 = DirichletBC(V, ux, Cyl)
     bc11 = DirichletBC(V, uy, Cyl)
     bc2 = DirichletBC(V, 0, Wall)
@@ -57,9 +58,9 @@ def initialize(x_1, x_2, bcs, **NS_namespace):
     for ui in x_2:    
         [bc.apply(x_2[ui]) for bc in bcs[ui]]
 
-def pre_solve_hook(mesh, velocity_degree, constrained_domain, V, 
+def pre_solve_hook(mesh, velocity_degree, V, 
                    newfolder, tstepfiles, tstep, **NS_namespace):
-    Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree, constrained_domain=constrained_domain)
+    Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree)
     omega = Function(V, name='omega')
     # Store omega each save_step
     add_function_to_tstepfiles(omega, newfolder, tstepfiles, tstep)

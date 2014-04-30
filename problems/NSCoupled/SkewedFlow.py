@@ -5,9 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSCoupled import *
 from ..SkewedFlow import *
-from numpy import cos, pi, cosh
-from fenicstools import interpolate_nonmatching_mesh
-set_log_active(False)
+#set_log_active(False)
 
 # Override some problem specific parameters
 NS_parameters.update(
@@ -16,8 +14,6 @@ NS_parameters.update(
     plot_interval = 10,
     max_iter = 100,
     max_error = 1e-12)
-
-globals().update(NS_parameters)
 
 def create_bcs(V, VQ, mesh, **NS_namespace):
     # Create inlet profile by solving Poisson equation on boundary

@@ -106,7 +106,8 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
     """
     if use_krylov_solvers:
         ## tentative velocity solver ##
-        u_sol = KrylovSolver('bicgstab', 'jacobi')
+        #u_sol = KrylovSolver('bicgstab', 'jacobi')
+        u_sol = KrylovSolver('bicgstab', 'additive_schwarz')
         if "structure" in u_sol.parameters['preconditioner']:
             u_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
         else:
@@ -118,7 +119,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         if velocity_update_type != "default":
             du_sol = None
         else:
-            du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
+            du_sol = KrylovSolver('bicgstab', 'additive_schwarz')
             if "structure" in du_sol.parameters['preconditioner']:
                 du_sol.parameters['preconditioner']['structure'] = "same"
             else:
@@ -154,7 +155,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         ## scalar solver ##
         if len(scalar_components) > 0:
             #c_sol = KrylovSolver('bicgstab', 'hypre_euclid')
-            c_sol = KrylovSolver('bicgstab', 'jacobi')
+            c_sol = KrylovSolver('bicgstab', 'additive_schwarz')
             c_sol.parameters.update(krylov_solvers)
             
             if "structure" in c_sol.parameters['preconditioner']:

@@ -8,12 +8,22 @@ from ..SkewedFlow import *
 from numpy import cos, pi, cosh
 from fenicstools import interpolate_nonmatching_mesh
 
-warning("""This problem does not work well with IPCS since the
-         boundary condition grad(u)*n, p=0 on the outlet
-         is a poor representation of true physics. 
-         Need to use coupled solver with pseudo-traction 
-         (grad(u)-p)*n = 0 or extrude outlet such that 
-         the outflow boundary condition becomes realistic.""")
+warning("""
+This problem does not work well with IPCS since the outflow
+boundary condition 
+         
+    grad(u)*n=0, p=0
+    
+here is a poor representation of actual physics. 
+
+Need to use coupled solver with pseudo-traction 
+
+    (grad(u)-p)*n = 0 
+
+or extrude outlet such that the outflow boundary condition 
+becomes more realistic.
+"""
+)
 
 # Override some problem specific parameters
 NS_parameters.update(
@@ -22,8 +32,6 @@ NS_parameters.update(
     dt = 0.01,
     use_krylov_solvers = True,
     print_velocity_pressure_convergence = True)
-
-globals().update(NS_parameters)
 
 def create_bcs(V, Q, mesh, **NS_namespace):
     # Create inlet profile by solving Poisson equation on boundary
@@ -55,7 +63,9 @@ def create_bcs(V, Q, mesh, **NS_namespace):
                 u2 = [bc0, bc2],
                 p = [DirichletBC(Q, 0, outlet)])
   
-def temporal_hook(u_, mesh, tstep, print_intermediate_info, **NS_namespace):
+def temporal_hook(u_, mesh, tstep, print_intermediate_info, 
+                  plot_interval, **NS_namespace):
+  
     if tstep % print_intermediate_info == 0:
         print "Continuity ", assemble(dot(u_, FacetNormal(mesh))*ds())
     
