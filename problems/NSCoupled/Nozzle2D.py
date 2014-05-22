@@ -8,7 +8,7 @@ from numpy import array, linspace
 from scitools.std import plot as sciplot
 
 # Override some problem specific parameters
-re_high = True
+re_high = False
 NS_parameters.update(
     omega = 0.4,
     nu = 0.0035 / 1056.,     

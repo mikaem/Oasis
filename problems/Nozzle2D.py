@@ -10,8 +10,6 @@ if not os.path.isfile("mesh/nozzle_2d.xml"):
         raise "Gmsh is required to run this demo"
       
 mesh = Mesh("mesh/nozzle_2d.xml")
-#x = mesh.coordinates()
-#x[:, 1] += 1e-14
 
 # walls = 0
 def walls(x, on_boundary): 

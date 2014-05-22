@@ -36,3 +36,8 @@ Line(11) = {10, 1};
 
 Line Loop(30) = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11};
 Plane Surface(31) = {30};
+DefineConstant[ lc = { 0.1, Path "Gmsh/Parameters"}];
+DefineConstant[ lc = { 0.1, Path "Gmsh/Parameters"}];
+Extrude {{1, 0, 0}, {0, 0, 0}, Pi} {
+  Surface{31};
+}

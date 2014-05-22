@@ -58,22 +58,34 @@ def initialize(x_1, x_2, bcs, **NS_namespace):
     for ui in x_2:    
         [bc.apply(x_2[ui]) for bc in bcs[ui]]
 
-def pre_solve_hook(mesh, velocity_degree, V, 
-                   newfolder, tstepfiles, tstep, **NS_namespace):
+def pre_solve_hook(mesh, velocity_degree, V,
+                   newfolder, tstepfiles, tstep, ds, **NS_namespace):
     Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree)
     omega = Function(V, name='omega')
     # Store omega each save_step
     add_function_to_tstepfiles(omega, newfolder, tstepfiles, tstep)
-    return dict(Vv=Vv, uv=Function(Vv), omega=omega)
+    ff = FacetFunction("size_t", mesh, 0)
+    Cyl.mark(ff, 1)
+    n = FacetNormal(mesh)
+    ds = ds[ff]
 
-def temporal_hook(q_, tstep, u_, V, uv, p_, plot_interval, omega, 
-                  save_step, **NS_namespace):
+    return dict(Vv=Vv, uv=Function(Vv), omega=omega, ds=ds, ff=ff, n=n)
+
+def temporal_hook(q_, tstep, u_, V, uv, p_, plot_interval, omega, ds, 
+                  save_step, mesh, nu, Umean, D, n, **NS_namespace):
     if tstep % plot_interval == 0:
         assign(uv.sub(0), u_[0])
         assign(uv.sub(1), u_[1])
         plot(uv, title='Velocity')
         plot(p_, title='Pressure')
         plot(q_['alfa'], title='alfa')
+        
+    R = VectorFunctionSpace(mesh, 'R', 0)
+    c = TestFunction(R)
+    tau = -p_*Identity(2)+nu*(grad(u_)+grad(u_).T)
+    forces = assemble(dot(dot(tau, n), c)*ds(1)).array()*2/Umean**2/D
+    
+    print "Cd = {}, CL = {}".format(*forces)
         
     if tstep % save_step == 0:
         try:
