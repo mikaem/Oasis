@@ -25,6 +25,7 @@ parameters["linear_algebra_backend"] = "PETSc"
 parameters["form_compiler"]["optimize"] = True
 parameters["form_compiler"]["cpp_optimize"] = True
 parameters["form_compiler"]["representation"] = "quadrature"
+parameters["form_compiler"]["quadrature_degree"] = 2
 #parameters["form_compiler"]["cache_dir"] = "instant"
 parameters["form_compiler"]["cpp_optimize_flags"] = "-O3 --fast-math"
 parameters["mesh_partitioner"] = "ParMETIS"

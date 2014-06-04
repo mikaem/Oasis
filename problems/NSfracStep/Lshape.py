@@ -19,12 +19,12 @@ def mesh(Nx, Ny, **params):
     return SubMesh(mesh_, mf1, 0)
 
 # Override some problem specific parameters
-Re = 200.
+Re = 5000.
 nu = 1./Re
 NS_parameters.update(dict(
     nu = nu,
     T = 10,
-    dt = 0.01,
+    dt = 0.001,
     Re = Re,
     Nx = 40,
     Ny = 40,
@@ -32,7 +32,6 @@ NS_parameters.update(dict(
     max_iter = 1,
     plot_interval = 1,
     velocity_degree = 2,
-    velocity_update_type = "lumping",
     use_krylov_solvers = True
   )
 )
