@@ -95,7 +95,6 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
                 
                 # Or the faster, but more comprehensive way:
                 for ui in u_components:
-                    q_[ui].update()    
                     vals = tstepfile.d[ui].values()
                     keys = tstepfile.d[ui].keys()
                     tstepfile.uv.vector()[vals] = q_[ui].vector()[keys]

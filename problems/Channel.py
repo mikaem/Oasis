@@ -40,9 +40,9 @@ else:
     Lx = 4.*pi
     Ly = 2.
     Lz = 4.*pi/3.
-    Nx = 32
-    Ny = 32
-    Nz = 32
+    Nx = 16
+    Ny = 16
+    Nz = 16
     NS_parameters.update(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz)
     
     # Override some problem specific parameters
@@ -169,7 +169,7 @@ def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
             u_sol.parameters['preconditioner']['structure'] = "same"
 
 def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
-                  newfolder, folder, check_flux, save_statistics,
+                  newfolder, folder, check_flux, save_statistics, mesh,
                   facets, normal, check_if_reset_statistics, **NS_namespace):
     # print timestep
     info_red("tstep = {}".format(tstep))         
@@ -185,7 +185,8 @@ def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
         stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
         
     if tstep % check_flux == 0:
-        u1 = assemble(dot(u_, normal)*ds(1), exterior_facet_domains=facets)
+        u1 = assemble(dot(u_, normal)*ds(1, domain=mesh, subdomain_data=facets))
+        u1 = assemble(dot(u_, normal)*ds(1, domain=mesh, subdomain_data=facets))
         normv = norm(q_['u1'].vector())
         normw = norm(q_['u2'].vector())
         if MPI.rank(mpi_comm_world()) == 0:
