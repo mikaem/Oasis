@@ -10,25 +10,29 @@ from numpy import cos, pi
 def mesh(Nx, Ny, **params):
     m = UnitSquareMesh(Nx, Ny)
     x = m.coordinates()
-    x[:] = (x - 0.5) * 2
-    x[:] = 0.5*(cos(pi*(x-1.) / 2.) + 1.)
+    #x[:] = (x - 0.5) * 2
+    #x[:] = 0.5*(cos(pi*(x-1.) / 2.) + 1.)
     return m
 
 # Override some problem specific parameters
 NS_parameters.update(
     nu = 0.001,
-    T  = 1.0,
-    dt = 0.001,
-    Nx = 50,
-    Ny = 50,
-    plot_interval = 20,
+    T  = 300.0,
+    dt = 0.01,
+    Nx = 245,
+    Ny = 245,
+    plot_interval = 400,
+    save_step = 10000,
+    checkpoint = 10000,
     print_intermediate_info = 100,
     use_krylov_solvers = True,
     velocity_update_type = "gradient_matrix")
 
-scalar_components = ["alfa", "beta"]
-Schmidt["alfa"] = 1.
-Schmidt["beta"] = 10.
+#scalar_components = ["alfa", "beta"]
+#Schmidt["alfa"] = 1.
+#Schmidt["beta"] = 10.
+scalar_components = []
+
 # Specify boundary conditions
 noslip = "std::abs(x[0]*x[1]*(1-x[0]))<1e-8"
 top    = "std::abs(x[1]-1) < 1e-8"
@@ -39,9 +43,9 @@ def create_bcs(V, **NS_namespace):
     bc01 = DirichletBC(V, 0, top)
     return dict(u0 = [bc00, bc0],
                 u1 = [bc01, bc0],
-                p  = [],
-                alfa = [bc00],
-                beta = [DirichletBC(V, 1, bottom)])
+                p  = [])
+                #alfa = [bc00],
+                #beta = [DirichletBC(V, 1, bottom)])
                 
 def initialize(x_1, x_2, bcs, **NS_namespace):
     for ui in x_1:
@@ -58,8 +62,8 @@ def temporal_hook(q_, tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace):
         uv.assign(project(u_, Vv))
         plot(uv, title='Velocity')
         plot(p_, title='Pressure')
-        plot(q_['alfa'], title='alfa')
-        plot(q_['beta'], title='beta')
+        #plot(q_['alfa'], title='alfa')
+        #plot(q_['beta'], title='beta')
 
 def theend_hook(u_, p_, uv, Vv, mesh, **NS_namespace):
     uv.assign(project(u_, Vv))
