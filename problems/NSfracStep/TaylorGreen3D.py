@@ -48,12 +48,12 @@ constrained_domain = PeriodicDomain()
 
 # Override some problem specific parameters
 recursive_update(NS_parameters, dict(
-    nu = 0.01,
+    nu = 0.005,
     T = 0.2,
     dt = 0.01,
-    Nx = 32,
-    Ny = 32, 
-    Nz = 32,
+    Nx = 33,
+    Ny = 33, 
+    Nz = 33,
     folder = "taylorgreen3D_results",
     max_iter = 1,
     velocity_degree = 1,
@@ -69,7 +69,7 @@ initial_fields = dict(
         u0='sin(x[0])*cos(x[1])*cos(x[2])',
         u1='-cos(x[0])*sin(x[1])*cos(x[2])',
         u2='0',
-        p='0')
+        p='(cos(2*x[0])+cos(2*x[1]))*(cos(2*x[2])+2)')
     
 def initialize(q_, q_1, q_2, VV, initial_fields, **NS_namespace):
     for ui in q_:

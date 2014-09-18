@@ -38,9 +38,9 @@ def create_initial_folders(folder, restart_folder, sys_comp, tstep, info_red,
     MPI.barrier(mpi_comm_world())
     if MPI.rank(mpi_comm_world()) == 0:
         if not restart_folder:
-            makedirs(path.join(newfolder, "Voluviz"))
-            makedirs(path.join(newfolder, "Stats"))
-            makedirs(path.join(newfolder, "VTK"))
+            #makedirs(path.join(newfolder, "Voluviz"))
+            #makedirs(path.join(newfolder, "Stats"))
+            #makedirs(path.join(newfolder, "VTK"))
             makedirs(path.join(newfolder, "Timeseries"))
             makedirs(path.join(newfolder, "Checkpoint"))
             
@@ -91,13 +91,14 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
                                        for i, ui in enumerate(u_components))
 
                 # The short but timeconsuming way:
-                #tstepfile.uv.assign(project(u_, Vv))
+                tstepfile.uv.assign(project(u_, Vv))
                 
                 # Or the faster, but more comprehensive way:
-                for ui in u_components:
-                    vals = tstepfile.d[ui].values()
-                    keys = tstepfile.d[ui].keys()
-                    tstepfile.uv.vector()[vals] = q_[ui].vector()[keys]
+                #for ui in u_components:
+                    #vals = tstepfile.d[ui].values()
+                    #keys = tstepfile.d[ui].keys()
+                    #tstepfile.uv.vector()[vals] = q_[ui].vector()[keys]
+                    
                 tstepfile << (tstepfile.uv, float(tstep))
             
             elif comp in q_:                

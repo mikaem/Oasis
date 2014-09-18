@@ -20,7 +20,7 @@ NS_parameters.update(
   # Parameters used to tweek solver  
   max_iter = 1,          # Number of inner pressure velocity iterations on timestep
   max_error = 1e-6,      # Tolerance for inner iterations (pressure velocity iterations)
-  iters_on_first_timestep = 2,  # Number of iterations on first timestep
+  iters_on_first_timestep = 2, # Number of iterations on first timestep
   use_krylov_solvers = False,  # Otherwise use LU-solver
   low_memory_version = False,  # Use assembler and not preassembled matrices
   print_intermediate_info = 10,
@@ -29,8 +29,8 @@ NS_parameters.update(
   
   # Parameters used to tweek output  
   plot_interval = 10,    
-  checkpoint = 10,       # Overwrite solution in Checkpoint folder each checkpoint tstep
-  save_step = 10,        # Store solution in new folder each save_step tstep
+  checkpoint = 10,       # Overwrite solution in Checkpoint folder each checkpoint
+  save_step = 10,        # Store solution each save_step
   restart_folder = None, # If restarting solution, set the folder holding the solution to start from here
   output_timeseries_as_vector = True, # Store velocity as vector in Timeseries 
   

@@ -151,15 +151,16 @@ if __name__ == "__main__":
 
     # Assuming there is no feedback to the flow solver from the scalar field, 
     # we solve the scalar only after converging the flow
-    scalar_timer = OasisTimer('Start Newton iterations scalars', True)
-    # Assemble rhs once, before entering iterations (velocity components)
-    for scalar in scalar_components:
-        b[scalar] = assemble(Fs[scalar], tensor=b[scalar])
-        for bc in bcs[scalar]:
-            bc.apply(b[scalar], x_[scalar])
+    if len(scalar_components) > 0:
+        scalar_timer = OasisTimer('Start Newton iterations scalars', True)
+        # Assemble rhs once, before entering iterations (velocity components)
+        for scalar in scalar_components:
+            b[scalar] = assemble(Fs[scalar], tensor=b[scalar])
+            for bc in bcs[scalar]:
+                bc.apply(b[scalar], x_[scalar])
 
-    iterate_scalar()
-    scalar_timer.stop()
+        iterate_scalar()
+        scalar_timer.stop()
 
     list_timings()
     info_red('Total computing time = {0:f}'.format(timer.value()))

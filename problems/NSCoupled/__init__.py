@@ -5,7 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from problems import *
 
-# Default parameters NSfracStep solver
+# Default parameters NSCoupled solver
 NS_parameters.update(
   # Solver parameters
   omega = 1.0,           # Underrelaxation factor
@@ -20,6 +20,8 @@ NS_parameters.update(
   
   # Parameters used to tweek output  
   plot_interval = 10,    
+  output_timeseries_as_vector = True, # Store velocity as vector in Timeseries 
+  
 )
 
 def NS_hook(**NS_namespace):
