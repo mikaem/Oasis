@@ -4,8 +4,8 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import *
-from solvers import *
-from solvers import __all__
+from ..NSfracStep import *
+from ..NSfracStep import __all__
 
 def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
           bcs, scalar_components, V, Q, x_, dim, mesh,
@@ -110,7 +110,8 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
     """
     if use_krylov_solvers:
         ## tentative velocity solver ##
-        u_sol = KrylovSolver('bicgstab', 'jacobi')
+        #u_sol = KrylovSolver('bicgstab', 'jacobi')
+        u_sol = KrylovSolver('bicgstab', 'additive_schwarz')
         if "structure" in u_sol.parameters['preconditioner']:
             u_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
         else:
@@ -122,7 +123,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         if velocity_update_type != "default":
             du_sol = None
         else:
-            du_sol = KrylovSolver('bicgstab', 'hypre_euclid')
+            du_sol = KrylovSolver('bicgstab', 'additive_schwarz')
             if "structure" in du_sol.parameters['preconditioner']:
                 du_sol.parameters['preconditioner']['structure'] = "same"
             else:
@@ -158,7 +159,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         ## scalar solver ##
         if len(scalar_components) > 0:
             #c_sol = KrylovSolver('bicgstab', 'hypre_euclid')
-            c_sol = KrylovSolver('bicgstab', 'jacobi')
+            c_sol = KrylovSolver('bicgstab', 'additive_schwarz')
             c_sol.parameters.update(krylov_solvers)
             
             if "structure" in c_sol.parameters['preconditioner']:
@@ -171,23 +172,23 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
             sols.append(None)
     else:
         ## tentative velocity solver ##
-        u_sol = LUSolver()
+        u_sol = LUSolver("mumps")
         u_sol.parameters["same_nonzero_pattern"] = True
         ## velocity correction ##
         if velocity_update_type != "default":
             du_sol = None
         else:
-            du_sol = LUSolver()
+            du_sol = LUSolver("mumps")
             du_sol.parameters['reuse_factorization'] = True
         ## pressure solver ##
-        p_sol = LUSolver()
+        p_sol = LUSolver("mumps")
         p_sol.parameters['reuse_factorization'] = True
         if bcs['p'] == []:
             p_sol.normalize = True
         sols = [u_sol, p_sol, du_sol]
         ## scalar solver ##
         if len(scalar_components) > 0:
-            c_sol = LUSolver()
+            c_sol = LUSolver("mumps")
             sols.append(c_sol)
         else:
             sols.append(None)
@@ -308,15 +309,7 @@ def pressure_solve(dp_, x_, Ap, b, p_sol, bcs, **NS_namespace):
 def velocity_update(u_components, b, bcs, print_solve_info, du_sol, P, 
                     dp_, dt, v, x_, info_blue, velocity_update_type, **NS_namespace):
     """Update the velocity after regular pressure velocity iterations."""
-    if velocity_update_type.upper() == "LAO":
-        lp, dp = NS_namespace["lp"], NS_namespace["dp"]
-        for i, ui in enumerate(u_components):
-            dp.vector().zero()
-            lp.solve(dp, Form(dp_.dx(i)*dx))
-            x_[ui].axpy(-dt, dp.vector())
-            [bc.apply(x_[ui]) for bc in bcs[ui]]
-
-    elif velocity_update_type.upper() == 'GRADIENT_MATRIX':
+    if velocity_update_type.upper() == 'GRADIENT_MATRIX':
         dP = NS_namespace["dP"]
         for i, ui in enumerate(u_components):
             x_[ui].axpy(-dt, dP[i] * dp_.vector())

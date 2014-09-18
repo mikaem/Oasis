@@ -18,9 +18,9 @@ version is pure Adams-Bashforth.
 
 The differences between the versions of the solver are only visible in
 functions imported from the solverhooks folder:
-  solvers/IPCS_ABCN.py    # Implicit
-  solvers/IPCS_ABE.py     # Explicit
-  solvers/IPCS.py         # Naive
+  solvers/NSfracStep/IPCS_ABCN.py    # Implicit
+  solvers/NSfracStep/IPCS_ABE.py     # Explicit
+  solvers/NSfracStep/IPCS.py         # Naive
 
 The third naive solver is very simple and not optimized. It is intended 
 for validation of the other versions. A solver is chosen through command-
@@ -155,29 +155,19 @@ from common import *
 
 ################### Problem dependent parameters ####################
 ###  Should import a mesh and a dictionary called NS_parameters   ###
-###       See problems/__init__.py for possible parameters        ###
+###  See problems/NSfracStep/__init__.py for possible parameters  ###
 #####################################################################
 
 commandline_kwargs = parse_command_line()
 
 default_problem = 'DrivenCavity'
-exec("from problems.{} import *".format(commandline_kwargs.get('problem', default_problem)))
+exec("from problems.NSfracStep.{} import *".format(commandline_kwargs.get('problem', default_problem)))
 
-# Update NS_parameters with parameters modified through the command line 
-NS_parameters.update(commandline_kwargs)
-vars().update(NS_parameters)  
-
-# Update dolfin parameters
-parameters['krylov_solver'].update(krylov_solvers)
-
-# If the mesh is a callable function, then create the mesh here.
-if callable(mesh):
-    mesh = mesh(**NS_parameters)
-
-assert(isinstance(mesh, Mesh)) 
+# Update current namespace with NS_parameters and commandline_kwargs ++
+vars().update(post_import_problem(**vars()))
 
 # Import chosen functionality from solvers
-exec("from solvers.{} import *".format(solver))
+exec("from solvers.NSfracStep.{} import *".format(solver))
 
 # Create lists of components solved for
 dim = mesh.geometry().dim()

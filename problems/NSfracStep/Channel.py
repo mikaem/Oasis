@@ -3,14 +3,14 @@ __date__ = "2013-06-25"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
-from problems import *
+from ..NSfracStep import *
 from fenicstools import StructuredGrid, Probes
 from numpy import arctan, array, cos, pi
 from os import getcwd
 import cPickle
 import random
 
-#restart_folder = 'channel_results/data/1/Checkpoint'
+#restart_folder = 'channel_results/data/21/Checkpoint'
 restart_folder = None
 
 class ChannelGrid(StructuredGrid):
