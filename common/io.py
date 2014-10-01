@@ -5,7 +5,8 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from os import makedirs, getcwd, listdir, remove, system, path
 import cPickle
-from dolfin import MPI, Function, XDMFFile, HDF5File, info_red, VectorFunctionSpace, mpi_comm_world
+from dolfin import MPI, Function, XDMFFile, HDF5File, info_red, \
+    VectorFunctionSpace, mpi_comm_world, project
 
 __all__ = ["create_initial_folders", "save_solution", "save_tstep_solution_h5",
            "save_checkpoint_solution_h5", "check_if_kill", "check_if_reset_statistics",
@@ -74,7 +75,7 @@ def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint,
     return killoasis
 
 def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_domain,
-                           output_timeseries_as_vector, u_components, 
+                           output_timeseries_as_vector, u_components,
                            scalar_components, NS_parameters):
     """Store solution on current timestep to XDMF file."""
     timefolder = path.join(newfolder, 'Timeseries')
@@ -82,13 +83,13 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
         # project or store velocity to vector function space
         for comp, tstepfile in tstepfiles.iteritems():
             if comp == "u":
+                V = q_['u0'].function_space()
+                Vv = VectorFunctionSpace(V.mesh(), V.ufl_element().family(), V.ufl_element().degree(),
+                                        constrained_domain=constrained_domain)
                 if not hasattr(tstepfile, 'uv'): # First time around only
-                    V = q_['u0'].function_space()
-                    Vv = VectorFunctionSpace(V.mesh(), V.ufl_element().family(), V.ufl_element().degree(),
-                                            constrained_domain=constrained_domain)
                     tstepfile.uv = Function(Vv)
-                    tstepfile.d = dict((ui, Vv.sub(i).dofmap().collapse(Vv.mesh())[1]) 
-                                       for i, ui in enumerate(u_components))
+                    #tstepfile.d = dict((ui, Vv.sub(i).dofmap().collapse(Vv.mesh())[1]) 
+                                       #for i, ui in enumerate(u_components))
 
                 # The short but timeconsuming way:
                 tstepfile.uv.assign(project(u_, Vv))

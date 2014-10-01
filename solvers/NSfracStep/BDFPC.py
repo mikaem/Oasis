@@ -2,7 +2,8 @@ __author__ = "Mikael Mortensen <mikaem@math.uio.no>"
 __date__ = "2013-11-07"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
-"""This is a simplest possible naive implementation of the IPCS solver.
+"""This is a simplest possible naive implementation of a backwards
+differencing solver with pressure correction in rotational form.
 
 The idea is that this solver can be quickly modified and tested for 
 alternative implementations. In the end it can be used to validate
@@ -24,26 +25,30 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
     Fu = {}
     for i, ui in enumerate(u_components):
         # Tentative velocity step
-        F[ui] = (1./dt)*inner(u - q_1[ui], v)*dx + inner(dot(U_AB, nabla_grad(U_CN[ui])), v)*dx + \
-                nu*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx
-            
-        #F[ui] = (1./dt)*inner(u - q_1[ui], v)*dx + inner(1.5*dot(u_1, nabla_grad(q_1[ui]))-0.5*dot(u_2, nabla_grad(q_2[ui])), v)*dx + \
-                #nu*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx
+        #F[ui] = ((1./(2.*dt))*inner(3*u - 4*q_1[ui] + q_2[ui], v)*dx
+                  #+ inner(inner(2.0*grad(q_1[ui]), u_1) - inner(grad(q_2[ui]), u_2), v)*dx
+                  #+ nu*inner(grad(u), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx)
         
+        F[ui] = ((1./(2.*dt))*inner(3*u - 4*q_1[ui] + q_2[ui], v)*dx
+                  + inner(dot(U_AB, nabla_grad(U_CN[ui])), v)*dx 
+                  + nu*inner(grad(u), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx)
+            
         # Velocity update
-        Fu[ui] = inner(u, v)*dx - inner(q_[ui], v)*dx + dt*inner(dp_.dx(i), v)*dx
+        Fu[ui] = inner(u, v)*dx - inner(q_[ui], v)*dx + (2./3.)*dt*inner(dp_.dx(i), v)*dx
 
     # Pressure update
-    Fp = inner(grad(q), grad(p))*dx - inner(grad(p_), grad(q))*dx + (1./dt)*div(u_)*q*dx 
+    Fp = (inner(grad(q), grad(p))*dx - inner(grad(p_), grad(q))*dx +
+         + nu*inner(grad(div(u_)), grad(q))*dx + 3./(2.*dt)*div(u_)*q*dx )
 
     # Scalar with SUPG
     h = CellSize(mesh)
-    vw = v + h*inner(grad(v), U_AB)
+    vw = v + h*inner(grad(v), u_)
     n = FacetNormal(mesh)
     for ci in scalar_components:
-        F[ci] = (1./dt)*inner(u - q_1[ci], vw)*dx + inner(dot(grad(U_CN[ci]), U_AB), vw)*dx \
-                +nu/Schmidt[ci]*inner(grad(U_CN[ci]), grad(vw))*dx - inner(fs[ci], vw)*dx \
-                #-nu/Schmidt[ci]*inner(dot(grad(U_CN[ci]), n), vw)*ds
+        F[ci] = ((1./(2.*dt))*inner(3*u - 4*q_1[ci] + q_2[ui], vw)*dx 
+                + inner(dot(u, u_), vw)*dx 
+                + nu/Schmidt[ci]*inner(grad(u), grad(vw))*dx - inner(fs[ci], vw)*dx) 
+                #-nu/Schmidt[ci]*inner(dot(grad(u), n), vw)*ds                 
     
     return dict(F=F, Fu=Fu, Fp=Fp)
 

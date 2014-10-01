@@ -19,12 +19,12 @@ def mesh(Nx, Ny, **params):
     return SubMesh(mesh_, mf1, 0)
 
 # Override some problem specific parameters
-Re = 5000.
+Re = 500.
 nu = 1./Re
 NS_parameters.update(dict(
     nu = nu,
     T = 10,
-    dt = 0.001,
+    dt = 0.01,
     Re = Re,
     Nx = 40,
     Ny = 40,
