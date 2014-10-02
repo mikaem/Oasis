@@ -67,12 +67,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
         from fenicstools.WeightedGradient import weighted_gradient_matrix
         dP = weighted_gradient_matrix(mesh, range(dim), degree=velocity_degree, 
                                       constrained_domain=constrained_domain)
-        dp = Function(V) 
-        d.update(dP=dP, dp=dp)
-        from fenicstools import divergence_matrix
-        C = divergence_matrix(mesh)
-        MA = assemble(q*TrialFunction(FunctionSpace(mesh, "DG", 0))*dx)
-        d.update(C=C, MA=MA)
+        d.update(dP=dP)
         
     elif velocity_update_type.upper() == "LUMPING":
         ones = Function(V)
