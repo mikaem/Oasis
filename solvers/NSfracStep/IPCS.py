@@ -54,15 +54,16 @@ def velocity_tentative_solve(ui, F, q_, bcs, x_, b_tmp, udiff, **NS_namespace):
     solve(A == L, q_[ui], bcs[ui])
     udiff[0] += norm(b_tmp[ui] - x_[ui])
     
-def pressure_solve(Fp, p_, bcs, dp_, x_, **NS_namespace):
+def pressure_solve(Fp, p_, bcs, dp_, x_, u_, q_, Q, **NS_namespace):
     """Solve pressure equation."""    
     dp_.vector()[:] = x_['p']
     solve(lhs(Fp) == rhs(Fp), p_, bcs['p'])   
     if bcs['p'] == []:
         normalize(p_.vector())
-    dp_.vector()[:] = x_['p'] - dp_.vector()
+    dp_.vector()._scale(-1)
+    dp_.vector().axpy(1.0, x_['p'])
 
-def velocity_update(u_components, q_, bcs, Fu, **NS_namespace):
+def velocity_update(u_components, q_, bcs, Fu, dp_, **NS_namespace):
     """Update the velocity after finishing pressure velocity iterations."""
     for ui in u_components:
         solve(lhs(Fu[ui]) == rhs(Fu[ui]), q_[ui], bcs[ui])

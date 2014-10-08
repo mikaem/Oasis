@@ -15,46 +15,56 @@ from IPCS_ABCN import * # reuse code from IPCS_ABCN
 from IPCS_ABCN import __all__
 
 def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
-          bcs, scalar_components, V, Q, x_, dim, mesh, u_, q_,
+          bcs, scalar_components, V, Q, x_, dim, mesh, u_, q_, p_, q_1, q_2,
           constrained_domain, velocity_update_type, 
-          OasisFunction, **NS_namespace):
+          DivFunction, GradFunction, assemble_matrix, **NS_namespace):
     """Set up all equations to be solved."""
-    P = None
-    Rx = None
-    Hx = None
-    if not low_memory_version:
-        # Constant pressure gradient matrix
-        P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
-
-        # Constant velocity divergence matrix
-        if V == Q:
-            Rx = P
-        else:
-            Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
 
     # Mass matrix
-    M = assemble(inner(u, v)*dx)                    
-
+    M = assemble_matrix(inner(u, v)*dx)
+    
     # Stiffness matrix (without viscosity coefficient)
-    K = assemble(inner(grad(u), grad(v))*dx)        
+    K = assemble_matrix(inner(grad(u), grad(v))*dx)        
     
     # Pressure Laplacian. Either reuse K or assemble new
-    if V == Q and bcs['p'] == []:
-        Ap = K
+    Ap = assemble_matrix(inner(grad(q), grad(p))*dx, bcs["p"])
+
+    if not Ap.id() == K.id():
+        Bp = Matrix()
+        Ap.compressed(Bp)
+        Ap = Bp
+                  
+    #if V == Q and bcs['p'] == []:
+        #Ap = K
         
-    else:
-        Bp = assemble(inner(grad(q), grad(p))*dx) 
-        [bc.apply(Bp) for bc in bcs['p']]
-        Ap = Matrix()
-        Bp.compressed(Ap)
+    #else:
+        #Bp = assemble(inner(grad(q), grad(p))*dx) 
+        #[bc.apply(Bp) for bc in bcs['p']]
+        #Ap = Matrix()
+        #Bp.compressed(Ap)
 
     # Allocate coefficient matrix (needs reassembling)
     A = Matrix(M)
     
-    divu = OasisFunction(div(u_), Q, matvec=(Rx, q_), name="divu")
+    # Allocate Function for holding and computing the velocity divergence on Q
+    divu = DivFunction(u_, Q, name="divu", method=velocity_update_type,
+                       low_memory_version=low_memory_version)
+    
+    # Allocate a dictionary of Functions for holding and computing the pressure gradient
+    gradp = {ui: GradFunction(p_, V, i=i, name="dpd"+("x","y","z")[i],
+                              method=velocity_update_type,
+                              low_memory_version=low_memory_version) 
+                              for i, ui in enumerate(u_components)}
 
+    # Check first if we are starting from zero velocity
+    initial_u1_norm = sum([q_1[ui].vector().norm("l2") for ui in u_components])
+    initial_u2_norm = sum([q_2[ui].vector().norm("l2") for ui in u_components])
+    
+    # In that case use Euler on first iteration
+    beta = Constant(2.0) if abs(initial_u1_norm - initial_u2_norm) > DOLFIN_EPS_LARGE else Constant(3.0)
+    
     # Create dictionary to be returned into global NS namespace
-    d = dict(P=P, Rx=Rx, A=A, M=M, K=K, Ap=Ap, divu=divu)
+    d = dict(A=A, M=M, K=K, Ap=Ap, divu=divu, gradp=gradp, beta=beta)
 
     # Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
     if len(scalar_components) > 0:
@@ -67,26 +77,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
             bb = Vector(x_[scalar_components[0]])
             bx = Vector(x_[scalar_components[0]])
             d.update(Tb=Tb, bb=bb, bx=bx)    
-    
-    # Allocate for velocity update 
-    if velocity_update_type.upper() == "GRADIENT_MATRIX":
-        from fenicstools.WeightedGradient import weighted_gradient_matrix
-        dP = weighted_gradient_matrix(mesh, range(dim), degree=velocity_degree, 
-                                      constrained_domain=constrained_domain)
-        d.update(dP=dP)
         
-    elif velocity_update_type.upper() == "LUMPING":
-        ones = Function(V)
-        ones.vector()[:] = 1.
-        ML = M * ones.vector()
-        ML.set_local(1. / ML.array())
-        d.update(ML=ML)
-        
-    else:
-        Mu = Matrix(M) if len(scalar_components) > 0 else M # Copy if used by scalars
-        [bc.apply(Mu) for bc in bcs['u0']]
-        d.update(Mu=Mu)
-    
     # Setup for solving convection
     u_convecting = as_vector([Function(V) for i in range(len(u_components))])
     a_conv = inner(v, dot(u_convecting, nabla_grad(u)))*dx  # Faster version
@@ -97,7 +88,7 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
 def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components,
                               a_scalar, K, nu, u_components,
                               b_tmp, b0, x_1, x_2, u_convecting, 
-                              bcs, **NS_namespace):
+                              bcs, beta, **NS_namespace):
     """Called on first inner iteration of velocity/pressure system.
     
     Assemble convection matrix, compute rhs of tentative velocity and 
@@ -113,7 +104,7 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components,
 
     assemble(a_conv, tensor=A) 
     
-    #Set up scalar matrix for rhs using the same convection as velocity
+    #Set up scalar matrix
     if len(scalar_components) > 0:      
         Ta = NS_namespace["Ta"]
         if a_scalar is a_conv:
@@ -126,38 +117,60 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components,
     for ui in u_components:
         b_tmp[ui].zero()              # start with body force
         b_tmp[ui].axpy(1., b0[ui])
-        b_tmp[ui].axpy(2.0/dt, M*x_1[ui]) 
-        b_tmp[ui].axpy(-0.5/dt, M*x_2[ui]) 
+        b_tmp[ui].axpy(4.0/(beta(0)*dt), M*x_1[ui]) 
+        b_tmp[ui].axpy(-1.0/(beta(0)*dt), M*x_2[ui]) 
         
     A.axpy(nu, K, True)
-    A.axpy(1.5/dt, M, True)    
+    A.axpy(3.0/beta(0)/dt, M, True)    
     [bc.apply(A) for bc in bcs['u0']]
-         
-def pressure_assemble(b, Rx, x_, dt, q, Ap, b_tmp, divu, **NS_namespace):
+
+def velocity_tentative_assemble(ui, b, b_tmp, x_, gradp, q_, **NS_namespace):
+    """Add pressure gradient to rhs of tentative velocity system."""
+    b[ui].zero()
+    b[ui].axpy(1., b_tmp[ui])
+    gradp[ui].assemble_rhs(q_["p"])
+    b[ui].axpy(-1., gradp[ui].rhs)
+       
+def pressure_assemble(b, dt, divu, beta, Ap, x_, nu, u_, q, **NS_namespace):
     """Assemble rhs of pressure equation."""
-    b["p"].zero()
+    #divu.assemble_rhs()
     divu()
     b["p"][:] = divu.rhs
-    b["p"]._scale(-1.5/dt)
+    b["p"]._scale(-3.0/beta(0)/dt)
+    b["p"].axpy(1., Ap*x_["p"])
+    # There's a small difference here from BDFPC in the assembling of b["p"]
+    b["p"].axpy(-nu, Ap*divu.vector())
+    #b["p"].axpy(-nu, assemble(inner(grad(div(u_)), grad(q))*dx))
          
-def pressure_solve(dp_, x_, Ap, b, p_sol, bcs, nu, divu, Q, **NS_namespace):
+def pressure_solve(dp_, x_, Ap, b, p_sol, bcs, nu, divu, Q, beta, **NS_namespace):
     """Solve pressure equation."""    
-    [bc.apply(b['p']) for bc in bcs['p']]
+    [bc.apply(b["p"]) for bc in bcs["p"]]
     dp_.vector().zero()
+    dp_.vector().axpy(1., x_["p"])
     # KrylovSolvers use nullspace for normalization of pressure
-    if hasattr(p_sol, 'null_space'):
-        p_sol.null_space.orthogonalize(b['p'])
+    if hasattr(p_sol, "null_space"):
+        p_sol.null_space.orthogonalize(b["p"])
 
     t1 = Timer("Pressure Linear Algebra Solve")
-    p_sol.solve(Ap, dp_.vector(), b['p'])
+    p_sol.solve(Ap, x_["p"], b["p"])
     t1.stop()
     # LUSolver use normalize directly for normalization of pressure
     if hasattr(p_sol, 'normalize'):
-        normalize(dp_.vector())
+        normalize(x_["p"])
 
-    x_["p"].axpy(1, dp_.vector())
-    x_["p"].axpy(-nu, divu.vector())
-    dp_.vector()._scale(2./3.) # To reuse code from IPCS_ABCN
+    dp_.vector()._scale(-1)
+    dp_.vector().axpy(1.0, x_['p'])
+    dp_.vector().axpy(nu, divu.vector())
+    dp_.vector()._scale(beta(0)/3.0) # To reuse code from IPCS_ABCN
+    
+def velocity_update(u_components, bcs, dp_, dt, x_, gradp, beta, **NS_namespace):
+    """Update the velocity after regular pressure velocity iterations."""
+    # Compute pressure gradient
+    for ui in u_components:
+        gradp[ui](dp_)
+        x_[ui].axpy(-dt, gradp[ui].vector())
+        [bc.apply(x_[ui]) for bc in bcs[ui]]
+    beta.assign(2.0)
 
 def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components, 
                     nu, Schmidt, b, K, x_1, b0, **NS_namespace):

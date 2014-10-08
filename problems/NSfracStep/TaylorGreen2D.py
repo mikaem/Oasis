@@ -25,8 +25,8 @@ NS_parameters.update(
 )
 NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
                                    'report': False,
-                                   'relative_tolerance': 1e-12,
-                                   'absolute_tolerance': 1e-12}
+                                   'relative_tolerance': 1e-10,
+                                   'absolute_tolerance': 1e-10}
 
 def mesh(Nx, Ny, **params):
     return RectangleMesh(0, 0, 2, 2, Nx, Ny)
@@ -90,6 +90,8 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
         plot(q_['u0'], title='u')
         plot(q_['u1'], title='v')
         plot(q_['p'], title='p')
+        interactive()
+        
     if tstep % compute_error == 0:
         err = {}
         for i, ui in enumerate(sys_comp):

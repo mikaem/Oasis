@@ -118,14 +118,14 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         if velocity_update_type != "default":
             du_sol = None
         else:
-            du_sol = KrylovSolver('bicgstab', 'additive_schwarz')
+            du_sol = KrylovSolver('minres', 'petsc_amg')
             if "structure" in du_sol.parameters['preconditioner']:
                 du_sol.parameters['preconditioner']['structure'] = "same"
             else:
                 du_sol.parameters['preconditioner']['reuse'] = True
             du_sol.parameters.update(krylov_solvers)
                 
-            du_sol.parameters['preconditioner']['ilu']['fill_level'] = 2
+            #du_sol.parameters['preconditioner']['ilu']['fill_level'] = 2
             #PETScOptions.set("pc_hypre_euclid_bj", True)
             #PETScOptions.set("pc_hypre_euclid_print_statistics", True)
 
@@ -271,7 +271,7 @@ def velocity_tentative_solve(ui, A, bcs, x_, x_2, u_sol, b, udiff,
     t1.stop()
     udiff[0] += norm(x_2[ui] - x_[ui])
 
-def pressure_assemble(b, Rx, x_, dt, q, u_, Ap, b_tmp, **NS_namespace):
+def pressure_assemble(b, Rx, x_, dt, q, u_, Ap, **NS_namespace):
     """Assemble rhs of pressure equation."""
     b['p'].zero()
     if Rx:
