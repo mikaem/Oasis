@@ -71,15 +71,29 @@ initial_fields = dict(
         u2='0',
         p='(cos(2*x[0])+cos(2*x[1]))*(cos(2*x[2])+2)')
     
-def initialize(q_, q_1, q_2, VV, initial_fields, **NS_namespace):
+def initialize(q_, q_1, q_2, VV, initial_fields, OasisFunction, **NS_namespace):
     for ui in q_:
-        vv = project(Expression((initial_fields[ui])), VV[ui])
+        vv = OasisFunction(Expression((initial_fields[ui])), VV[ui])
+        vv()
         q_[ui].vector()[:] = vv.vector()[:]
         if not ui == 'p':
             q_1[ui].vector()[:] = q_[ui].vector()[:]
             q_2[ui].vector()[:] = q_[ui].vector()[:]
 
-def temporal_hook(u_, p_, tstep, plot_interval, **NS_namespace):
+kin = zeros(1)
+def temporal_hook(u_, p_, tstep, plot_interval, print_intermediate_info, nu, 
+                  dt, t, **NS_namespace):
+    if (tstep % print_intermediate_info == 0 or
+        tstep % print_intermediate_info == 1):
+        kinetic = assemble(0.5*dot(u_, u_)*dx) / (2*pi)**3
+        if tstep % print_intermediate_info == 0:
+            kin[0] = kinetic
+            dissipation = assemble(nu*inner(grad(u_), grad(u_))*dx) / (2*pi)**3
+            info_blue("Kinetic energy = {} at time = {}".format(kinetic, t)) 
+            info_blue("Energy dissipation rate = {}".format(dissipation))
+        else:
+            info_blue("dk/dt = {} at time = {}".format((kinetic-kin[0])/dt, t))
+
     if tstep % plot_interval == 0:
         plot(p_, title='pressure')
         plot(u_[0], title='velocity-x')
