@@ -118,7 +118,9 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         if velocity_update_type != "default":
             du_sol = None
         else:
-            du_sol = KrylovSolver('minres', 'petsc_amg')
+            #du_sol = KrylovSolver('bicgstab', 'jacobi')
+            du_sol = KrylovSolver('bicgstab', 'additive_schwarz')
+            #du_sol = KrylovSolver('bicgstab', 'petsc_amg')
             if "structure" in du_sol.parameters['preconditioner']:
                 du_sol.parameters['preconditioner']['structure'] = "same"
             else:

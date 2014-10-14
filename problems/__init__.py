@@ -30,6 +30,7 @@ parameters["form_compiler"]["representation"] = "quadrature"
 parameters["form_compiler"]["cpp_optimize_flags"] = "-O3 --fast-math"
 parameters["mesh_partitioner"] = "ParMETIS"
 parameters["form_compiler"].add("no_ferari", True)
+#parameters["ghost_mode"] = "shared_vertex"
 #set_log_active(False)
 
 # Default parameters for all solvers

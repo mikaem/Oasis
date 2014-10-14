@@ -69,7 +69,7 @@ initial_fields = dict(
         u0='sin(x[0])*cos(x[1])*cos(x[2])',
         u1='-cos(x[0])*sin(x[1])*cos(x[2])',
         u2='0',
-        p='(cos(2*x[0])+cos(2*x[1]))*(cos(2*x[2])+2)')
+        p='1./16.*(cos(2*x[0])+cos(2*x[1]))*(cos(2*x[2])+2)')
     
 def initialize(q_, q_1, q_2, VV, initial_fields, OasisFunction, **NS_namespace):
     for ui in q_:
