@@ -16,7 +16,7 @@ def setup(u_, p_, up_, up, u, p, v, q, nu, mesh, c, ct, q_,
     F_nonlinear = inner(dot(grad(u_), u_), v)*r*dx()
     F_linear    = nu*inner(grad(u_), grad(v))*r*dx() + nu*u_[1]*v[1]/r*dx() \
                   - inner(p_, (r*v [1]).dx(1) + r*v [0].dx(0))*dx() \
-                  - inner(q , (r*u_[1]).dx(1) + r*u_[0].dx(0))*dx() 
+                  - inner(q , (r*u_[1]).dx(1) + r*u_[0].dx(0))*dx() \
                   + nu*inner(grad(u_).T, grad(v))*r*dx() \
                   - nu*inner(dot(grad(u_).T, n), v)*ds()
 

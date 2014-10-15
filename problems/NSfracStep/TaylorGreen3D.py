@@ -8,6 +8,9 @@ from ..NSfracStep import *
 def mesh(Nx, Ny, Nz, **params):
     return BoxMesh(-pi, -pi, -pi, pi, pi, pi, Nx, Ny, Nz)
 
+def near(x, y, tol=1e-12):
+    return bool(abs(x-y) < tol)
+
 class PeriodicDomain(SubDomain):
     
     def inside(self, x, on_boundary):
