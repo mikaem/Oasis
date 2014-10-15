@@ -105,8 +105,8 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
     """
     if use_krylov_solvers:
         ## tentative velocity solver ##
-        u_sol = KrylovSolver('bicgstab', 'jacobi')
-        #u_sol = KrylovSolver('bicgstab', 'additive_schwarz')
+        #u_sol = KrylovSolver('bicgstab', 'jacobi')
+        u_sol = KrylovSolver('bicgstab', 'additive_schwarz')
         if "structure" in u_sol.parameters['preconditioner']:
             u_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
         else:
@@ -140,7 +140,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         #p_sol = PETScKrylovSolver('gmres', p_prec)
         #p_sol.p_prec = p_prec
         if bcs['p'] == []:
-            p_sol = KrylovSolver('gmres', 'hypre_amg')
+            p_sol = KrylovSolver('cg', 'hypre_amg')
         else:
             p_sol = KrylovSolver('gmres', 'hypre_amg')
         
