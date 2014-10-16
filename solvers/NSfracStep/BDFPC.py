@@ -25,8 +25,8 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
     Fu = {}
     
     # Check first if we are starting from zero velocity
-    initial_u1_norm = sum([q_1[ui].vector().norm("l2") for ui in u_components])
-    initial_u2_norm = sum([q_2[ui].vector().norm("l2") for ui in u_components])
+    initial_u1_norm = sum([q_1[ui].vector().norm('l2') for ui in u_components])
+    initial_u2_norm = sum([q_2[ui].vector().norm('l2') for ui in u_components])
     
     # In that case use Euler on first iteration
     beta = Constant(2.0) if abs(initial_u1_norm - initial_u2_norm) > DOLFIN_EPS_LARGE else Constant(3.0)
@@ -47,10 +47,10 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
     Fp = inner(grad(q), grad(p) - grad(p_)+nu*grad(div(u_)))*dx + 3.0/beta/dt*div(u_)*q*dx
     
     # create Function to hold projection of div(u_) on Q
-    divu = DivFunction(u_, Q, name="divu")
+    divu = DivFunction(u_, Q, name='divu')
     
     gradp = {ui: GradFunction(p_, V, i=i, 
-                              name="dpd"+("x","y","z")[i]) 
+                              name='dpd'+('x','y','z')[i]) 
                               for i, ui in enumerate(u_components)}
 
     # Scalar with SUPG
@@ -75,8 +75,8 @@ def velocity_tentative_solve(ui, F, q_, bcs, x_, b_tmp, udiff, beta, **NS_namesp
 def pressure_solve(Fp, p_, bcs, dp_, x_, nu, divu, Q, beta, **NS_namespace):
     """Solve pressure equation."""    
     dp_.vector()[:] = x_['p']
-    solve(lhs(Fp) == rhs(Fp), p_, bcs["p"])   
-    if bcs["p"] == []:
+    solve(lhs(Fp) == rhs(Fp), p_, bcs['p'])   
+    if bcs['p'] == []:
         normalize(p_.vector())
     dp_.vector()._scale(-1)
     dp_.vector().axpy(1.0, x_['p'])

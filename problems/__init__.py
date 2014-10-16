@@ -163,7 +163,11 @@ def post_import_problem(NS_parameters, mesh, commandline_kwargs,
     """Called after importing from problem."""   
     
     # Update NS_parameters with all parameters modified through command line 
-    NS_parameters.update(commandline_kwargs)
+    for key, val in commandline_kwargs.iteritems():
+        if isinstance(val, dict):
+            NS_parameters[key].update(val)
+        else:
+            NS_parameters[key] = val
 
     # If the mesh is a callable function, then create the mesh here.
     if callable(mesh):

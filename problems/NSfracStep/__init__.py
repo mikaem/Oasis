@@ -42,7 +42,27 @@ NS_parameters.update(
     nonzero_initial_guess = True,
     maximum_iterations = 200,
     relative_tolerance = 1e-8,
-    absolute_tolerance = 1e-8)
+    absolute_tolerance = 1e-8),
+  
+  # Velocity update
+  velocity_update_solver = dict(
+    method = 'default', #"lumping", "gradient_matrix" 
+    solver_type = 'cg',
+    preconditioner_type = 'additive_schwarz',
+    low_memory_version = False),
+  
+  velocity_krylov_solver = dict(
+    solver_type = 'bicgstab',
+    preconditioner_type = 'additive_schwarz'),
+  
+  pressure_krylov_solver = dict(
+    solver_type = 'gmres',
+    preconditioner_type = 'hypre_amg'),
+  
+  scalar_krylov_solver = dict(
+    solver_type = 'bicgstab',
+    preconditioner_type = 'additive_schwarz')
+  
 )
   
 def velocity_tentative_hook(**NS_namespace):

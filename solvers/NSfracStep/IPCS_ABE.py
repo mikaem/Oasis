@@ -9,47 +9,48 @@ from IPCS_ABCN import __all__, attach_pressure_nullspace
 
 docstrings = {func: eval(func+".__doc__") for func in __all__}
 
-def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
-          bcs, scalar_components, V, Q, x_, U_AB,
-          velocity_update_type, u_1, u_2, **NS_namespace):    
+def setup(u_components, u, v, p, q,
+          bcs, scalar_components, V, Q, x_, U_AB, A_cache,
+          velocity_update_solver, u_, u_1, u_2, p_, assemble_matrix,
+          GradFunction, DivFunction, **NS_namespace):    
     """Preassemble mass and diffusion matrices. 
     
     Set up and prepare all equations to be solved. Called once, before 
     going into time loop.
     
     """
-
-    P = None
-    Rx = None        
-    if not low_memory_version:
-        # Constant pressure gradient matrix
-        P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
-
-        # Constant velocity divergence matrix
-        Rx = P
-        if V != Q:
-            Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
-
     # Mass matrix
-    M = assemble(inner(u, v)*dx)                    
+    M = assemble_matrix(inner(u, v)*dx)                    
 
     # Stiffness matrix (without viscosity coefficient)
-    K = assemble(inner(grad(u), grad(v))*dx)        
-
+    K = assemble_matrix(inner(grad(u), grad(v))*dx)        
+    
     # Pressure Laplacian. Either reuse K or assemble new
-    if V == Q and bcs['p'] == []:
-        Ap = K
-        
-    else:
-        Ap = assemble(inner(grad(q), grad(p))*dx) 
-        [bc.apply(Ap) for bc in bcs['p']]
-        Ap.compress()
+    Ap = assemble_matrix(inner(grad(q), grad(p))*dx, bcs['p'])
+
+    if not Ap.id() == K.id():
+        # Compress matrix (creates new matrix)
+        Bp = Matrix()
+        Ap.compressed(Bp)
+        Ap = Bp
+        # Replace cached matrix with compressed version
+        key = (inner(grad(q), grad(p))*dx, tuple(bcs['p']))
+        A_cache[key] = (Ap, A_cache[key][1])
 
     # Allocate coefficient matrix (needs reassembling)
     A = Matrix(M)
 
+    # Allocate Function for holding and computing the velocity divergence on Q
+    divu = DivFunction(u_, Q, name='divu', 
+                       method=velocity_update_solver)
+
+    # Allocate a dictionary of Functions for holding and computing pressure gradients
+    gradp = {ui: GradFunction(p_, V, i=i, name='dpd'+('x','y','z')[i],
+                              method=velocity_update_solver) 
+                              for i, ui in enumerate(u_components)}
+
     # Create dictionary to be returned into global NS namespace
-    d = dict(P=P, Rx=Rx, A=A, M=M, K=K, Ap=Ap)
+    d = dict(A=A, M=M, K=K, Ap=Ap, divu=divu, gradp=gradp)
 
     # Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
     if len(scalar_components) > 0:
@@ -62,25 +63,6 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
             bb = Vector(x_[scalar_components[0]])
             bx = Vector(x_[scalar_components[0]])
             d.update(Tb=Tb, bb=bb, bx=bx)    
-    
-    # Allocate for velocity update 
-    if velocity_update_type.upper() == "GRADIENT_MATRIX":
-        from fenicstools.WeightedGradient import weighted_gradient_matrix
-        dP = weighted_gradient_matrix(mesh, range(dim), velocity_degree, constrained_domain)
-        dp = Function(V) 
-        d.update(dP=dP, dp=dp)        
-    
-    elif velocity_update_type.upper() == "LUMPING":
-        ones = Function(V)
-        ones.vector()[:] = 1.
-        ML = M * ones.vector()
-        ML.set_local(1. / ML.array())
-        d.update(ML=ML)
-        
-    else:
-        Mu = Matrix(M) if len(scalar_components) > 0 else M # Copy if used by scalars
-        [bc.apply(Mu) for bc in bcs['u0']]
-        d.update(Mu=Mu)
         
     # Setup for solving convection
     a_conv = inner(v, dot(u_1, nabla_grad(u)))*dx
@@ -94,6 +76,62 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
     d.update(a_conv=a_conv, A_conv=A_conv, a_scalar=a_scalar)
     
     return d
+
+def get_solvers(use_krylov_solvers, krylov_solvers, sys_comp, bcs, x_, 
+                Q, scalar_components, velocity_update_type, **NS_namespace):
+    """Return linear solvers. 
+    
+    We are solving for
+       - tentative velocity
+       - pressure correction
+       
+       and possibly:       
+       - scalars
+            
+    """
+    if use_krylov_solvers:
+        ## tentative velocity solver ##
+        u_sol = KrylovSolver('bicgstab', 'additive_schwarz')
+        u_sol.parameters['preconditioner']['structure'] = 'same'
+        u_sol.parameters.update(krylov_solvers)
+            
+        ## pressure solver ##
+        if bcs['p'] == []:
+            p_sol = KrylovSolver('cg', 'hypre_amg')
+        else:
+            p_sol = KrylovSolver('gmres', 'hypre_amg')
+            
+        p_sol.parameters['preconditioner']['structure'] = 'same'
+        p_sol.parameters.update(krylov_solvers)
+        if bcs['p'] == []:
+            attach_pressure_nullspace(p_sol, x_, Q)
+        sols = [u_sol, p_sol]
+        ## scalar solver ##
+        if len(scalar_components) > 0:
+            c_sol = KrylovSolver('bicgstab', 'additive_schwarz')
+            c_sol.parameters['preconditioner']['structure'] = 'same_nonzero_pattern'
+            c_sol.parameters.update(krylov_solvers)
+            sols.append(c_sol)
+        else:
+            sols.append(None)
+    else:
+        ## tentative velocity solver ##
+        u_sol = LUSolver('mumps')
+        u_sol.parameters['reuse_factorization'] = True
+        ## pressure solver ##
+        p_sol = LUSolver('mumps')
+        p_sol.parameters['reuse_factorization'] = True
+        if bcs['p'] == []:
+            p_sol.normalize = True
+        sols = [u_sol, p_sol]
+        ## scalar solver ##
+        if len(scalar_components) > 0:
+            c_sol = LUSolver('mumps')
+            sols.append(c_sol)
+        else:
+            sols.append(None)
+        
+    return sols
 
 def assemble_first_inner_iter(A, dt, M, nu, K, b0, b_tmp, A_conv, x_2, x_1,
                               a_conv, u_components, bcs, **NS_namespace):
@@ -126,95 +164,7 @@ def velocity_tentative_solve(ui, A, bcs, x_, x_2, u_sol, b, udiff,
     u_sol.solve(A, x_[ui], b[ui])
     t1.stop()
     udiff[0] += norm(x_2[ui] - x_[ui])
-        
-def get_solvers(use_krylov_solvers, krylov_solvers, sys_comp, bcs, x_, 
-                Q, scalar_components, velocity_update_type, **NS_namespace):
-    """Return linear solvers. 
-    
-    We are solving for
-       - tentative velocity
-       - pressure correction
-       - velocity update (unless lumping is switched on)
-       
-       and possibly:       
-       - scalars
             
-    """
-    if use_krylov_solvers:
-        ## tentative velocity solver ##
-        u_sol = KrylovSolver('bicgstab', 'jacobi')
-        if "structure" in u_sol.parameters['preconditioner']:
-            u_sol.parameters['preconditioner']['structure'] = "same"
-        else:
-            u_sol.parameters['preconditioner']['reuse'] = True
-        u_sol.parameters.update(krylov_solvers)
-            
-        ## velocity correction solver
-        if velocity_update_type != "default":
-            du_sol = None
-        else:
-            du_sol = KrylovSolver('bicgstab', 'jacobi')
-            if "structure" in du_sol.parameters['preconditioner']:
-                du_sol.parameters['preconditioner']['structure'] = "same"
-            else:
-                du_sol.parameters['preconditioner']['reuse'] = True
-            du_sol.parameters.update(krylov_solvers)
-            #du_sol.parameters['preconditioner']['ilu']['fill_level'] = 1
-            #PETScOptions.set("pc_hypre_euclid_print_statistics", True)
-
-        ## pressure solver ##
-        if bcs['p'] == []:
-            p_sol = KrylovSolver('minres', 'hypre_amg')
-        else:
-            p_sol = KrylovSolver('gmres', 'hypre_amg')
-            
-        if "structure" in p_sol.parameters['preconditioner']:
-            p_sol.parameters['preconditioner']['structure'] = "same"
-        else:
-            p_sol.parameters['preconditioner']['reuse'] = True    
-
-        p_sol.parameters.update(krylov_solvers)
-        if bcs['p'] == []:
-            attach_pressure_nullspace(p_sol, x_, Q)
-        sols = [u_sol, p_sol, du_sol]
-        ## scalar solver ##
-        if len(scalar_components) > 0:
-            #c_sol = KrylovSolver('bicgstab', 'hypre_euclid')
-            c_sol = KrylovSolver('bicgstab', 'jacobi')
-            if "structure" in c_sol.parameters['preconditioner']:
-                c_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
-            else:
-                c_sol.parameters['preconditioner']['reuse'] = False
-                c_sol.parameters['preconditioner']['same_nonzero_pattern'] = True    
-            c_sol.parameters.update(krylov_solvers)
-            sols.append(c_sol)
-        else:
-            sols.append(None)
-    else:
-        ## tentative velocity solver ##
-        u_sol = LUSolver()
-        u_sol.parameters['reuse_factorization'] = True
-        ## velocity correction ##
-        if velocity_update_type != "default":
-            du_sol = None
-        else:
-            du_sol = LUSolver()
-            du_sol.parameters['reuse_factorization'] = True
-        ## pressure solver ##
-        p_sol = LUSolver()
-        p_sol.parameters['reuse_factorization'] = True
-        if bcs['p'] == []:
-            p_sol.normalize = True
-        sols = [u_sol, p_sol, du_sol]
-        ## scalar solver ##
-        if len(scalar_components) > 0:
-            c_sol = LUSolver()
-            sols.append(c_sol)
-        else:
-            sols.append(None)
-        
-    return sols
-    
 def scalar_assemble(Ta, a_scalar, dt, M, scalar_components, 
                     b, nu, Schmidt, K, x_1, b0, **NS_namespace):
     Ta = assemble(a_scalar, tensor=Ta)

@@ -10,8 +10,8 @@ the implementations of the more complex optimized solvers.
 
 """
 from dolfin import *
-from solvers import *
-from solvers import __all__
+from ..NSfracStep import *
+from ..NSfracStep import __all__
 
 __all__ += ["max_iter", "iters_on_first_timestep"]
 

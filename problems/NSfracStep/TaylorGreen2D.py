@@ -28,6 +28,13 @@ NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
                                    'relative_tolerance': 1e-10,
                                    'absolute_tolerance': 1e-10}
 
+NS_parameters['velocity_update_solver'] = dict(
+    method = 'default',
+    solver_type = 'cg',
+    preconditioner_type = 'ilu',
+    low_memory_version = False)
+
+
 def mesh(Nx, Ny, **params):
     return RectangleMesh(0, 0, 2, 2, Nx, Ny)
 

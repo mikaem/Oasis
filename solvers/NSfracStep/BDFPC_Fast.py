@@ -14,10 +14,10 @@ from dolfin import *
 from IPCS_ABCN import * # reuse code from IPCS_ABCN
 from IPCS_ABCN import __all__
 
-def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
-          bcs, scalar_components, V, Q, x_, dim, mesh, u_, q_, p_, q_1, q_2,
-          constrained_domain, velocity_update_type, 
-          DivFunction, GradFunction, assemble_matrix, **NS_namespace):
+def setup(low_memory_version, u_components, u, v, p, q,
+          bcs, scalar_components, V, Q, x_, u_, p_, q_1, q_2,
+          velocity_update_type, assemble_matrix, 
+          DivFunction, GradFunction, **NS_namespace):
     """Set up all equations to be solved."""
 
     # Mass matrix
@@ -27,38 +27,29 @@ def setup(low_memory_version, u_components, u, v, p, q, velocity_degree,
     K = assemble_matrix(inner(grad(u), grad(v))*dx)        
     
     # Pressure Laplacian. Either reuse K or assemble new
-    Ap = assemble_matrix(inner(grad(q), grad(p))*dx, bcs["p"])
+    Ap = assemble_matrix(inner(grad(q), grad(p))*dx, bcs['p'])
 
     if not Ap.id() == K.id():
         Bp = Matrix()
         Ap.compressed(Bp)
         Ap = Bp
                   
-    #if V == Q and bcs['p'] == []:
-        #Ap = K
-        
-    #else:
-        #Bp = assemble(inner(grad(q), grad(p))*dx) 
-        #[bc.apply(Bp) for bc in bcs['p']]
-        #Ap = Matrix()
-        #Bp.compressed(Ap)
-
     # Allocate coefficient matrix (needs reassembling)
     A = Matrix(M)
     
     # Allocate Function for holding and computing the velocity divergence on Q
-    divu = DivFunction(u_, Q, name="divu", method=velocity_update_type,
+    divu = DivFunction(u_, Q, name='divu', method=velocity_update_type,
                        low_memory_version=low_memory_version)
     
     # Allocate a dictionary of Functions for holding and computing the pressure gradient
-    gradp = {ui: GradFunction(p_, V, i=i, name="dpd"+("x","y","z")[i],
+    gradp = {ui: GradFunction(p_, V, i=i, name='dpd'+('x','y','z')[i],
                               method=velocity_update_type,
                               low_memory_version=low_memory_version) 
                               for i, ui in enumerate(u_components)}
 
-    # Check first if we are starting from zero velocity
-    initial_u1_norm = sum([q_1[ui].vector().norm("l2") for ui in u_components])
-    initial_u2_norm = sum([q_2[ui].vector().norm("l2") for ui in u_components])
+    # Check first if we are starting from two equal velocities (u_1=u_2)
+    initial_u1_norm = sum([q_1[ui].vector().norm('l2') for ui in u_components])
+    initial_u2_norm = sum([q_2[ui].vector().norm('l2') for ui in u_components])
     
     # In that case use Euler on first iteration
     beta = Constant(2.0) if abs(initial_u1_norm - initial_u2_norm) > DOLFIN_EPS_LARGE else Constant(3.0)
@@ -106,7 +97,7 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components,
     
     #Set up scalar matrix
     if len(scalar_components) > 0:      
-        Ta = NS_namespace["Ta"]
+        Ta = NS_namespace['Ta']
         if a_scalar is a_conv:
             Ta.zero()
             Ta.axpy(1., A, True)
@@ -124,39 +115,38 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components,
     A.axpy(3.0/beta(0)/dt, M, True)    
     [bc.apply(A) for bc in bcs['u0']]
 
-def velocity_tentative_assemble(ui, b, b_tmp, x_, gradp, q_, **NS_namespace):
+def velocity_tentative_assemble(ui, b, b_tmp, x_, gradp, p_, **NS_namespace):
     """Add pressure gradient to rhs of tentative velocity system."""
     b[ui].zero()
     b[ui].axpy(1., b_tmp[ui])
-    gradp[ui].assemble_rhs(q_["p"])
+    gradp[ui].assemble_rhs(p_)
     b[ui].axpy(-1., gradp[ui].rhs)
        
 def pressure_assemble(b, dt, divu, beta, Ap, x_, nu, u_, q, **NS_namespace):
     """Assemble rhs of pressure equation."""
-    #divu.assemble_rhs()
-    divu()
-    b["p"][:] = divu.rhs
-    b["p"]._scale(-3.0/beta(0)/dt)
-    b["p"].axpy(1., Ap*x_["p"])
-    # There's a small difference here from BDFPC in the assembling of b["p"]
-    b["p"].axpy(-nu, Ap*divu.vector())
-    #b["p"].axpy(-nu, assemble(inner(grad(div(u_)), grad(q))*dx))
+    divu() # Both computes div(u_) and the rhs div(u_)*q*dx
+    b['p'][:] = divu.rhs
+    b['p']._scale(-3.0/beta(0)/dt)
+    b['p'].axpy(1., Ap*x_['p'])
+    # There's a small difference here from BDFPC in the assembling of divu
+    b['p'].axpy(-nu, Ap*divu.vector())  # This is fast
+    #b['p'].axpy(-nu, assemble(inner(grad(div(u_)), grad(q))*dx)) # This is exact
          
 def pressure_solve(dp_, x_, Ap, b, p_sol, bcs, nu, divu, Q, beta, **NS_namespace):
     """Solve pressure equation."""    
-    [bc.apply(b["p"]) for bc in bcs["p"]]
+    [bc.apply(b['p']) for bc in bcs['p']]
     dp_.vector().zero()
-    dp_.vector().axpy(1., x_["p"])
+    dp_.vector().axpy(1., x_['p'])
     # KrylovSolvers use nullspace for normalization of pressure
-    if hasattr(p_sol, "null_space"):
-        p_sol.null_space.orthogonalize(b["p"])
+    if hasattr(p_sol, 'null_space'):
+        p_sol.null_space.orthogonalize(b['p'])
 
     t1 = Timer("Pressure Linear Algebra Solve")
-    p_sol.solve(Ap, x_["p"], b["p"])
+    p_sol.solve(Ap, x_['p'], b['p'])
     t1.stop()
     # LUSolver use normalize directly for normalization of pressure
     if hasattr(p_sol, 'normalize'):
-        normalize(x_["p"])
+        normalize(x_['p'])
 
     dp_.vector()._scale(-1)
     dp_.vector().axpy(1.0, x_['p'])
@@ -165,9 +155,8 @@ def pressure_solve(dp_, x_, Ap, b, p_sol, bcs, nu, divu, Q, beta, **NS_namespace
     
 def velocity_update(u_components, bcs, dp_, dt, x_, gradp, beta, **NS_namespace):
     """Update the velocity after regular pressure velocity iterations."""
-    # Compute pressure gradient
     for ui in u_components:
-        gradp[ui](dp_)
+        gradp[ui](dp_)     # Computes gradient of pressure correction
         x_[ui].axpy(-dt, gradp[ui].vector())
         [bc.apply(x_[ui]) for bc in bcs[ui]]
     beta.assign(2.0)
@@ -199,7 +188,7 @@ def scalar_solve(ci, scalar_components, Ta, b, x_, bcs, c_sol,
     #Ta.axpy(0.5*nu/Schmidt[ci], K, True) # Add diffusion
     #if len(scalar_components) > 1: 
         ## Reuse solver for all scalars. This requires the same matrix and vectors to be used by c_sol.
-        #Tb, bb, bx = NS_namespace["Tb"], NS_namespace["bb"], NS_namespace["bx"]
+        #Tb, bb, bx = NS_namespace['Tb'], NS_namespace['bb'], NS_namespace['bx']
         #Tb.zero()
         #Tb.axpy(1., Ta, True)
         #bb.zero(); bb.axpy(1., b[ci])

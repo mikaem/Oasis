@@ -233,7 +233,7 @@ bcs = create_bcs(**vars())
 initialize(**vars())
 
 #  Fetch linear algebra solvers 
-u_sol, p_sol, du_sol, c_sol = get_solvers(**vars())
+u_sol, p_sol, c_sol = get_solvers(**vars())
 
 # Get constant body forces
 f = body_force(**vars())
@@ -274,7 +274,6 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         t0 = OasisTimer("Tentative velocity")
         if inner_iter == 1:
             assemble_first_inner_iter(**vars())
-        
         udiff[0] = 0.0
         for i, ui in enumerate(u_components):
             t1 = OasisTimer('Solving tentative velocity '+ui, print_solve_info)
