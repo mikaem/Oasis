@@ -22,7 +22,6 @@ NS_parameters.update(
   max_error = 1e-6,      # Tolerance for inner iterations (pressure velocity iterations)
   iters_on_first_timestep = 2, # Number of iterations on first timestep
   use_krylov_solvers = False,  # Otherwise use LU-solver
-  low_memory_version = False,  # Use assembler and not preassembled matrices
   print_intermediate_info = 10,
   print_velocity_pressure_convergence = False,
   velocity_update_type = "default",

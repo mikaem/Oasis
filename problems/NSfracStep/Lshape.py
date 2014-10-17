@@ -58,9 +58,9 @@ def create_bcs(V, Q, sys_comp, **NS_namespace):
     bcs['p'] = [pc0, pc1]
     return bcs
 
-def pre_solve_hook(mesh, **NS_namespace):
-    Vv = VectorFunctionSpace(mesh, 'CG', 1)
-    return dict(Vv=Vv, uv=Function(Vv))
+def pre_solve_hook(mesh, OasisFunction, u_, **NS_namespace):
+    Vv = VectorFunctionSpace(mesh, 'CG', 1)    
+    return dict(Vv=Vv, uv=OasisFunction(u_, Vv))
 
 def start_timestep_hook(t, **NS_namespace):
     p_in.t = t
@@ -68,5 +68,5 @@ def start_timestep_hook(t, **NS_namespace):
 def temporal_hook(tstep, q_, u_, uv, Vv, plot_interval, **NS_namespace):
     if tstep % plot_interval == 0:
         plot(q_['p'], title="Pressure")
-        uv.assign(project(u_, Vv))
+        uv() # uv = project(u_, Vv)
         plot(uv, title="Velocity")

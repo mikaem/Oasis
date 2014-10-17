@@ -4,158 +4,36 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 """
-This is a highly tuned and stripped down Navier-Stokes solver optimized
-for both speed and memory. The algorithm used is a second order in time 
-fractional step method (incremental pressure correction). The fractional 
-step method can be used both non-iteratively or with iterations over the 
-pressure velocity system.
+This module implements a generic form of the fractional step method for 
+solving the incompressible Navier-Stokes equations. There are several 
+possible implementations of the pressure correction and the more low-level 
+details are chosen at run-time and imported from any one of:
 
-Crank-Nicolson discretization is used in time for the Laplacian. There
-are two options for convection - implicit or explicit. The implicit
-version uses Crank-Nicolson for the convected velocity and an
-Adams-Bashforth projection for the convecting velocity. The explicit
-version is pure Adams-Bashforth.
+  solvers/NSfracStep/IPCS_ABCN.py    # Implicit convection
+  solvers/NSfracStep/IPCS_ABE.py     # Explicit convection
+  solvers/NSfracStep/IPCS.py         # Naive implict convection
+  solvers/NSfracStep/BDFPC.py        # Naive Backwards Differencing IPCS in rotational form
+  solvers/NSfracStep/BDFPC_Fast.py   # Fast Backwards Differencing IPCS in rotational form
+  solvers/NSfracStep/Chorin.py       # Naive
 
-The differences between the versions of the solver are only visible in
-functions imported from the solverhooks folder:
-  solvers/NSfracStep/IPCS_ABCN.py    # Implicit
-  solvers/NSfracStep/IPCS_ABE.py     # Explicit
-  solvers/NSfracStep/IPCS.py         # Naive
-
-The third naive solver is very simple and not optimized. It is intended 
-for validation of the other versions. A solver is chosen through command-
-line keyword convection="ABCN", "ABE" or "naive".
+The naive solvers are very simple and not optimized. They are intended 
+for validation of the other optimized versions. The fractional step method 
+can be used both non-iteratively or with iterations over the pressure-
+velocity system.
 
 The velocity vector is segregated, and we use three (in 3D) scalar 
-velocity components
+velocity components.
 
-V = FunctionSpace(mesh, 'CG', 1)
-u_components = ['u0', 'u1', 'u2'] in 3D, ['u0', 'u1'] in 2D
-q_[ui] = Function(V) for ui = u_components
-u_ = as_vector(q_['u0'], q_['u1'], q_['u2'])
-
-A single coefficient matrix is assembled and used by all velocity 
-componenets. It is built by preassembling as much as possible. 
-
-The system of momentum equations solved are, for the implicit version, 
-basically:
-
-u = TrialFunction(V)
-v = TestFunction(V)
-U = 0.5*(u+q_1['u0'])     # Scalar
-U1 = 1.5*u_1 - 0.5*u_2    # Vector
-F = (1/dt)*inner(u - u_1, v)*dx + inner(grad(U)*U1, v)*dx + inner(p_.dx(0), v)*dx \
-     nu*inner(grad(U), grad(v))*dx + inner(f[0], v)*dx
-                
-where (q_['u0'], p_.dx(0), f[0]) is replaced by (q_1['u1'], p_.dx(1), f[1]) and 
-(q_1['u2'], p_.dx(2), f[2]) for the two other velocity components.
-We solve an equation corresponding to lhs(F) == rhs(F) for all ui.
-     
-The variables u_1 and u_2 are velocity vectors at time steps k-1 and k-2. We 
-are solving for u, which is the velocity at time step k. p_ is the latest 
-approximation for the pressure.
-
-The matrix corresponding to assemble(lhs(F)) is the same for all velocity
-components and it is computed as:
-
-    A  = 1/dt*M + 0.5*Ac + 0.5*nu*K
-    
-where
-
-    M  = assemble(inner(u, v)*dx)
-    Ac = assemble(inner(grad(u)*U1, v)*dx)
-    K  = assemble(inner(grad(u), grad(v))*dx)
-
-However, we start by assembling a coefficient matrix (A_rhs) that is used 
-to compute parts of the rhs vector corresponding to mass, convection
-and diffusion:
-
-    A_rhs = 1/dt*M - 0.5*Ac - 0.5*nu*K
-    b[ui]  = A_rhs*q_1[ui].vector()
-
-The pressure gradient and body force need to be added to b as well. Three
-matrices are preassembled for the computation of the pressure gradient:
-
-  P = dict((ui, assemble(v*p.dx(i)*dx)) for i, ui in enumerate(u_components))
-
-and the pressure gradient for each component of the momentum equation is 
-then computed as
-
-  assemble(p_.dx(i)*v*dx) = P[ui] * p_.vector()
-
-If memory is an limiting factor, this term may be computed directly through
-only the lhs each timestep. Memory is then saved since P is not preassembled.
-Set parameter low_memory_version = True for lhs version.
-
-Ac needs to be reassembled each new timestep. Ac is assembled into A to 
-save memory. A and A_rhs are recreated each new timestep by assembling Ac, 
-setting up A_rhs and then using the following to create A:
-
-   A = -A_rhs + 2/dt*M
-
-We then solve the linear system A * u = b[ui] for all q_[ui].vector()
-
-Pressure is solved through
-
-  inner(grad(p), grad(q))*dx == inner(grad(p_), grad(q))*dx - 1/dt*inner(div(u_), q)*dx
-
-Here we assemble the rhs by:
-
-  Ap = assemble(inner(grad(p), grad(q))*dx)
-  bp = Ap * p_.vector()
-  for ui in u_components:
-    bp.axpy(-1./dt, Rx[ui]*x_[ui])
-  where the preassemble Rx is:
-    Rx = dict((ui, assemble(q*u.dx(i)*dx)) for i, ui in  enumerate(u_components))
-  
-  Alternatively, if low_memory_version is set to True, then Rx is not preassembled
-  and assemble(q*u.dx(i)*dx is called each timestep.
-
-We then solve Ap * p = bp for p_.vector().
-  
-Velocity update is computed through:
-
-  inner(u, v)*dx == inner(q_[ui], v)*dx - dt*inner(dp_.dx(i), v)*dx
-
-where each component on the rhs of the equation is computed effectively as
-  assemble(inner(q_[ui], v)*dx) = M * q_[ui].vector()
-  assemble(dt*inner(dp_.dx(i), v)*dx) = dt * P[ui] * dp_.vector()
-
-where dp_ is the pressure correction, i.e., th newly computed pressure 
-at the new timestep minus the pressure at previous timestep.
-
-The lhs mass matrix is either the regular M, or the lumped and diagonal
-mass matrix ML computed as
-  ones = Function(V)
-  ones.vector()[:] = 1.
-  ML = M * ones.vector()
-
-A scalar equation is solved through
-  C = 0.5*(u + q_1['c'])
-  F = (1/dt)*inner(u - q_1['c'], v)*dx + inner(grad(C)*U1, v)*dx \
-     nu/Sc*inner(grad(C), grad(v))*dx + inner(fs['c'], v)*dx
-     
-where Sc is the constant Schmidt number and fs['c'] is a source to the
-scalar equation. The scalar is using the same FunctionSpace as the 
-velocity components and it is computed by reusing much of the velocity 
-matrices
-
-    A_rhs = 1/dt*M - 0.5*Ac - 0.5*nu/Sc*K
-    b['c']  = A_rhs*q_1['c'].vector()
-    Ta = -A_rhs + 2/dt*M
-
-and we solve:    
-
-    Ta * c = b['c'] for q_['c'].vector()
-  
-Ta may differ from A due to Dirichlet boundary conditions.
+Each new problem needs to implement a new problem module to be placed in
+the problems/NSfracStep folder. From the problems module one needs to import 
+a mesh and a control dictionary called NS_parameters. See 
+problems/NSfracStep/__init__.py for all possible parameters.
     
 """
 from common import *
 
 ################### Problem dependent parameters ####################
-###  Should import a mesh and a dictionary called NS_parameters   ###
-###  See problems/NSfracStep/__init__.py for possible parameters  ###
+###    ###
 #####################################################################
 
 commandline_kwargs = parse_command_line()

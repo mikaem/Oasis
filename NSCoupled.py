@@ -5,10 +5,22 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from common import *
 
-################### Problem dependent parameters ####################
-###  Should import a mesh and a dictionary called NS_parameters   ###
-###  See problems/NSCoupled/__init__.py for possible parameters   ###
-#####################################################################
+"""
+This module implements a generic steady state coupled solver for the 
+incompressible Navier-Stokes equations. Several mixed function spaces
+are supported. The spaces are chosen at run-time through the parameter    
+elements, that may be
+
+    "TaylorHood" Pq continuous Lagrange elements for velocity and Pq-1 for pressure
+    "CR"         Crouzeix-Raviart for velocity - discontinuous Galerkin (DG0) for pressure
+    "MINI"       P1 velocity with bubble - P1 for pressure
+    
+Each new problem needs to implement a new problem module to be placed in
+the problems/NSCoupled folder. From the problems module one needs to import 
+a mesh and a control dictionary called NS_parameters. See 
+problems/NSCoupled/__init__.py for all possible parameters.    
+
+"""
 
 commandline_kwargs = parse_command_line()
 
@@ -26,7 +38,7 @@ u_components = ['u']
 sys_comp =  ['up'] + scalar_components
 
 # Get the chosen mixed elment
-element = commandline_kwargs.get('element', 'CR')
+element = commandline_kwargs.get('element', 'TaylorHood')
 vars().update(elements[element])
 
 # TaylorHood may overload degree of elements

@@ -14,7 +14,6 @@ NS_parameters.update(
     nu = 0.0035 / 1056.,     
     folder = "nozzle_results",
     max_error = 1e-13,
-    velocity_degree = 2,
     max_iter = 25,
     re_high = re_high)
 
@@ -55,45 +54,3 @@ def pre_solve_hook(mesh, V, **NS_namespace):
     
 def temporal_hook(**NS_namespace):
     pass
-    #TODO: check stats with fenicstools
-    # - Compute velocity at z: -0.088, -0.064, -0.048, -0.02, 0.008, 0.0, 0.008, 0.016, 0.024, 0.032, 0.06, 0.08
-    # - Chech volumetric folow rate trough this points
-    # - Axial velocity 
-    # - Wall pressure
-    # - Axial velocity(r) at each point 
-    # - Shear stress(r) at each point
-    # - Wall shear stress
-    # - Mean error metric
-    # - Use kill_oasis when the stats don't change
-    # - Start update stats after some time T?
-    # - What is the lowest mesh that gives ok results?
-    # - Lowest dt with out crashing
-    
-    ## save plot
-    #if tstep % plot_interval == 0:
-        #uv.assign(project(u_, Vv))
-        #file = File(newfolder + "/VTK/nozzle_velocity_%05d.pvd" % (tstep / plot_interval))
-    #file << uv
-    
-    ## print flux
-    #if tstep % check_flux == 0:
-        #inlet_flux = assemble(dot(u_, normal)*ds(1), exterior_facet_domains=facets)
-    #outlet_flux = assemble(dot(u_, normal)*ds(2), exterior_facet_domains=facets)
-    #rel_err = (abs(inlet_flux) - abs(outlet_flux)) / abs(inlet_flux)
-        #if MPI.process_number() == 0:
-           #info_red("Flux in:         %e\nFlux out:        %e\nRelativ error:   %e\ntstep:           %d" % (inlet_flux, outlet_flux, rel_err, tstep))
-    
-    ## save stats
-    #if tstep % save_statistics == 0:
-    #statsfolder = path.join(newfolder, "Stats")
-    #for i in range(len(stats)):
-        #stats[i].toh5(0, tstep, filename=statsfolder+"/dump_mean_%d_%d.h5" % (i, tstep))
-    
-    ##senterline.toh5(0, tstep, filename=statsfolder+"/dump_mean_senterline_%d.h5" % tstep)
-    
-    ## update stats
-    #if tstep % update_statistics == 0: # and tstep/dt > 4 (or some time):
-    #for i in range(len(stats)):
-        #stats[i](q_['u0'], q_['u1'], q_['u2'])
-    #senterline(q_['u2'])
-    

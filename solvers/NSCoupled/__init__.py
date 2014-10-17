@@ -16,7 +16,7 @@ elements = {
     "TaylorHood":
         dict(family={"u": "CG", "p": "CG"},
              degree = {"u": 2, "p": 1},
-             bubble = None),
+             bubble = False),
     "MINI":
         dict(family={"u": "CG", "p": "CG"},
              degree = {"u": 1, "p": 1},

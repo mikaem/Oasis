@@ -18,7 +18,6 @@ NS_parameters.update(
     print_intermediate_info = 1000,
     compute_error = 1,
     use_krylov_solvers = False,
-    low_memory_version = False,
     velocity_degree = 1,
     pressure_degree = 1,
     krylov_report = False
@@ -27,13 +26,6 @@ NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
                                    'report': False,
                                    'relative_tolerance': 1e-10,
                                    'absolute_tolerance': 1e-10}
-
-NS_parameters['velocity_update_solver'] = dict(
-    method = 'default',
-    solver_type = 'cg',
-    preconditioner_type = 'ilu',
-    low_memory_version = False)
-
 
 def mesh(Nx, Ny, **params):
     return RectangleMesh(0, 0, 2, 2, Nx, Ny)

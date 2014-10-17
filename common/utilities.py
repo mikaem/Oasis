@@ -5,7 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import assemble, KrylovSolver, LUSolver,  Function, TrialFunction, \
     TestFunction, dx, Vector, Matrix, GenericMatrix, FunctionSpace, Timer, div, \
-    Form, Coefficient
+    Form, Coefficient, inner
 
 # Create some dictionaries to hold work matrices
 class Mat_cache_dict(dict):
@@ -59,8 +59,8 @@ class OasisFunction(Function):
         self.matvec = matvec
         self.trial = trial = TrialFunction(Space)
         self.test = test = TestFunction(Space)
-        Mass = trial*test*dx()
-        self.bf = form*test*dx()
+        Mass = inner(trial, test)*dx()
+        self.bf = inner(form, test)*dx()
         self.rhs = Vector(self.vector())
         
         if method.lower() == "default":

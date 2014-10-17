@@ -62,11 +62,15 @@ def pre_solve_hook(mesh, velocity_degree, constrained_domain, **NS_namespace):
 
 def temporal_hook(tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace):
     if tstep % plot_interval == 0:
-        uv.assign(project(u_, Vv))
+        assign(uv.sub(0), u_[0])
+        assign(uv.sub(1), u_[1])
+        assign(uv.sub(2), u_[2])
         plot(uv, title='Velocity')
         plot(p_, title='Pressure')
 
 def theend_hook(u_, p_, uv, Vv, **NS_namespace):
-    uv.assign(project(u_, Vv))
+    assign(uv.sub(0), u_[0])
+    assign(uv.sub(1), u_[1])
+    assign(uv.sub(2), u_[2])
     plot(uv, title='Velocity')
     plot(p_, title='Pressure')

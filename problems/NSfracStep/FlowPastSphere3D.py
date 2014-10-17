@@ -7,14 +7,13 @@ from ..NSfracStep import *
 from numpy import cos, pi, cosh
 from os import getcwd
 import cPickle
-from fenicstools import interpolate_nonmatching_mesh
 
 #restart_folder = "results/data/36/Checkpoint"
 restart_folder = None
 
 # Create a mesh
 def mesh(h, sol, **params):
-    m = Mesh('/home/mikael/MySoftware/Oasis/mesh/boxwithsphererefined.xml')
+    m = Mesh('/home/mikael/MySoftware/Oasis/mymesh/boxwithsphererefined.xml')
     return m
 
 if restart_folder:
@@ -37,7 +36,6 @@ else:
         velocity_degree = 2,
         plot_interval = 10,
         print_intermediate_info = 10,
-        velocity_update_type = 'gradient_matrix',
         use_krylov_solvers = True)
     NS_parameters['krylov_solvers']['monitor_convergence'] = True
 
@@ -65,13 +63,16 @@ def create_bcs(V, Q, mesh, **NS_namespace):
     solve(inner(grad(us), grad(vs))*dx == Constant(0.1)*vs*dx, su, 
           bcs=[DirichletBC(Vu, Constant(0), DomainBoundary())])
         
-    su = interpolate_nonmatching_mesh(su, V)
-    #plot(su, interactive=True)
+    lp = LagrangeInterpolator()
+    sv = Function(V)
+    lp.interpolate(sv, su)
+    plot(su, interactive=True)
+    plot(sv, interactive=True)
     bc0  = DirichletBC(V, 0, walls)
     bc1  = DirichletBC(V, 0, inners)
     bcp1 = DirichletBC(Q, 0, outlet)
     bc2 = DirichletBC(V, 0, inlet)
-    bc3 = DirichletBC(V, su, inlet)
+    bc3 = DirichletBC(V, sv, inlet)
     return dict(u0 = [bc0, bc1, bc3],
                 u1 = [bc0, bc1, bc2],
                 u2 = [bc0, bc1, bc2],
@@ -89,11 +90,15 @@ def pre_solve_hook(mesh, velocity_degree, **NS_namespace):
 
 def temporal_hook(tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace):
     if tstep % plot_interval == 0:
-        uv.assign(project(u_, Vv))
+        assign(uv.sub(0), u_[0])
+        assign(uv.sub(1), u_[1])
+        assign(uv.sub(2), u_[2])
         plot(uv, title='Velocity')
         plot(p_, title='Pressure')
 
 def theend_hook(u_, p_, uv, Vv, **NS_namespace):
-    uv.assign(project(u_, Vv))
+    assign(uv.sub(0), u_[0])
+    assign(uv.sub(1), u_[1])
+    assign(uv.sub(2), u_[2])
     plot(uv, title='Velocity')
     plot(p_, title='Pressure')

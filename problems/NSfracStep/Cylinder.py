@@ -29,7 +29,6 @@ else:
         plot_interval = 10,
         velocity_degree = 2,
         print_intermediate_info = 100,
-        #velocity_update_type = 'gradient_matrix',
         use_krylov_solvers = True,
         krylov_solvers = dict(monitor_convergence=True))
 
