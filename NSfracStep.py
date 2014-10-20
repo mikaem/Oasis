@@ -32,10 +32,6 @@ problems/NSfracStep/__init__.py for all possible parameters.
 """
 from common import *
 
-################### Problem dependent parameters ####################
-###    ###
-#####################################################################
-
 commandline_kwargs = parse_command_line()
 
 default_problem = 'DrivenCavity'

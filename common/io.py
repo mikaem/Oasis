@@ -54,6 +54,7 @@ def create_initial_folders(folder, restart_folder, sys_comp, tstep, info_red,
     for ui in comps:
         tstepfiles[ui] = XDMFFile(mpi_comm_world(), path.join(tstepfolder, ui+'_from_tstep_{}.xdmf'.format(tstep)))
         tstepfiles[ui].parameters["rewrite_function_mesh"] = False
+        tstepfiles[ui].parameters["flush_output"] = True
     
     return newfolder, tstepfiles
 
@@ -84,10 +85,10 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
         for comp, tstepfile in tstepfiles.iteritems():
             if comp == "u":
                 V = q_['u0'].function_space()
-                Vv = VectorFunctionSpace(V.mesh(), V.ufl_element().family(), V.ufl_element().degree(),
-                                        constrained_domain=constrained_domain)
                 # First time around create vector function and assigners
                 if not hasattr(tstepfile, 'uv'):
+                    Vv = VectorFunctionSpace(V.mesh(), V.ufl_element().family(), V.ufl_element().degree(),
+                                            constrained_domain=constrained_domain)
                     tstepfile.uv = Function(Vv)
                     tstepfile.fa = [FunctionAssigner(Vv.sub(i), V) for i, ui in enumerate(u_components)]
 

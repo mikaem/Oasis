@@ -19,7 +19,7 @@ except:
             mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
         else:
             mymemory = getoutput("ps -o vsz %s" % mypid).split()[1]
-        return eval(mymemory)
+        return eval(mymemory) / 1024
 
 parameters["linear_algebra_backend"] = "PETSc"
 parameters["form_compiler"]["optimize"] = True

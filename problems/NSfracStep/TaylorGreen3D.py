@@ -85,7 +85,8 @@ def initialize(q_, q_1, q_2, VV, initial_fields, OasisFunction, **NS_namespace):
 
 kin = zeros(1)
 def temporal_hook(u_, p_, tstep, plot_interval, print_intermediate_info, nu, 
-                  dt, t, **NS_namespace):
+                  dt, t, oasis_memory, **NS_namespace):
+    oasis_memory("tmp", True)
     if (tstep % print_intermediate_info == 0 or
         tstep % print_intermediate_info == 1):
         kinetic = assemble(0.5*dot(u_, u_)*dx) / (2*pi)**3

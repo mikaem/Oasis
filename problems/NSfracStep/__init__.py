@@ -15,7 +15,7 @@ NS_parameters.update(
   
   # Some discretization options
   AB_projection_pressure = False,  # Use Adams Bashforth projection as first estimate for pressure on new timestep
-  solver = "IPCS_ABCN",  # "IPCS_ABCN", "IPCS_ABE", "IPCS", "Chorin"
+  solver = "IPCS_ABCN",  # "IPCS_ABCN", "IPCS_ABE", "IPCS", "Chorin", "BDFPC", "BDFPC_Fast"
   
   # Parameters used to tweek solver  
   max_iter = 1,          # Number of inner pressure velocity iterations on timestep
@@ -24,7 +24,6 @@ NS_parameters.update(
   use_krylov_solvers = False,  # Otherwise use LU-solver
   print_intermediate_info = 10,
   print_velocity_pressure_convergence = False,
-  velocity_update_type = "default",
   
   # Parameters used to tweek output  
   plot_interval = 10,    
