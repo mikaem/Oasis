@@ -62,8 +62,7 @@ else:
         dt = dt,
         velocity_degree = 1,
         folder = "channel_results",
-        use_krylov_solvers = True,
-        velocity_update_type = "lumping"
+        use_krylov_solvers = True
     )
 
 ##############################################################

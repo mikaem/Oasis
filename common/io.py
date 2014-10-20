@@ -6,7 +6,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from os import makedirs, getcwd, listdir, remove, system, path
 import cPickle
 from dolfin import MPI, Function, XDMFFile, HDF5File, info_red, \
-    VectorFunctionSpace, mpi_comm_world, project
+    VectorFunctionSpace, mpi_comm_world, FunctionAssigner
 
 __all__ = ["create_initial_folders", "save_solution", "save_tstep_solution_h5",
            "save_checkpoint_solution_h5", "check_if_kill", "check_if_reset_statistics",
@@ -86,20 +86,16 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
                 V = q_['u0'].function_space()
                 Vv = VectorFunctionSpace(V.mesh(), V.ufl_element().family(), V.ufl_element().degree(),
                                         constrained_domain=constrained_domain)
-                if not hasattr(tstepfile, 'uv'): # First time around only
+                # First time around create vector function and assigners
+                if not hasattr(tstepfile, 'uv'):
                     tstepfile.uv = Function(Vv)
-                    #tstepfile.d = dict((ui, Vv.sub(i).dofmap().collapse(Vv.mesh())[1]) 
-                                       #for i, ui in enumerate(u_components))
+                    tstepfile.fa = [FunctionAssigner(Vv.sub(i), V) for i, ui in enumerate(u_components)]
 
-                # The short but timeconsuming way:
-                tstepfile.uv.assign(project(u_, Vv))
-                
-                # Or the faster, but more comprehensive way:
-                #for ui in u_components:
-                    #vals = tstepfile.d[ui].values()
-                    #keys = tstepfile.d[ui].keys()
-                    #tstepfile.uv.vector()[vals] = q_[ui].vector()[keys]
+                # Assign solution to vector
+                for i, ui in enumerate(u_components):
+                    tstepfile.fa[i].assign(tstepfile.uv.sub(i), q_[ui])
                     
+                # Store solution vector
                 tstepfile << (tstepfile.uv, float(tstep))
             
             elif comp in q_:                
