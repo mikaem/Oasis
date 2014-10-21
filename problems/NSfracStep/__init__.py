@@ -46,12 +46,12 @@ NS_parameters.update(
   velocity_update_solver = dict(
     method = 'default', #"lumping", "gradient_matrix" 
     solver_type = 'cg',
-    preconditioner_type = 'additive_schwarz',
+    preconditioner_type = 'jacobi',
     low_memory_version = False),
   
   velocity_krylov_solver = dict(
     solver_type = 'bicgstab',
-    preconditioner_type = 'additive_schwarz'),
+    preconditioner_type = 'jacobi'),
   
   pressure_krylov_solver = dict(
     solver_type = 'gmres',
@@ -59,7 +59,7 @@ NS_parameters.update(
   
   scalar_krylov_solver = dict(
     solver_type = 'bicgstab',
-    preconditioner_type = 'additive_schwarz')
+    preconditioner_type = 'jacobi')
   
 )
   

@@ -63,6 +63,7 @@ recursive_update(NS_parameters, dict(
     save_step = 10000,
     checkpoint = 10000, 
     plot_interval = 10,
+    print_dkdt_info = 10000,
     use_krylov_solvers = True,
     krylov_solvers = dict(monitor_convergence=True)
   )
@@ -84,13 +85,13 @@ def initialize(q_, q_1, q_2, VV, initial_fields, OasisFunction, **NS_namespace):
             q_2[ui].vector()[:] = q_[ui].vector()[:]
 
 kin = zeros(1)
-def temporal_hook(u_, p_, tstep, plot_interval, print_intermediate_info, nu, 
+def temporal_hook(u_, p_, tstep, plot_interval, print_dkdt_info, nu, 
                   dt, t, oasis_memory, **NS_namespace):
     oasis_memory("tmp", True)
-    if (tstep % print_intermediate_info == 0 or
-        tstep % print_intermediate_info == 1):
+    if (tstep % print_dkdt_info == 0 or
+        tstep % print_dkdt_info == 1):
         kinetic = assemble(0.5*dot(u_, u_)*dx) / (2*pi)**3
-        if tstep % print_intermediate_info == 0:
+        if tstep % print_dkdt_info == 0:
             kin[0] = kinetic
             dissipation = assemble(nu*inner(grad(u_), grad(u_))*dx) / (2*pi)**3
             info_blue("Kinetic energy = {} at time = {}".format(kinetic, t)) 
