@@ -12,7 +12,7 @@ Description
 
 Oasis is i high-level/high-perfomrance Open Source Navier-Stokes solver written in Python.
 <p align="center">
-    <img src="https://raw.github.com/wiki/mikaem/oasis/figs/oasis_weak_scaling_1M.png" width="360" height="200" alt="Weak scaling"/>
+    <img src="https://raw.github.com/wiki/mikaem/oasis/figs/oasis_weak_scaling_1M.png" width="600" height="400" alt="Weak scaling"/>
 </p>
 <p align="center">
     Weak scaling on the Abel supercomputer.
