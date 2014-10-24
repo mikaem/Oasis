@@ -15,7 +15,7 @@ Oasis is i high-level/high-performance Open Source Navier-Stokes solver written 
     <img src="https://raw.github.com/wiki/mikaem/oasis/figs/oasis_weak_scaling_1M.png" width="600" height="400" alt="Weak scaling"/>
 </p>
 <p align="center">
-    Weak scaling on the Abel supercomputer.
+    Weak scaling on the Abel supercomputer. Timings are sampled every 10'th time step. The figure shows both the best result (over 10 time steps), the worst, and the standard deviation of the timings.
 </p>
 
 
