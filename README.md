@@ -40,6 +40,8 @@ Documentation
 
 See [wiki](https://github.com/mikaem/oasis/wiki) or [User Manual](https://github.com/mikaem/Oasis/tree/master/doc/usermanual.pdf)
 
+If you wish to use Oasis for journal publications, please cite the following [paper](http://www.sciencedirect.com/science/article/pii/S0010465514003786).
+
 Installation
 ------------
 
