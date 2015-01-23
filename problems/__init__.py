@@ -9,6 +9,8 @@ from os import getpid, path
 from collections import defaultdict
 from numpy import array, maximum, zeros
 
+UnitSquareMesh(10, 10)
+
 try:
     from fenicstools import getMemoryUsage
 

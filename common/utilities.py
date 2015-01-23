@@ -5,12 +5,11 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import assemble, KrylovSolver, LUSolver,  Function, TrialFunction, \
     TestFunction, dx, Vector, Matrix, GenericMatrix, FunctionSpace, Timer, div, \
-    Form, Coefficient, inner
+    Form, Coefficient, inner, grad
 
 # Create some dictionaries to hold work matrices
 class Mat_cache_dict(dict):
-    """Items in dictionary are matrices and solvers for efficient
-    reuse during, e.g., multiple projections to the same space.
+    """Items in dictionary are matrices stored for efficient reuse.
     """
     def __missing__(self, key):
         form, bcs = key
@@ -232,3 +231,19 @@ class DivFunction(OasisFunction):
         else:
             OasisFunction.__call__(self, assemb_rhs=assemb_rhs)
        
+class LESsource(Function):
+    """Function used for computing the transposed source to the LES equation.
+    """
+    def __init__(self, nut, u_ab, Space, bcs=[], name=""):
+        
+        Function.__init__(self, Space, name=name)
+        
+        dim = Space.mesh().geometry().dim()    
+        self.test = TestFunction(Space)
+        self.u_ab, self.nut = u_ab, nut
+        self.bf = [inner(grad(self.test), self.nut*self.u_ab.dx(i))*dx() for i in range(dim)]
+
+    def assemble_rhs(self, i=0):
+        """Assemble right hand side        
+        """
+        assemble(self.bf[i], tensor=self.vector())

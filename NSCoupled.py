@@ -119,7 +119,7 @@ def iterate(iters=max_iter):
     iter = 0
     error = 1
     
-    while iter < iters and error > max_error:        
+    while iter < iters and error > max_error:  
         start_iter_hook(**globals())
         NS_assemble(**globals())
         NS_hook(**globals())

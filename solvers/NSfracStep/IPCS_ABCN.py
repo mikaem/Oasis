@@ -7,10 +7,10 @@ from dolfin import *
 from ..NSfracStep import *
 from ..NSfracStep import __all__
 
-def setup(u_components, u, v, p, q, bcs, 
+def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
           scalar_components, V, Q, x_, p_, u_, A_cache,
           velocity_update_solver, assemble_matrix,
-          GradFunction, DivFunction, **NS_namespace):
+          GradFunction, DivFunction, LESsource, **NS_namespace):
     """Preassemble mass and diffusion matrices. 
     
     Set up and prepare all equations to be solved. Called once, before 
@@ -21,19 +21,24 @@ def setup(u_components, u, v, p, q, bcs,
     M = assemble_matrix(inner(u, v)*dx)                    
 
     # Stiffness matrix (without viscosity coefficient)
-    K = assemble_matrix(inner(grad(u), grad(v))*dx)        
+    if les_model is None:
+        K = assemble_matrix(inner(grad(u), grad(v))*dx)
+        LT = None
+    else:
+        K = (Matrix(M), (nu+nut_)*inner(grad(u), grad(v))*dx)
     
-    # Pressure Laplacian. Either reuse K or assemble new
+    # Pressure Laplacian. 
     Ap = assemble_matrix(inner(grad(q), grad(p))*dx, bcs['p'])
 
-    if not Ap.id() == K.id():
-        # Compress matrix (creates new matrix)
-        Bp = Matrix()
-        Ap.compressed(Bp)
-        Ap = Bp
-        # Replace cached matrix with compressed version
-        A_cache[(inner(grad(q), grad(p))*dx, tuple(bcs['p']))] = Ap
-        
+    if les_model is None:
+        if not Ap.id() == K.id():
+            # Compress matrix (creates new matrix)
+            Bp = Matrix()
+            Ap.compressed(Bp)
+            Ap = Bp
+            # Replace cached matrix with compressed version
+            A_cache[(inner(grad(q), grad(p))*dx, tuple(bcs['p']))] = Ap
+            
     # Allocate coefficient matrix (needs reassembling)
     A = Matrix(M)
     
@@ -65,7 +70,8 @@ def setup(u_components, u, v, p, q, bcs,
     u_ab = as_vector([Function(V) for i in range(len(u_components))])
     a_conv = 0.5*inner(v, dot(u_ab, nabla_grad(u)))*dx
     a_scalar = a_conv    
-    d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar)
+    LT = None if les_model is None else LESsource((nu+nut_), u_ab, V, name='LTd')    
+    d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT)
     return d
 
 def get_solvers(use_krylov_solvers, krylov_solvers, bcs, 
@@ -98,6 +104,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         p_sol = KrylovSolver(pressure_krylov_solver['solver_type'],
                              pressure_krylov_solver['preconditioner_type'])
         p_sol.parameters['preconditioner']['structure'] = 'same'
+        #p_sol.parameters['profile'] = True
         p_sol.parameters.update(krylov_solvers)
         if bcs['p'] == []:
             attach_pressure_nullspace(p_sol, x_, Q)
@@ -130,8 +137,8 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         
     return sols
 
-def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components,
-                              a_scalar, K, nu, u_components,
+def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
+                              a_scalar, K, nu, nut_, u_components, LT,
                               b_tmp, b0, x_1, x_2, u_ab, bcs, **NS_namespace):
     """Called on first inner iteration of velocity/pressure system.
     
@@ -144,8 +151,8 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components,
     for i, ui in enumerate(u_components):
         u_ab[i].vector().zero()
         u_ab[i].vector().axpy(1.5, x_1[ui])
-        u_ab[i].vector().axpy(-0.5, x_2[ui])
-
+        u_ab[i].vector().axpy(-0.5, x_2[ui])      
+        
     A = assemble(a_conv, tensor=A)
     A._scale(-1.)            # Negative convection on the rhs 
     A.axpy(1./dt, M, True)   # Add mass
@@ -158,11 +165,19 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components,
             Ta.axpy(1., A, True)
             
     # Add diffusion and compute rhs for all velocity components 
-    A.axpy(-0.5*nu, K, True) 
-    for ui in u_components:
+    if les_model is None:
+        A.axpy(-0.5*nu, K, True) 
+    else:
+        assemble(K[1], tensor=K[0])
+        A.axpy(-0.5, K[0], True)
+        
+    for i, ui in enumerate(u_components):
         b_tmp[ui].zero()              # start with body force
         b_tmp[ui].axpy(1., b0[ui])
         b_tmp[ui].axpy(1., A*x_1[ui]) # Add transient, convection and diffusion
+        if not les_model is None:
+            LT.assemble_rhs(i)
+            b_tmp[ui].axpy(1., LT.vector())
         
     # Reset matrix for lhs
     A._scale(-1.)

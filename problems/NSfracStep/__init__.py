@@ -31,7 +31,13 @@ NS_parameters.update(
   save_step = 10,        # Store solution each save_step
   restart_folder = None, # If restarting solution, set the folder holding the solution to start from here
   output_timeseries_as_vector = True, # Store velocity as vector in Timeseries 
+
+  # Choose LES model and set default parameters
+  les_model = None,       # None, Wale
   
+  # LES model parameters
+  Wale = dict(Cw=0.325),
+
   # Solver parameters that will be transferred to dolfins parameters['krylov_solver']
   krylov_solvers = dict(
     monitor_convergence = False,

@@ -100,6 +100,12 @@ for ci in scalar_components:
 
 print_solve_info = use_krylov_solvers and krylov_solvers['monitor_convergence']
 
+# LES setup
+nut_ = None
+if not les_model is None:
+    exec("from solvers.NSfracStep.LES.{} import *".format(les_model))
+    vars().update(les_setup(**vars()))
+
 # Boundary conditions
 bcs = create_bcs(**vars())
 
@@ -147,6 +153,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         
         t0 = OasisTimer("Tentative velocity")
         if inner_iter == 1:
+            if not les_model is None: les_nut(**vars())
             assemble_first_inner_iter(**vars())
         udiff[0] = 0.0
         for i, ui in enumerate(u_components):
