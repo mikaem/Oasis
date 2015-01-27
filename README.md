@@ -6,6 +6,7 @@ Oasis
 <p align="center">
     Turbulent channel flow
 </p>
+![Channel flow](https://rawgit.com/wiki/mikaem/oasis/figs/channel3D.gif)
 
 Description
 -----------
