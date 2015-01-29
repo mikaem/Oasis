@@ -14,10 +14,11 @@ def les_setup(u_, mesh, Wale, **NS_namespace):
     delta.vector().zero()
     delta.vector().axpy(1.0, assemble(TestFunction(DG)*dx))
     nut_ = Function(DG)
+    Gij = grad(u_)
     Sij = sym(grad(u_))
     Skk= tr(Sij)
-    Sd = 0.5*(elem_mult(Sij, Sij) + elem_mult(Sij.T, Sij.T)) - 1./3.*Identity(mesh.geometry().dim())*elem_mult(Skk, Skk) 
-    nut_form = pow(Wale['Cw'], 2)*elem_mult(delta, delta)*pow(inner(Sd, Sd), 1.5) / (Max(pow(inner(Sij, Sij), 2.5) + pow(inner(Sd, Sd), 1.25), 1e-6))
+    Sd = sym(elem_mult(Gij, Gij)) - 1./3.*Identity(mesh.geometry().dim())*Skk*Skk 
+    nut_form = Wale['Cw']**2 * delta**2 * pow(inner(Sd, Sd), 1.5) / (Max(pow(inner(Sij, Sij), 2.5) + pow(inner(Sd, Sd), 1.25), 1e-6))
     A_dg = as_backend_type(assemble(TrialFunction(DG)*TestFunction(DG)*dx))
     dg_diag = A_dg.mat().getDiagonal().array
     

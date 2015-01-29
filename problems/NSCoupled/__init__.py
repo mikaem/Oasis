@@ -14,7 +14,7 @@ NS_parameters.update(
   solver = "default",    # "default", "naive" 
   
   # Parameters used to tweek solver  
-  max_iter = 10,         # Number of inner pressure velocity iterations on timestep
+  max_iter = 10,         # Maximum number of iterations
   max_error = 1e-8,      # Tolerance for absolute error
   print_velocity_pressure_convergence = False,
   

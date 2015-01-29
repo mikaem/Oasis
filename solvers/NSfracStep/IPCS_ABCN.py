@@ -25,7 +25,7 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
         K = assemble_matrix(inner(grad(u), grad(v))*dx)
         LT = None
     else:
-        K = (Matrix(M), (nu+nut_)*inner(grad(u), grad(v))*dx)
+        K = (Matrix(M), inner(grad(u), grad(v)))
     
     # Pressure Laplacian. 
     Ap = assemble_matrix(inner(grad(q), grad(p))*dx, bcs['p'])
@@ -168,7 +168,7 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
     if les_model is None:
         A.axpy(-0.5*nu, K, True) 
     else:
-        assemble(K[1], tensor=K[0])
+        assemble((nu+nut_)*K[1]*dx, tensor=K[0])
         A.axpy(-0.5, K[0], True)
         
     for i, ui in enumerate(u_components):
@@ -251,7 +251,7 @@ def velocity_update(u_components, bcs, gradp, dp_, dt, x_, **NS_namespace):
         [bc.apply(x_[ui]) for bc in bcs[ui]]
             
 def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components, 
-                    nu, Schmidt, b, K, x_1, b0, **NS_namespace):
+                    nu, nut_, Schmidt, b, K, x_1, b0, les_model, **NS_namespace):
     """Assemble scalar equation."""    
     # Just in case you want to use a different scalar convection
     if not a_scalar is a_conv:
@@ -261,11 +261,24 @@ def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components,
         
     # Compute rhs for all scalars
     for ci in scalar_components:
-        Ta.axpy(-0.5*nu/Schmidt[ci], K, True) # Add diffusion
-        b[ci].zero()                          # Compute rhs
+        # Add diffusion
+        if les_model is None:
+            Ta.axpy(-0.5*nu/Schmidt[ci], K, True) 
+        else:
+            assemble((nu/Schmidt[ci]+nut_)*K[1]*dx, tensor=K[0])
+            Ta.axpy(-0.5, K[0], True)
+            
+        # Compute rhs
+        b[ci].zero()
         b[ci].axpy(1., Ta*x_1[ci])
         b[ci].axpy(1., b0[ci])
-        Ta.axpy(0.5*nu/Schmidt[ci], K, True)  # Subtract diffusion
+        
+        # Subtract diffusion
+        if les_model is None:
+            Ta.axpy(0.5*nu/Schmidt[ci], K, True)
+        else:
+            Ta.axpy(0.5, K[0], True)
+            
     # Reset matrix for lhs - Note scalar matrix does not contain diffusion
     Ta._scale(-1.)
     Ta.axpy(2./dt, M, True)
