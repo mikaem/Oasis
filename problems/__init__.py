@@ -9,7 +9,7 @@ from os import getpid, path
 from collections import defaultdict
 from numpy import array, maximum, zeros
 
-UnitSquareMesh(10, 10)
+UnitSquareMesh(20, 20) # Just due to MPI bug on Scinet
 
 try:
     from fenicstools import getMemoryUsage
@@ -50,7 +50,8 @@ scalar_components = []
 
 # With diffusivities given as a Schmidt number defined by:
 #   Schmidt = nu / D (= momentum diffusivity / mass diffusivity)
-Schmidt = defaultdict(lambda: 1.)
+Schmidt   = defaultdict(lambda: 1.)
+Schmidt_T = defaultdict(lambda: 0.7) # Turbulent Schmidt number (LES)
 
 Scalar = defaultdict(lambda: dict(Schmidt=1.0,
                                   family="CG",

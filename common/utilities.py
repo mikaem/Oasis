@@ -20,13 +20,41 @@ class Mat_cache_dict(dict):
         self[key] = A
         return self[key]
 
+class VarMat_cache_dict(dict):
+    """Items in dictionary are matrices stored for efficient reuse.
+    """
+    def __missing__(self, key):
+        A = assemble(key)  
+        A.reset = False
+        self[key] = A
+        return A
+    
+    def __getitem__(self, key):
+        A = dict.__getitem__(self, key)
+        if A.reset:
+            assemble(key, tensor=A)
+            A.reset = False
+        return A
+    
+    def reset(self):
+        """Call to force a reassembly of matrix. Typically at end of timestep."""
+        for val in self.itervalues():
+            val.reset = True
+        
 A_cache = Mat_cache_dict()
+S_cache = VarMat_cache_dict()
 
 def assemble_matrix(form, bcs=[]):
     """Assemble matrix using cache register.
     """
     assert Form(form).rank() == 2
     return A_cache[(form, tuple(bcs))]
+
+def assemble_scalar_matrix(form):
+    """Assemble scalar stiffness matrix using cache register.
+    """
+    assert Form(form).rank() == 2
+    return S_cache[form]
 
 class OasisFunction(Function):
     """Function with more or less efficient projection methods 

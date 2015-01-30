@@ -21,11 +21,10 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     M = assemble_matrix(inner(u, v)*dx)                    
 
     # Stiffness matrix (without viscosity coefficient)
-    if les_model is None:
-        K = assemble_matrix(inner(grad(u), grad(v))*dx)
-        LT = None
-    else:
-        K = (Matrix(M), inner(grad(u), grad(v)))
+    K = assemble_matrix(inner(grad(u), grad(v))*dx)
+    
+    # Allocate stiffness matrix for LES that changes with time
+    KT = None if les_model is None else (Matrix(M), inner(grad(u), grad(v)))
     
     # Pressure Laplacian. 
     Ap = assemble_matrix(inner(grad(q), grad(p))*dx, bcs['p'])
@@ -71,7 +70,7 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     a_conv = 0.5*inner(v, dot(u_ab, nabla_grad(u)))*dx
     a_scalar = a_conv    
     LT = None if les_model is None else LESsource((nu+nut_), u_ab, V, name='LTd')    
-    d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT)
+    d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT, KT=KT)
     return d
 
 def get_solvers(use_krylov_solvers, krylov_solvers, bcs, 
@@ -138,7 +137,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
     return sols
 
 def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
-                              a_scalar, K, nu, nut_, u_components, LT,
+                              a_scalar, K, nu, nut_, u_components, LT, KT,
                               b_tmp, b0, x_1, x_2, u_ab, bcs, **NS_namespace):
     """Called on first inner iteration of velocity/pressure system.
     
@@ -165,11 +164,10 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
             Ta.axpy(1., A, True)
             
     # Add diffusion and compute rhs for all velocity components 
-    if les_model is None:
-        A.axpy(-0.5*nu, K, True) 
-    else:
-        assemble((nu+nut_)*K[1]*dx, tensor=K[0])
-        A.axpy(-0.5, K[0], True)
+    A.axpy(-0.5*nu, K, True) 
+    if les_model:
+        assemble(nut_*KT[1]*dx, tensor=KT[0])
+        A.axpy(-0.5, KT[0], True)
         
     for i, ui in enumerate(u_components):
         b_tmp[ui].zero()              # start with body force
@@ -250,23 +248,21 @@ def velocity_update(u_components, bcs, gradp, dp_, dt, x_, **NS_namespace):
         x_[ui].axpy(-dt, gradp[ui].vector())
         [bc.apply(x_[ui]) for bc in bcs[ui]]
             
-def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components, 
+def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components, Schmidt_T, KT,
                     nu, nut_, Schmidt, b, K, x_1, b0, les_model, **NS_namespace):
     """Assemble scalar equation."""    
     # Just in case you want to use a different scalar convection
     if not a_scalar is a_conv:
-        Ta = assemble(a_scalar, tensor=Ta)
+        assemble(a_scalar, tensor=Ta)
         Ta._scale(-1.)            # Negative convection on the rhs 
         Ta.axpy(1./dt, M, True)   # Add mass
         
     # Compute rhs for all scalars
     for ci in scalar_components:
         # Add diffusion
-        if les_model is None:
-            Ta.axpy(-0.5*nu/Schmidt[ci], K, True) 
-        else:
-            assemble((nu/Schmidt[ci]+nut_)*K[1]*dx, tensor=K[0])
-            Ta.axpy(-0.5, K[0], True)
+        Ta.axpy(-0.5*nu/Schmidt[ci], K, True)
+        if les_model:
+            Ta.axpy(-0.5/Schmidt_T[ci], KT[0], True)
             
         # Compute rhs
         b[ci].zero()
@@ -274,10 +270,9 @@ def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components,
         b[ci].axpy(1., b0[ci])
         
         # Subtract diffusion
-        if les_model is None:
-            Ta.axpy(0.5*nu/Schmidt[ci], K, True)
-        else:
-            Ta.axpy(0.5, K[0], True)
+        Ta.axpy(0.5*nu/Schmidt[ci], K, True)
+        if les_model:
+            Ta.axpy(0.5/Schmidt_T[ci], KT[0], True)
             
     # Reset matrix for lhs - Note scalar matrix does not contain diffusion
     Ta._scale(-1.)
