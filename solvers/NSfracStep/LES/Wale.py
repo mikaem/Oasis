@@ -6,6 +6,8 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad, tr, \
     elem_mult, Identity, dx, inner, as_backend_type, TrialFunction, Max
 
+__all__ = ['les_setup', 'les_update']
+
 def les_setup(u_, mesh, Wale, **NS_namespace):
     """Set up for solving Wale LES model
     """
@@ -13,7 +15,6 @@ def les_setup(u_, mesh, Wale, **NS_namespace):
     delta = Function(DG)
     delta.vector().zero()
     delta.vector().axpy(1.0, assemble(TestFunction(DG)*dx))
-    
     nut_ = Function(DG)
     Gij = grad(u_)
     Sij = sym(Gij)
@@ -27,7 +28,7 @@ def les_setup(u_, mesh, Wale, **NS_namespace):
     return dict(Sij=Sij, Sd=Sd, Skk=Skk, nut_form=nut_form, nut_=nut_, delta=delta,
                 dg_diag=dg_diag, DG=DG, v_dg=TestFunction(DG))    
     
-def les_nut(nut_, nut_form, v_dg, dg_diag, **NS_namespace):
+def les_update(nut_, nut_form, v_dg, dg_diag, **NS_namespace):
     nut_.vector().set_local(assemble(nut_form*v_dg*dx).array()/dg_diag)
     
     

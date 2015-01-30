@@ -14,7 +14,7 @@ from ..NSfracStep import *
 from ..NSfracStep import __all__
 
 def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
-          nu, p_, dp_, mesh, f, fs, q, p, u_, Schmidt,
+          nu, p_, dp_, mesh, f, fs, q, p, u_, Schmidt, Schmidt_T, les_model, nut_,
           scalar_components, **NS_namespace):
     """Set up all equations to be solved."""
     # Implicit Crank Nicolson velocity at t - dt/2
@@ -25,7 +25,8 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
     for i, ui in enumerate(u_components):
         # Tentative velocity step
         F[ui] = (1./dt)*inner(u - q_1[ui], v)*dx + inner(dot(U_AB, nabla_grad(U_CN[ui])), v)*dx + \
-                nu*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx
+                (nu+nut_)*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx +\
+                (nu+nut_)*inner(grad(v), U_AB.dx(i))*dx
             
         #F[ui] = (1./dt)*inner(u - q_1[ui], v)*dx + inner(1.5*dot(u_1, nabla_grad(q_1[ui]))-0.5*dot(u_2, nabla_grad(q_2[ui])), v)*dx + \
                 #nu*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx
@@ -38,12 +39,13 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
 
     # Scalar with SUPG
     h = CellSize(mesh)
-    vw = v + h*inner(grad(v), U_AB)
+    #vw = v + h*inner(grad(v), U_AB)
+    vw = v
     n = FacetNormal(mesh)
     for ci in scalar_components:
         F[ci] = (1./dt)*inner(u - q_1[ci], vw)*dx + inner(dot(grad(U_CN[ci]), U_AB), vw)*dx \
-                +nu/Schmidt[ci]*inner(grad(U_CN[ci]), grad(vw))*dx - inner(fs[ci], vw)*dx \
-                #-nu/Schmidt[ci]*inner(dot(grad(U_CN[ci]), n), vw)*ds
+                +(nu/Schmidt[ci]+nut_/Schmidt_T[ci])*inner(grad(U_CN[ci]), grad(vw))*dx - inner(fs[ci], vw)*dx \
+                #-(nu/Schmidt[ci]+nut_/Schmidt_T[ci])*inner(dot(grad(U_CN[ci]), n), vw)*ds
     
     return dict(F=F, Fu=Fu, Fp=Fp)
 
