@@ -25,7 +25,7 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
     for i, ui in enumerate(u_components):
         # Tentative velocity step
         F[ui] = (1./dt)*inner(u - q_1[ui], v)*dx + inner(dot(U_AB, nabla_grad(U_CN[ui])), v)*dx + \
-                (nu+nut_)*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx +\
+                (nu+nut_)*inner(grad(U_CN[ui]), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx + \
                 (nu+nut_)*inner(grad(v), U_AB.dx(i))*dx
             
         #F[ui] = (1./dt)*inner(u - q_1[ui], v)*dx + inner(1.5*dot(u_1, nabla_grad(q_1[ui]))-0.5*dot(u_2, nabla_grad(q_2[ui])), v)*dx + \
@@ -39,7 +39,7 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
 
     # Scalar with SUPG
     h = CellSize(mesh)
-    #vw = v + h*inner(grad(v), U_AB)
+    #vw = v + h*inner(grad(v), U_AB)  
     vw = v
     n = FacetNormal(mesh)
     for ci in scalar_components:
@@ -65,7 +65,7 @@ def pressure_solve(Fp, p_, bcs, dp_, x_, u_, q_, Q, **NS_namespace):
     dp_.vector()._scale(-1)
     dp_.vector().axpy(1.0, x_['p'])
 
-def velocity_update(u_components, q_, bcs, Fu, dp_, **NS_namespace):
+def velocity_update(u_components, q_, bcs, Fu, dp_, V, dt, **NS_namespace):
     """Update the velocity after finishing pressure velocity iterations."""
     for ui in u_components:
         solve(lhs(Fu[ui]) == rhs(Fu[ui]), q_[ui], bcs[ui])

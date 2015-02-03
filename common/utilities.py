@@ -239,9 +239,8 @@ class LESsource(Function):
         Function.__init__(self, Space, name=name)
         
         dim = Space.mesh().geometry().dim()    
-        self.test = TestFunction(Space)
-        self.u_ab, self.nut = u_ab, nut
-        self.bf = [-inner(grad(self.test), self.nut*self.u_ab.dx(i))*dx() for i in range(dim)]
+        test = TestFunction(Space)
+        self.bf = [-inner(grad(test), nut*u_ab.dx(i))*dx() for i in range(dim)]
 
     def assemble_rhs(self, i=0):
         """Assemble right hand side        

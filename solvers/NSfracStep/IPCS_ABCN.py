@@ -42,11 +42,12 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     A = Matrix(M)
     
     # Allocate Function for holding and computing the velocity divergence on Q
-    divu = DivFunction(u_, Q, name='divu', 
+    divu = DivFunction(u_, Q, name='divu',
                        method=velocity_update_solver)
 
     # Allocate a dictionary of Functions for holding and computing pressure gradients
     gradp = {ui: GradFunction(p_, V, i=i, name='dpd'+('x','y','z')[i],
+                              bcs=homogenize(bcs[ui]),
                               method=velocity_update_solver) 
                               for i, ui in enumerate(u_components)}
 
@@ -67,7 +68,7 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     
     # Setup for solving convection
     u_ab = as_vector([Function(V) for i in range(len(u_components))])
-    a_conv = 0.5*inner(v, dot(u_ab, nabla_grad(u)))*dx
+    a_conv = inner(v, dot(u_ab, nabla_grad(u)))*dx
     a_scalar = a_conv    
     LT = None if les_model is None else LESsource((nu+nut_), u_ab, V, name='LTd')    
     d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT, KT=KT)
@@ -119,17 +120,17 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
             sols.append(None)
     else:
         ## tentative velocity solver ##
-        u_sol = LUSolver('mumps')
+        u_sol = LUSolver()
         u_sol.parameters['same_nonzero_pattern'] = True
         ## pressure solver ##
-        p_sol = LUSolver('mumps')
+        p_sol = LUSolver()
         p_sol.parameters['reuse_factorization'] = True
         if bcs['p'] == []:
             p_sol.normalize = True
         sols = [u_sol, p_sol]
         ## scalar solver ##
         if len(scalar_components) > 0:
-            c_sol = LUSolver('mumps')
+            c_sol = LUSolver()
             sols.append(c_sol)
         else:
             sols.append(None)
@@ -153,8 +154,8 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
         u_ab[i].vector().axpy(-0.5, x_2[ui])      
         
     A = assemble(a_conv, tensor=A)
-    A._scale(-1.)            # Negative convection on the rhs 
-    A.axpy(1./dt, M, True)   # Add mass
+    A._scale(-0.5)            # Negative convection on the rhs 
+    A.axpy(1./dt, M, True)    # Add mass
     
     #Set up scalar matrix for rhs using the same convection as velocity
     if len(scalar_components) > 0:      
@@ -254,8 +255,8 @@ def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components, Schmidt_T, 
     # Just in case you want to use a different scalar convection
     if not a_scalar is a_conv:
         assemble(a_scalar, tensor=Ta)
-        Ta._scale(-1.)            # Negative convection on the rhs 
-        Ta.axpy(1./dt, M, True)   # Add mass
+        Ta._scale(-0.5)            # Negative convection on the rhs 
+        Ta.axpy(1./dt, M, True)    # Add mass
         
     # Compute rhs for all scalars
     for ci in scalar_components:

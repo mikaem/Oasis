@@ -18,6 +18,7 @@ NS_parameters.update(
 scalar_components = ["alfa", "beta"]
 Schmidt["alfa"] = 1.
 Schmidt["beta"] = 10.
+set_log_active(False)
 
 # Specify boundary conditions
 def create_bcs(V, **NS_namespace):

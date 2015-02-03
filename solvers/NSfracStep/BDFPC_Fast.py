@@ -14,9 +14,9 @@ from dolfin import *
 from IPCS_ABCN import * # reuse code from IPCS_ABCN
 from IPCS_ABCN import __all__
 
-def setup(low_memory_version, u_components, u, v, p, q,
+def setup(u_components, u, v, p, q, nu, nut_, LESsource,
           bcs, scalar_components, V, Q, x_, u_, p_, q_1, q_2,
-          velocity_update_type, assemble_matrix, 
+          velocity_update_solver, assemble_matrix, les_model,
           DivFunction, GradFunction, **NS_namespace):
     """Set up all equations to be solved."""
 
@@ -25,26 +25,30 @@ def setup(low_memory_version, u_components, u, v, p, q,
     
     # Stiffness matrix (without viscosity coefficient)
     K = assemble_matrix(inner(grad(u), grad(v))*dx)        
+
+    # Allocate stiffness matrix for LES that changes with time
+    KT = None if les_model is None else (Matrix(M), inner(grad(u), grad(v)))
     
     # Pressure Laplacian. Either reuse K or assemble new
     Ap = assemble_matrix(inner(grad(q), grad(p))*dx, bcs['p'])
 
-    if not Ap.id() == K.id():
-        Bp = Matrix()
-        Ap.compressed(Bp)
-        Ap = Bp
-                  
+    if les_model is None:
+        if not Ap.id() == K.id():
+            Bp = Matrix()
+            Ap.compressed(Bp)
+            Ap = Bp
+                    
     # Allocate coefficient matrix (needs reassembling)
     A = Matrix(M)
     
     # Allocate Function for holding and computing the velocity divergence on Q
-    divu = DivFunction(u_, Q, name='divu', method=velocity_update_type,
-                       low_memory_version=low_memory_version)
-    
-    # Allocate a dictionary of Functions for holding and computing the pressure gradient
+    divu = DivFunction(u_, Q, name='divu', 
+                       method=velocity_update_solver)
+
+    # Allocate a dictionary of Functions for holding and computing pressure gradients
     gradp = {ui: GradFunction(p_, V, i=i, name='dpd'+('x','y','z')[i],
-                              method=velocity_update_type,
-                              low_memory_version=low_memory_version) 
+                              bcs=homogenize(bcs[ui]),
+                              method=velocity_update_solver) 
                               for i, ui in enumerate(u_components)}
 
     # Check first if we are starting from two equal velocities (u_1=u_2)
@@ -73,11 +77,12 @@ def setup(low_memory_version, u_components, u, v, p, q,
     u_convecting = as_vector([Function(V) for i in range(len(u_components))])
     a_conv = inner(v, dot(u_convecting, nabla_grad(u)))*dx  # Faster version
     a_scalar = inner(v, dot(u_, nabla_grad(u)))*dx
-    d.update(u_convecting=u_convecting, a_conv=a_conv, a_scalar=a_scalar)
+    LT = None if les_model is None else LESsource((nu+nut_), u_convecting, V, name='LTd')
+    d.update(u_convecting=u_convecting, a_conv=a_conv, a_scalar=a_scalar, LT=LT, KT=KT)
     return d
 
-def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components,
-                              a_scalar, K, nu, u_components,
+def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, KT, LT,
+                              a_scalar, K, nu, u_components, les_model, nut_,
                               b_tmp, b0, x_1, x_2, u_convecting, 
                               bcs, beta, **NS_namespace):
     """Called on first inner iteration of velocity/pressure system.
@@ -110,8 +115,15 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components,
         b_tmp[ui].axpy(1., b0[ui])
         b_tmp[ui].axpy(4.0/(beta(0)*dt), M*x_1[ui]) 
         b_tmp[ui].axpy(-1.0/(beta(0)*dt), M*x_2[ui]) 
+        if not les_model is None:
+            LT.assemble_rhs(i)
+            b_tmp[ui].axpy(1., LT.vector())
         
     A.axpy(nu, K, True)
+    if les_model:
+        assemble(nut_*KT[1]*dx, tensor=KT[0])
+        A.axpy(1., KT[0], True)
+
     A.axpy(3.0/beta(0)/dt, M, True)    
     [bc.apply(A) for bc in bcs['u0']]
 
@@ -161,9 +173,9 @@ def velocity_update(u_components, bcs, dp_, dt, x_, gradp, beta, **NS_namespace)
         [bc.apply(x_[ui]) for bc in bcs[ui]]
     beta.assign(2.0)
 
-def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components, 
-                    nu, Schmidt, b, K, x_1, b0, **NS_namespace):
-    """Assemble scalar equation."""    
+#def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components, 
+                    #nu, Schmidt, b, K, x_1, b0, **NS_namespace):
+    #"""Assemble scalar equation."""    
     # Just in case you want to use a different scalar convection
     #if not a_scalar is a_conv:
         #Ta = assemble(a_scalar, tensor=Ta)
@@ -181,9 +193,9 @@ def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components,
     #Ta._scale(-1.)
     #Ta.axpy(2./dt, M, True)
 
-def scalar_solve(ci, scalar_components, Ta, b, x_, bcs, c_sol, 
-                 nu, Schmidt, K, **NS_namespace):
-    """Solve scalar equation."""
+#def scalar_solve(ci, scalar_components, Ta, b, x_, bcs, c_sol, 
+                 #nu, Schmidt, K, **NS_namespace):
+    #"""Solve scalar equation."""
     
     #Ta.axpy(0.5*nu/Schmidt[ci], K, True) # Add diffusion
     #if len(scalar_components) > 1: 

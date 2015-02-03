@@ -15,7 +15,7 @@ from ..NSfracStep import *
 from ..NSfracStep import __all__
 
 def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
-          nu, p_, dp_, mesh, f, fs, q, p, u_, Schmidt, V, bcs,
+          nu, p_, dp_, mesh, f, fs, q, p, u_, Schmidt, V, bcs, Schmidt_T, les_model, nut_,
           scalar_components, Q, DivFunction, GradFunction, **NS_namespace):
     """Set up all equations to be solved."""
     # Implicit Crank Nicolson velocity at t - dt/2
@@ -34,7 +34,8 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
         # Tentative velocity step
         F[ui] = ((1./(beta*dt))*inner(3*u - 4*q_1[ui] + q_2[ui], v)*dx
                   + inner(inner(grad(u), 2*u_1-u_2), v)*dx
-                  + nu*inner(grad(u), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx)
+                  + (nu+nut_)*inner(grad(u), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx
+                  + (nu+nut_)*inner(grad(v), U_AB.dx(i))*dx)
         
         #F[ui] = ((1./(beta*dt))*inner(3*u - 4*q_1[ui] + q_2[ui], v)*dx
                   #+ inner(2*inner(grad(q_1[ui]), u_1) - inner(grad(q_2[ui]), u_2), v)*dx 
@@ -55,13 +56,14 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
 
     # Scalar with SUPG
     h = CellSize(mesh)
-    vw = v + h*inner(grad(v), u_)
+    #vw = v + h*inner(grad(v), u_)
+    vw = v
     n = FacetNormal(mesh)
+    U_CN = dict((ui, 0.5*(u+q_1[ui])) for ui in uc_comp)
     for ci in scalar_components:
-        F[ci] = ((1./(beta*dt))*inner(3*u - 4*q_1[ci] + q_2[ui], vw)*dx 
-                + inner(dot(u, u_), vw)*dx 
-                + nu/Schmidt[ci]*inner(grad(u), grad(vw))*dx - inner(fs[ci], vw)*dx) 
-                #-nu/Schmidt[ci]*inner(dot(grad(u), n), vw)*ds                 
+        F[ci] = (1./dt)*inner(u - q_1[ci], vw)*dx + inner(dot(grad(U_CN[ci]), U_AB), vw)*dx \
+                +(nu/Schmidt[ci]+nut_/Schmidt_T[ci])*inner(grad(U_CN[ci]), grad(vw))*dx - inner(fs[ci], vw)*dx \
+                #-(nu/Schmidt[ci]+nut_/Schmidt_T[ci])*inner(dot(grad(U_CN[ci]), n), vw)*ds
     
     return dict(F=F, Fu=Fu, Fp=Fp, divu=divu, beta=beta, gradp=gradp)
 
