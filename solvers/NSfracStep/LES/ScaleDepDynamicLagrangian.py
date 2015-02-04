@@ -194,8 +194,7 @@ def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt,
     #################################
     beta = JQN.vector().array()/JNN.vector().array()
     beta = beta.clip(min=0.125)
-    Cs.vector().set_local(np.sqrt((JLM.vector().array()/JMM.vector().array())/\
-            beta))
+    Cs.vector().set_local(np.sqrt((JLM.vector().array()/JMM.vector().array())/beta))
     Cs.vector().apply("insert")
 
     ##################
@@ -225,9 +224,7 @@ def lagrange_average(eps, T_, J1, J2, Aij, Bij, u_, dt, A_,
     """
 
     # Update eps vector = dt/T
-    eps.vector().set_local(
-            ((J1.vector().array()*J2.vector().array())**0.125)\
-            *T_.vector().array())
+    eps.vector().set_local(((J1.vector().array()*J2.vector().array())**0.125)*T_.vector().array())
     eps.vector().apply("insert")
     epsT = dummy
     # Update epsT to dt/(1+dt/T)
@@ -252,12 +249,10 @@ def lagrange_average(eps, T_, J1, J2, Aij, Bij, u_, dt, A_,
     
     # Apply ramp function on J1 to remove negative values,
     # but not set to 0.
-    J1.vector().set_local(J1.vector().array().clip(\
-            min=1E-32))
+    J1.vector().set_local(J1.vector().array().clip(min=1E-32))
     J1.vector().apply("insert")
     # Apply ramp function on J2 too; bound at initial value
-    J2.vector().set_local(J2.vector().array().clip(\
-            min=10))
+    J2.vector().set_local(J2.vector().array().clip(min=10))
     J2.vector().apply("insert")
 
 def tophatfilter(unfiltered, filtered, N, G_matr, G_under, dummy,
@@ -284,7 +279,9 @@ def tophatfilter(unfiltered, filtered, N, G_matr, G_under, dummy,
 
     for i in xrange(N):
         exec(code_1)
-        uf.vector()[:] = (G_matr*uf.vector())*G_under.vector()
+        vec_ = (G_matr*uf.vector())*G_under.vector()
+        uf.vector().zero()
+        uf.vector().axpy(1,vec_)
         exec(code)
 
 def compute_Fuiuj(u, F_uiuj, dim, dummy, G_matr, G_under, assigners):
@@ -308,41 +305,50 @@ def compute_Fuiuj(u, F_uiuj, dim, dummy, G_matr, G_under, assigners):
         # Extract z-velocity as well
         u2 = u[2]
         # u*u
-        dummy.vector()[:] = u0.vector()*u0.vector()
+        dummy.vector().zero()
+        dummy.vector().axpy(1.0, u0.vector()*u0.vector())
         tophatfilter(dummy, dummy, 1, G_matr, G_under, dummy)
         assigners[0].assign(F_uiuj.sub(0), dummy)
         # u*v
-        dummy.vector()[:] = u0.vector()*u1.vector()
+        dummy.vector().zero()
+        dummy.vector().axpy(1.0, u0.vector()*u1.vector())
         tophatfilter(dummy, dummy, 1, G_matr, G_under, dummy)
         assigners[1].assign(F_uiuj.sub(1), dummy)
         # u*w
-        dummy.vector()[:] = u0.vector()*u2.vector()
+        dummy.vector().zero()
+        dummy.vector().axpy(1.0, u0.vector()*u2.vector())
         tophatfilter(dummy, dummy, 1, G_matr, G_under, dummy)
         assigners[2].assign(F_uiuj.sub(2), dummy)
         # v*v
-        dummy.vector()[:] = u1.vector()*u1.vector()
+        dummy.vector().zero()
+        dummy.vector().axpy(1.0, u1.vector()*u1.vector())
         tophatfilter(dummy, dummy, 1, G_matr, G_under, dummy)
         assigners[3].assign(F_uiuj.sub(3), dummy)
         # v*w
-        dummy.vector()[:] = u1.vector()*u2.vector()
+        dummy.vector().zero()
+        dummy.vector().axpy(1.0, u1.vector()*u2.vector())
         tophatfilter(dummy, dummy, 1, G_matr, G_under, dummy)
         assigners[4].assign(F_uiuj.sub(4), dummy)
         # w*w
-        dummy.vector()[:] = u2.vector()*u2.vector()
+        dummy.vector().zero()
+        dummy.vector().axpy(1.0, u2.vector()*u2.vector())
         tophatfilter(dummy, dummy, 1, G_matr, G_under, dummy)
         assigners[5].assign(F_uiuj.sub(5), dummy)
     else:
         # 2D case
         # u*u
-        dummy.vector()[:] = u0.vector()*u0.vector()
+        dummy.vector().zero()
+        dummy.vector().axpy(1.0, u0.vector()*u0.vector())
         tophatfilter(dummy, dummy, 1, G_matr, G_under, dummy)
         assigners[0].assign(F_uiuj.sub(0), dummy)
         # u*v
-        dummy.vector()[:] = u0.vector()*u1.vector()
+        dummy.vector().zero()
+        dummy.vector().axpy(1.0, u0.vector()*u1.vector())
         tophatfilter(dummy, dummy, 1, G_matr, G_under, dummy)
         assigners[1].assign(F_uiuj.sub(1), dummy)
         # v*v
-        dummy.vector()[:] = u1.vector()*u1.vector()
+        dummy.vector().zero()
+        dummy.vector().axpy(1.0, u1.vector()*u1.vector())
         tophatfilter(dummy, dummy, 1, G_matr, G_under, dummy)
         assigners[2].assign(F_uiuj.sub(2), dummy)
 
