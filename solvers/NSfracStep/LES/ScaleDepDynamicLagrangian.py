@@ -228,6 +228,7 @@ def lagrange_average(eps, T_, J1, J2, Aij, Bij, u_, dt, A_,
     eps.vector().set_local(
             ((J1.vector().array()*J2.vector().array())**0.125)\
             *T_.vector().array())
+    eps.vector().apply("insert")
     epsT = dummy
     # Update epsT to dt/(1+dt/T)
     epsT.vector().set_local(dt/(1.+eps.vector().array()))
