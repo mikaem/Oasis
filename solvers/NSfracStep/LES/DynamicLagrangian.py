@@ -151,7 +151,7 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     # SET UP Mij #
     ##############
     # Compute |S|Sij and add to F_SSij
-    compute_magSSij(u=u_CG1, **vars())
+    compute_magSSij(u=u_, **vars())
     # Compute F(|S|Sij) and add to F_SSij
     tophatfilter(unfilterd=F_SSij, filtered=F_SSij, N=tensdim, **vars())
     # Define F(Sij)
@@ -160,8 +160,6 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     magSf = sqrt(2*inner(Sijf,Sijf))
     # Define Mij = 2*delta**2(F(|S|Sij) - alpha**2F(|S|)F(Sij))
     Mij = 2*(delta**2)*(F_SSij - (alpha**2)*magSf*Sijf)
-    plot(inner(Mij,Mij))
-    interactive()
 
     ##################################################
     # Solve Lagrange Equations for LijMij and MijMij #

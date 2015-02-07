@@ -4,7 +4,7 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import TrialFunction, TestFunction, assemble, inner, dx, grad,\
-                    plot, interactive
+                    plot, interactive, solve
 import numpy as np
 
 def lagrange_average(eps, T_, u_, dt, G_matr, dummy, CG1, lag_sol, 
@@ -130,8 +130,7 @@ def compute_magSSij(F_SSij, G_matr, CG1, dim, tensdim, assigners_rev, Sijforms,
     # First we need to solve for the different components of Sij
     for i in xrange(tensdim):
         b = assemble(inner(0.5*Sijforms[i], q)*dx)
-        lag_sol.solve(G_matr, Sij[i].vector(), b)
-    
+        solve(G_matr, Sij[i].vector(), b, "bicgstab", "additive_schwarz")
     # Compute |S| = sqrt(2*Sij:Sij)
     if tensdim == 3:
         # Extract Sij vectors

@@ -5,6 +5,8 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from ..NSfracStep import *
 
+parameters["mesh_partitioner"] = "SCOTCH"
+
 # Set up parameters
 NS_parameters.update(
     nu = 5.35e-7,
@@ -12,11 +14,11 @@ NS_parameters.update(
     dt = 1e-5,
     plot_interval = 20,
     les_model="DynamicLagrangian",
-    save_step=1,
+    save_step=20,
     print_intermediate_info = 100,
     use_krylov_solvers = True)
 
-NS_parameters["DynamicSmagorinsky"].update(comp_step=10)
+NS_parameters["DynamicSmagorinsky"].update(Cs_comp_step=10)
 
 mesh = Mesh("mesh/square.xml")
 
