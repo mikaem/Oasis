@@ -14,7 +14,7 @@ import numpy as np
 
 __all__ = ['les_setup', 'les_update']
 
-def les_setup(u_, mesh, dt, krylov_solvers, **NS_namespace):
+def les_setup(u_, mesh, dt, krylov_solvers, V, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
     Lagrangian Averaging.
@@ -23,6 +23,8 @@ def les_setup(u_, mesh, dt, krylov_solvers, **NS_namespace):
     # Create function spaces
     DG = FunctionSpace(mesh, "DG", 0)
     CG1 = FunctionSpace(mesh, "CG", 1)
+    p,q = TrialFunction(CG1), TestFunction(CG1)
+    p2 = TrialFunction(V)
     TFS = TensorFunctionSpace(mesh, "CG", 1, symmetry=True)
     dim = mesh.geometry().dim()
 
@@ -41,32 +43,28 @@ def les_setup(u_, mesh, dt, krylov_solvers, **NS_namespace):
     u_CG1 = as_vector([Function(CG1) for i in range(dim)])
     u_filtered = as_vector([Function(CG1) for i in range(dim)])
     dummy = Function(CG1)
-
+    
     # Assemble required filter matrices and functions
     G_under = Function(CG1, assemble(TestFunction(CG1)*dx))
     G_under.vector().set_local(1./G_under.vector().array())
     G_under.vector().apply("insert")
     # G_matr is also the mass matrix to be used with Lag. avg.
-    G_matr = assemble(TrialFunction(CG1)*TestFunction(CG1)*dx)
+    G_matr = assemble(inner(p,q)*dx)
 
     # Assemble some required matrices for solving for rate of strain terms
     F_uiuj = Function(TFS)
     F_SSij = Function(TFS)
-    # CG1 Sij functions
-    Sijcomps = [Function(CG1) for i in range(dim*dim)]
     # Check if case is 2D or 3D and set up uiuj product pairs and 
-    # Sij forms
-    u = u_
+    # Sij forms, assemble required matrices
+    Sijcomps = [Function(CG1) for i in range(dim*dim)]
+    Sijforms = [assemble(p2.dx(i)*q*dx) for i in range(dim)]
     if dim == 3:
         tensdim = 6
         uiuj_pairs = ((0,0),(0,1),(0,2),(1,1),(1,2),(2,2))
-        Sijforms = [2*u[0].dx(0), u[0].dx(1)+u[1].dx(0), u[0].dx(2)+u[2].dx(1),
-                2*u[1].dx(1), u[1].dx(2)+u[2].dx(1), 2*u[2].dx(2)]
     else:
         tensdim = 3
         uiuj_pairs = ((0,0),(0,1),(1,1))
-        Sijforms = [2*u[0].dx(0), u[0].dx(1)+u[1].dx(0), 2*u[1].dx(1)]
-
+    
     # Set up function assigners
     # From TFS.sub(i) to CG1
     assigners = [FunctionAssigner(CG1, TFS.sub(i)) for i in range(tensdim)]

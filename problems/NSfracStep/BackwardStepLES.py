@@ -10,15 +10,15 @@ parameters["mesh_partitioner"] = "SCOTCH"
 # Set up parameters
 NS_parameters.update(
     nu = 15.11E-7,
-    T  = .1,
+    T  = 1,
     dt = 1E-5,
     les_model="DynamicLagrangian",
     plot_interval = 20,
-    save_step=1,
+    save_step=10,
     print_intermediate_info = 100,
     use_krylov_solvers = True)
 
-NS_parameters["DynamicSmagorinsky"].update(comp_step=1)
+NS_parameters["DynamicSmagorinsky"].update(comp_step=10)
 
 from mshr import *
 
@@ -42,7 +42,7 @@ outlet = "on_boundary && std::abs(0.1-x[0]) < DOLFIN_EPS"
 # Specify boundary conditions
 def create_bcs(V, Q, **NS_namespace):
     bc0  = DirichletBC(V, 0, noslip)
-    bc00 = DirichletBC(V, 1, inlet)
+    bc00 = DirichletBC(V, 5, inlet)
     bc01 = DirichletBC(V, 0, inlet)
     bcp = DirichletBC(Q, 0, outlet)
     return dict(u0 = [bc0, bc00],

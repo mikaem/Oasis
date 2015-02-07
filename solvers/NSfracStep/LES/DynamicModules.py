@@ -124,13 +124,23 @@ def compute_magSSij(F_SSij, G_matr, CG1, dim, tensdim, assigners_rev, Sijforms,
     applying a pre-assembled mass matrix for
     the TensorFunctionSpace.
     """
-    q = TestFunction(CG1)
     Sij = Sijcomps
+    
+    # Apply pre-assembled matrices and compute right hand sides
+    if tensdim == 3:
+        Ax, Ay = Sijforms
+        b = [2*Ax*u[0].vector(), Ay*u[0].vector()+Ax*u[1].vector(),
+            2*Ay*u[1].vector()]
+    else:
+        Ax, Ay, Az = Sijforms
+        b = [2*Ax*u[0].vector(), Ay*u[0].vector()+Ax*u[1].vector(),
+                Az*u[0].vector+Ay*u[2].vector(),2*Ay*u[1].vector(),
+                Az*u[1].vector()+Ay*u[2].vector(), 2*Az*u[2].vector()]
 
     # First we need to solve for the different components of Sij
     for i in xrange(tensdim):
-        b = assemble(inner(0.5*Sijforms[i], q)*dx)
-        solve(G_matr, Sij[i].vector(), b, "bicgstab", "additive_schwarz")
+        solve(G_matr, Sij[i].vector(), 0.5*b[i], "cg", "default")
+
     # Compute |S| = sqrt(2*Sij:Sij)
     if tensdim == 3:
         # Extract Sij vectors
