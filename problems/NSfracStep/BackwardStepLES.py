@@ -5,30 +5,44 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from ..NSfracStep import *
 
+parameters["mesh_partitioner"] = "SCOTCH"
+
 # Set up parameters
 NS_parameters.update(
-    nu = 5.35e-7,
-    T  = .01,
-    dt = 1e-5,
-    plot_interval = 20,
+    nu = 15.11E-7,
+    T  = .1,
+    dt = 1E-5,
     les_model="DynamicLagrangian",
+    plot_interval = 20,
     save_step=1,
     print_intermediate_info = 100,
     use_krylov_solvers = True)
 
-NS_parameters["DynamicSmagorinsky"].update(comp_step=10)
+NS_parameters["DynamicSmagorinsky"].update(comp_step=1)
 
-mesh = Mesh("mesh/square.xml")
+from mshr import *
 
-noslip = "on_boundary && x[0] > DOLFIN_EPS && std::abs(0.1-x[0]) > \
-        DOLFIN_EPS"
+r1 = Rectangle(Point(0, 0), Point(0.02, 0.005))
+r2 = Rectangle(Point(0, 0), Point(0.1, 0.01))
+r3 = Rectangle(Point(0.08, 0), Point(0.1, 0.005))
+
+domain = r2-r3-r1
+
+mesh = generate_mesh(domain, 1000)
+
+noslip = "on_boundary && std::abs(0.1-x[0]) > DOLFIN_EPS ||\
+                std::abs(0.01 - x[1]) < DOLFIN_EPS || \
+                std::abs(0.005 - x[1]) < DOLFIN_EPS ||\
+                x[1] < DOLFIN_EPS || \
+                std::abs(0.02 - x[0]) < DOLFIN_EPS ||\
+                std::abs(0.08 - x[0]) < DOLFIN_EPS"
 inlet = "on_boundary && x[0] < DOLFIN_EPS"
 outlet = "on_boundary && std::abs(0.1-x[0]) < DOLFIN_EPS"
 
 # Specify boundary conditions
 def create_bcs(V, Q, **NS_namespace):
     bc0  = DirichletBC(V, 0, noslip)
-    bc00 = DirichletBC(V, 0.535, inlet)
+    bc00 = DirichletBC(V, 1, inlet)
     bc01 = DirichletBC(V, 0, inlet)
     bcp = DirichletBC(Q, 0, outlet)
     return dict(u0 = [bc0, bc00],
@@ -43,9 +57,9 @@ def initialize(x_1, x_2, bcs, **NS_namespace):
 
 def pre_solve_hook(mesh, nut_, velocity_degree, **NS_namespace):
     Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree)
-    nutfile = File("results/square_flow/nut.pvd")
-    CSGSFile = File("results/square_flow/CSGS.pvd")
-    v_file = File("results/square_flow/U.pvd")
+    nutfile = File("results/bwfstep/nut.pvd")
+    CSGSFile = File("results/bwfstep/CSGS.pvd")
+    v_file = File("results/bwfstep/U.pvd")
     set_log_active(False)
     return dict(uv=Function(Vv), nutfile=nutfile, 
             CSGSFile=CSGSFile, v_file=v_file)
