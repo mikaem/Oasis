@@ -11,6 +11,7 @@ from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
 from DynamicModules import tophatfilter, lagrange_average, compute_uiuj,\
         compute_magSSij
 import numpy as np
+import time
 
 __all__ = ['les_setup', 'les_update']
 
@@ -97,7 +98,7 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, **NS_namespace):
                 JLM=JLM, JMM=JMM, bcJ1=bcJ1, bcJ2=bcJ2, eps=eps, T_=T_, 
                 dim=dim, tensdim=tensdim, G_matr=G_matr, G_under=G_under, 
                 dummy=dummy, assigners=assigners, assigners_rev=assigners_rev, 
-                lag_sol=lag_sol, uiuj_pairs=uiuj_pairs)    
+                lag_sol=lag_sol, uiuj_pairs=uiuj_pairs) 
     
 def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered,F_uiuj, 
@@ -119,10 +120,10 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
         nut_.vector().apply("insert")
         # BREAK FUNCTION
         return
-
-    # Ratio between filters, such that delta_tilde = 2*delta,
+    
+    # Ratio between filters, such that delta_tilde = alpha*delta,
     # where delta is the implicit mesh filter.
-    alpha = 2
+    alpha = 2.
     
     #############################
     # Filter the velocity field #
@@ -134,7 +135,7 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
         u_CG1[i].interpolate(u_[i])
         # Filter
         tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
-    
+
     ##############
     # SET UP Lij #
     ##############
@@ -153,12 +154,13 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     # Compute F(|S|Sij) and add to F_SSij
     tophatfilter(unfilterd=F_SSij, filtered=F_SSij, N=tensdim, **vars())
     # Define F(Sij)
-    Sijf = dev(sym(grad(u_filtered)))
+    # Sijf = dev(sym(grad(u_filtered)))
+    Sijf = sym(grad(u_filtered))
     # Define F(|S|) = sqrt(2*Sijf:Sijf)
     magSf = sqrt(2*inner(Sijf,Sijf))
     # Define Mij = 2*delta**2(F(|S|Sij) - alpha**2F(|S|)F(Sij))
     Mij = 2*(delta**2)*(F_SSij - (alpha**2)*magSf*Sijf)
-
+    
     ##################################################
     # Solve Lagrange Equations for LijMij and MijMij #
     ##################################################

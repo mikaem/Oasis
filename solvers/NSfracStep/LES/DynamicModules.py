@@ -6,6 +6,7 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 from dolfin import TrialFunction, TestFunction, assemble, inner, dx, grad,\
                     plot, interactive, solve
 import numpy as np
+import time
 
 def lagrange_average(eps, T_, u_, dt, G_matr, dummy, CG1, lag_sol, 
         bcJ1, bcJ2, J1=None, J2=None, Aij=None, Bij=None, **NS_namespace):
@@ -26,7 +27,7 @@ def lagrange_average(eps, T_, u_, dt, G_matr, dummy, CG1, lag_sol,
     - J1 is clipped at 1E-32 (not zero, will lead to problems).
     - J2 is clipped at 10 (initial value).
     """
-
+    
     # Update eps vector = dt/T
     eps.vector().set_local(((J1.vector().array()*J2.vector().array())**0.125)*T_.vector().array())
     eps.vector().apply("insert")
@@ -37,16 +38,16 @@ def lagrange_average(eps, T_, u_, dt, G_matr, dummy, CG1, lag_sol,
     # Update eps to (dt/T)/(1+dt/T)
     eps.vector().set_local(eps.vector().array()/(1+eps.vector().array()))
     eps.vector().apply("insert")
-
+    
     p, q = TrialFunction(CG1), TestFunction(CG1)
     # Assemble convective term
     A = assemble(-inner(dt*epsT*u_*p, grad(q))*dx)
     # Axpy mass matrix
     A.axpy(1, G_matr, True)
     # Assemble right hand sides
-    b1 = assemble(inner(epsT*J1,q)*dx + inner(eps*inner(Aij,Bij),q)*dx)
-    b2 = assemble(inner(epsT*J2,q)*dx + inner(eps*inner(Bij,Bij),q)*dx)
-    
+    b1 = assemble(inner(epsT*J1 + eps*inner(Aij,Bij),q)*dx)
+    b2 = assemble(inner(epsT*J2 + eps*inner(Bij,Bij),q)*dx)
+
     # Solve for J1 and J2, apply pre-defined krylov solver
     bcJ1.apply(A, b1)
     lag_sol.solve(A, J1.vector(), b1)
@@ -115,27 +116,31 @@ def compute_uiuj(F_uiuj, uiuj_pairs, tensdim, dummy, G_matr, G_under,
         assigners_rev[i].assign(F_uiuj.sub(i), dummy)
 
 def compute_magSSij(F_SSij, G_matr, CG1, dim, tensdim, assigners_rev, Sijforms,
-        Sijcomps, lag_sol, u=None, **NS_namespace):
+        Sijcomps, lag_sol, u_=None, **NS_namespace):
     """
     Solve for 
     
     sqrt(2*inner(Sij,Sij))*Sij
     
-    applying a pre-assembled mass matrix for
-    the TensorFunctionSpace.
+    componentwise by applying a pre-assembled CG1
+    mass matrix, and pre-assembled derivative matrices
+    Ax, Ay and Az. Array operations are applied
+    when removing the trace and computing |S|
     """
     Sij = Sijcomps
     
     # Apply pre-assembled matrices and compute right hand sides
     if tensdim == 3:
         Ax, Ay = Sijforms
-        b = [2*Ax*u[0].vector(), Ay*u[0].vector()+Ax*u[1].vector(),
-            2*Ay*u[1].vector()]
+        u = u_[0].vector()
+        v = u_[1].vector()
+        b = [2*Ax*u, Ay*u + Ax*v, 2*Ay*v]
     else:
         Ax, Ay, Az = Sijforms
-        b = [2*Ax*u[0].vector(), Ay*u[0].vector()+Ax*u[1].vector(),
-                Az*u[0].vector+Ay*u[2].vector(),2*Ay*u[1].vector(),
-                Az*u[1].vector()+Ay*u[2].vector(), 2*Az*u[2].vector()]
+        u = u_[0].vector()
+        v = u_[1].vector()
+        w = u_[2].vector()
+        b = [2*Ax*u, Ay*u + Ax*v, Az*u + Ay*w, 2*Ay*v, Az*v + Ay*w, 2*Az*w]
 
     # First we need to solve for the different components of Sij
     for i in xrange(tensdim):
@@ -147,14 +152,6 @@ def compute_magSSij(F_SSij, G_matr, CG1, dim, tensdim, assigners_rev, Sijforms,
         S00 = Sij[0].vector().array()
         S01 = Sij[1].vector().array()
         S11 = Sij[2].vector().array()
-        # Remove trace
-        trace = 0.5*(S00 + S11)
-        S00 = S00-trace
-        S11 = S11-trace
-        Sij[0].vector().set_local(S00)
-        Sij[0].vector().apply("insert")
-        Sij[2].vector().set_local(S11)
-        Sij[2].vector().apply("insert")
         # Compute |S|
         magS = np.sqrt(2*(S00*S00 + 2*S01*S01 + S11*S11))
     else:
@@ -165,17 +162,6 @@ def compute_magSSij(F_SSij, G_matr, CG1, dim, tensdim, assigners_rev, Sijforms,
         S11 = Sij[3].vector().array()
         S12 = Sij[4].vector().array()
         S22 = Sij[5].vector().array()
-        # Remove trace
-        trace = (1./3.)*(S00 + S11 + S22)
-        S00 = S00-trace
-        S11 = S11-trace
-        S22 = S22-trace
-        Sij[0].vector().set_local(S00)
-        Sij[0].vector().apply("insert")
-        Sij[2].vector().set_local(S11)
-        Sij[2].vector().apply("insert")
-        Sij[5].vector().set_local(S22)
-        Sij[5].vector().apply("insert")
         # Compute |S|
         magS = np.sqrt(2*(S00*S00 + 2*S01*S01 + 2*S02*S02 + S11*S11 +
             2*S12*S12+ S22*S22))

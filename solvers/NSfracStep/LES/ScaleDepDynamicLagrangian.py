@@ -10,6 +10,7 @@ from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
 from DynamicModules import tophatfilter, lagrange_average, compute_uiuj,\
         compute_magSSij
 import numpy as np
+import time
 
 __all__ = ['les_setup', 'les_update']
 
@@ -112,7 +113,7 @@ def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     For the dynamic model Cs needs to be recomputed for the wanted
     time intervals.
     """
-
+    
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
         ##################
@@ -125,7 +126,7 @@ def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
 
     # Ratio between filters, such that delta_tilde = 2*delta,
     # where delta is the implicit mesh filter.
-    alpha = 2
+    alpha = 2.
 
     #############################
     # Filter the velocity field #
@@ -186,11 +187,11 @@ def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     # F(|S|Sij) has allready been computed, filter once more
     tophatfilter(unfilterd=F_SSij, filtered=F_SSij, N=tensdim, **vars())
     # Define F(Sij)
-    Sijf = dev(sym(grad(u_filtered)))
+    Sijf = sym(grad(u_filtered))
     # Define F(|S|) = sqrt(2*Sijf:Sijf)
     magSf = sqrt(2*inner(Sijf,Sijf))
     # Define Mij = 2*delta**2(F(|S|Sij) - alpha**2F(|S|)F(Sij))
-    Nij = 2*(delta**2)*(F_SSij - (alpha**4)*magSf*Sijf)
+    Nij = 2*(delta**2)*(F_SSij - ((2*alpha)**2)*magSf*Sijf)
 
     ##################################################
     # Solve Lagrange Equations for QijNij and NijNij #
@@ -202,7 +203,7 @@ def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     # beta = JQN/JNN                #
     #################################
     beta = JQN.vector().array()/JNN.vector().array()
-    beta = beta.clip(min=0.125)
+    beta = beta.clip(min=0.5)
     Cs.vector().set_local(np.sqrt((JLM.vector().array()/JMM.vector().array())/beta))
     Cs.vector().apply("insert")
 
