@@ -124,29 +124,41 @@ for ci in scalar_components:
     assert(isinstance(fs[ci], Coefficient))
     b0[ci] = assemble(v*fs[ci]*dx)
 
-# Boussinesq convective flow setup
-if boussinesq["use"] == True:
-    # Exctract values from boussinesq dict
-    g = boussinesq["g"]
-    T_ref = boussinesq["T_ref"]
-    beta = boussinesq["beta"]
-    Temp = Function(V)
-    vars().update(Temp=Temp)
-    Temp.vector().axpy(1, x_1[scalar_components[boussinesq["Temp_scalar_index"]]])
-    # Add temperature diff to rhs of vertical velocity component
-    if mesh.topology().dim() == 2:
-        b0["u1"] += assemble(inner(dt*(-g + beta*(Temp-T_ref)), v)*dx)
-        bouss_code = """
-Temp.vector().zero(); Temp.vector().axpy(1, x_1[scalar_components[boussinesq["Temp_scalar_index"]]])
-b0["u1"] += assemble(dt*(-g + beta*(Temp - T_ref))*v*dx)"""
-    else:
-        b0["u2"] += assemble(dt*(-g + beta*(Temp-T_ref))*v*dx)
-        bouss_code = """
-Temp.vector().zero(); Temp.vector().axpy(1, x_1[scalar_components[boussinesq["Temp_scalar_index"]]])
-b0["u2"] += assemble(dt*(-g + beta*(Temp - T_ref))*v*dx)"""
-
 # Preassemble and allocate
 vars().update(setup(**vars()))
+
+# Boussinesq convective flow setup
+if boussinesq["use"] == True:
+    
+    # Exctract values from boussinesq dict
+    g = boussinesq["g"]             # Gravity
+    T_ref = boussinesq["T_ref"]     # Reference temp
+    beta = boussinesq["beta"]       # Effect of temp diff.
+    vel = boussinesq["vertical_velocity"]   # Vertical velocity component
+    T_index = boussinesq["Temp_scalar_index"]   # Scalar index of temperature
+
+    # Create function for holding temperature vector and update its values
+    Temp = Function(V)
+    vars().update(Temp=Temp)
+    Temp.vector().axpy(1, x_1[scalar_components[T_index]])
+    Temp.vector().set_local(-g + beta*(Temp.vector().array()-T_ref))
+    Temp.vector().apply("insert")
+
+    # Check dimension of problem and set default vertical velocity component if
+    # nothing has been specified
+    if mesh.topology().dim() == 2 and vel == None:
+        vel = "u1"
+    elif mesh.topology().dim() == 3 and vel == None:
+        vel = "u2"
+    
+    # Set up bouss code applying the matrix vector product
+    b0[vel] += M*Temp.vector()
+    bouss_code = """
+Temp.vector().zero()
+Temp.vector().axpy(1, x_1[scalar_components[T_index]])
+Temp.vector().set_local(-g + beta*(Temp.vector().array()-T_ref))
+Temp.vector().apply("insert")
+b0[vel] += M*Temp.vector()"""
 
 # Anything problem specific
 vars().update(pre_solve_hook(**vars()))

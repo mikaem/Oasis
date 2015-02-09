@@ -6,7 +6,6 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 from dolfin import TrialFunction, TestFunction, assemble, inner, dx, grad,\
                     plot, interactive, solve
 import numpy as np
-import time
 
 def lagrange_average(eps, T_, u_, dt, G_matr, dummy, CG1, lag_sol, 
         bcJ1, bcJ2, J1=None, J2=None, Aij=None, Bij=None, **NS_namespace):

@@ -41,7 +41,8 @@ NS_parameters.update(
   DynamicSmagorinsky = dict(Cs_comp_step=1), # Time step interval for Cs to be recomputed
 
   # Boussinesq parameters for convective, "compressible" flow
-  boussinesq = dict(use=False, g = 9.81, beta=1, T_ref=0, Temp_scalar_index=0),
+  boussinesq = dict(use=False, g = 9.81, beta=1, T_ref=0, 
+      Temp_scalar_index=0, vertical_velocity=None),
 
   # Solver parameters that will be transferred to dolfi
   # ns parameters['krylov_solver']

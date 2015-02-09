@@ -11,7 +11,6 @@ from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
 from DynamicModules import tophatfilter, lagrange_average, compute_uiuj,\
         compute_magSSij
 import numpy as np
-import time
 
 __all__ = ['les_setup', 'les_update']
 

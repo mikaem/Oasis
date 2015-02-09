@@ -10,10 +10,9 @@ parameters["mesh_partitioner"] = "SCOTCH"
 
 # Set up parameters
 NS_parameters.update(
-    nu = 15.11E-7,
+    nu = 5e-4,
     T  = 1,
-    dt = .001,
-    les_model="DynamicLagrangian",
+    dt = .0001,
     plot_interval = 20,
     save_step=1,
     print_intermediate_info = 100,
@@ -22,25 +21,21 @@ NS_parameters.update(
 scalar_components = ["temp"]
 
 NS_parameters["DynamicSmagorinsky"].update(Cs_comp_step=1)
-NS_parameters["boussinesq"].update(use=True, beta=50, g=0, T_ref=0)
+NS_parameters["boussinesq"].update(use=True, beta=100, g=0, T_ref=0)
 
-from mshr import *
-
-domain = Rectangle(Point(0, 0), Point(0.2, 1))
-mesh = generate_mesh(domain, 500)
+mesh = RectangleMesh(0,0,0.2,1,250,500)
 
 noslip = "on_boundary"
 left = "on_boundary && x[0] < DOLFIN_EPS"
 right = "on_boundary && std::abs(.2-x[0]) < DOLFIN_EPS"
 
-scalar_components = ["temp"]
-Schmidt["temp"] = .01
+Schmidt["temp"] = 10
 
 # Specify boundary conditions
 def create_bcs(V, Q, **NS_namespace):
     bc0  = DirichletBC(V, 0, noslip)
-    bcT1 = DirichletBC(V, 10, left)
-    bcT2 = DirichletBC(V, -10, right)
+    bcT1 = DirichletBC(V, 1, left)
+    bcT2 = DirichletBC(V, -1, right)
     return dict(u0 = [bc0],
                 u1 = [bc0],
                 p = [],
@@ -66,11 +61,11 @@ def start_timestep_hook(t, **NS_namespace):
     print "t = ", t, "s"
     
 def temporal_hook(tstep, save_step, nut_, u_, nutfile, v_file, uv, 
-        CSGSFile, Cs, T_file, Temp, **NS_namespace):
+        CSGSFile, T_file, Temp, **NS_namespace):
     if tstep%save_step == 0:
-        nutfile << nut_
+        #nutfile << nut_
         assign(uv.sub(0), u_[0])
         assign(uv.sub(1), u_[1])
         v_file << uv
-        CSGSFile << Cs
+        #CSGSFile << Cs
         T_file << Temp
