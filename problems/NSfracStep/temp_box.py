@@ -4,7 +4,6 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from ..NSfracStep import *
-import time 
 
 parameters["mesh_partitioner"] = "SCOTCH"
 
@@ -34,8 +33,8 @@ Schmidt["temp"] = 10
 # Specify boundary conditions
 def create_bcs(V, Q, **NS_namespace):
     bc0  = DirichletBC(V, 0, noslip)
-    bcT1 = DirichletBC(V, 1, left)
-    bcT2 = DirichletBC(V, -1, right)
+    bcT1 = DirichletBC(V, .1, left)
+    bcT2 = DirichletBC(V, -.1, right)
     return dict(u0 = [bc0],
                 u1 = [bc0],
                 p = [],

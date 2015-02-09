@@ -4,7 +4,6 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from ..NSfracStep import *
-import time 
 
 parameters["mesh_partitioner"] = "SCOTCH"
 
