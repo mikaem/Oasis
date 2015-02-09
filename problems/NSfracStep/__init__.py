@@ -36,11 +36,15 @@ NS_parameters.update(
   les_model = None,       # None, Smagorinsky, Wale, DynamicLagrangian, ScaleDepDynamicLagrangian
  
   # LES model parameters
-  Smagorinsky = dict(Cs=0.1677),	# Standard Cs, same as OpenFOAM
+  Smagorinsky = dict(Cs=0.1677),             # Standard Cs, same as OpenFOAM
   Wale = dict(Cw=0.325),
   DynamicSmagorinsky = dict(Cs_comp_step=1), # Time step interval for Cs to be recomputed
 
-  # Solver parameters that will be transferred to dolfins parameters['krylov_solver']
+  # Boussinesq parameters for convective, "compressible" flow
+  boussinesq = dict(use=False, g = 9.81, beta=1, T_ref=0, Temp_scalar_index=0),
+
+  # Solver parameters that will be transferred to dolfi
+  # ns parameters['krylov_solver']
   krylov_solvers = dict(
     monitor_convergence = False,
     report = False,

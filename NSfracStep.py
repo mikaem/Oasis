@@ -124,6 +124,27 @@ for ci in scalar_components:
     assert(isinstance(fs[ci], Coefficient))
     b0[ci] = assemble(v*fs[ci]*dx)
 
+# Boussinesq convective flow setup
+if boussinesq["use"] == True:
+    # Exctract values from boussinesq dict
+    g = boussinesq["g"]
+    T_ref = boussinesq["T_ref"]
+    beta = boussinesq["beta"]
+    Temp = Function(V)
+    vars().update(Temp=Temp)
+    Temp.vector().axpy(1, x_1[scalar_components[boussinesq["Temp_scalar_index"]]])
+    # Add temperature diff to rhs of vertical velocity component
+    if mesh.topology().dim() == 2:
+        b0["u1"] += assemble(inner(dt*(-g + beta*(Temp-T_ref)), v)*dx)
+        bouss_code = """
+Temp.vector().zero(); Temp.vector().axpy(1, x_1[scalar_components[boussinesq["Temp_scalar_index"]]])
+b0["u1"] += assemble(dt*(-g + beta*(Temp - T_ref))*v*dx)"""
+    else:
+        b0["u2"] += assemble(dt*(-g + beta*(Temp-T_ref))*v*dx)
+        bouss_code = """
+Temp.vector().zero(); Temp.vector().axpy(1, x_1[scalar_components[boussinesq["Temp_scalar_index"]]])
+b0["u2"] += assemble(dt*(-g + beta*(Temp - T_ref))*v*dx)"""
+
 # Preassemble and allocate
 vars().update(setup(**vars()))
 
@@ -152,6 +173,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         t0 = OasisTimer("Tentative velocity")
         if inner_iter == 1:
             les_update(**vars())
+            exec(bouss_code)
             assemble_first_inner_iter(**vars())
         udiff[0] = 0.0
         for i, ui in enumerate(u_components):
