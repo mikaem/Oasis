@@ -8,12 +8,11 @@ from dolfin import Function
 __all__ = ['boussinesq_setup', 'boussinesq_update']
 
 def boussinesq_setup(boussinesq, V, x_1, scalar_components, mesh, M, b0, **NS_namespace):
-    
     # Check if boussinesq is to be applied, if not break function
     if boussinesq["use"] == False:
         bouss_code = "pass"
         return dict(bouss_code)
-    
+
     # Exctract values from boussinesq dict
     g = boussinesq["g"]             # Gravity
     T_ref = boussinesq["T_ref"]     # Reference temp

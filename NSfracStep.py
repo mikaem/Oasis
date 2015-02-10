@@ -128,7 +128,7 @@ for ci in scalar_components:
 vars().update(setup(**vars()))
 
 # Boussinesq setup
-exec("from solvers.NSfracStep.boussinesq import *")
+exec("from solvers.NSfracStep.Boussinesq.boussinesq import *")
 vars().update(boussinesq_setup(**vars()))
 
 # Anything problem specific
