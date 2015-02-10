@@ -127,38 +127,9 @@ for ci in scalar_components:
 # Preassemble and allocate
 vars().update(setup(**vars()))
 
-# Boussinesq convective flow setup
-if boussinesq["use"] == True:
-    
-    # Exctract values from boussinesq dict
-    g = boussinesq["g"]             # Gravity
-    T_ref = boussinesq["T_ref"]     # Reference temp
-    beta = boussinesq["beta"]       # Effect of temp diff.
-    vel = boussinesq["vertical_velocity"]   # Vertical velocity component
-    T_index = boussinesq["Temp_scalar_index"]   # Scalar index of temperature
-
-    # Create function for holding temperature vector and update its values
-    Temp = Function(V)
-    vars().update(Temp=Temp)
-    Temp.vector().axpy(1, x_1[scalar_components[T_index]])
-    Temp.vector().set_local(-g + beta*(Temp.vector().array()-T_ref))
-    Temp.vector().apply("insert")
-
-    # Check dimension of problem and set default vertical velocity component if
-    # nothing has been specified
-    if mesh.topology().dim() == 2 and vel == None:
-        vel = "u1"
-    elif mesh.topology().dim() == 3 and vel == None:
-        vel = "u2"
-    
-    # Set up bouss code applying the matrix vector product
-    b0[vel] += M*Temp.vector()
-    bouss_code = """
-Temp.vector().zero()
-Temp.vector().axpy(1, x_1[scalar_components[T_index]])
-Temp.vector().set_local(-g + beta*(Temp.vector().array()-T_ref))
-Temp.vector().apply("insert")
-b0[vel] += M*Temp.vector()"""
+# Boussinesq setup
+exec("from solvers.NSfracStep.boussinesq import *")
+vars().update(boussinesq_setup(**vars()))
 
 # Anything problem specific
 vars().update(pre_solve_hook(**vars()))
@@ -185,7 +156,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         t0 = OasisTimer("Tentative velocity")
         if inner_iter == 1:
             les_update(**vars())
-            exec(bouss_code)
+            boussinesq_update(**vars())
             assemble_first_inner_iter(**vars())
         udiff[0] = 0.0
         for i, ui in enumerate(u_components):

@@ -33,8 +33,8 @@ Schmidt["temp"] = 10
 # Specify boundary conditions
 def create_bcs(V, Q, **NS_namespace):
     bc0  = DirichletBC(V, 0, noslip)
-    bcT1 = DirichletBC(V, .1, left)
-    bcT2 = DirichletBC(V, -.1, right)
+    bcT1 = DirichletBC(V, 1, left)
+    bcT2 = DirichletBC(V, -1, right)
     return dict(u0 = [bc0],
                 u1 = [bc0],
                 p = [],
