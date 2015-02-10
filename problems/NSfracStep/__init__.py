@@ -40,7 +40,7 @@ NS_parameters.update(
   Wale = dict(Cw=0.325),
   DynamicSmagorinsky = dict(Cs_comp_step=1), # Time step interval for Cs to be recomputed
 
-  # Boussinesq parameters1
+  # Boussinesq parameters
   boussinesq = dict(use=False, g = 9.81, beta=1, T_ref=0, 
       Temp_scalar_index=0, vertical_velocity=None),
 
