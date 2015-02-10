@@ -174,9 +174,9 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
         b_tmp[ui].zero()              # start with body force
         b_tmp[ui].axpy(1., b0[ui])
         b_tmp[ui].axpy(1., A*x_1[ui]) # Add transient, convection and diffusion
-        if not les_model is None:
-            LT.assemble_rhs(i)
-            b_tmp[ui].axpy(1., LT.vector())
+        #if not les_model is None:
+        #    LT.assemble_rhs(i)
+        #    b_tmp[ui].axpy(1., LT.vector())
         
     # Reset matrix for lhs
     A._scale(-1.)

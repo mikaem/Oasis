@@ -130,7 +130,7 @@ def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     #################################
     beta = JQN.vector().array()/JNN.vector().array()
     beta = beta.clip(min=0.5)
-    Cs.vector().set_local(np.sqrt((JLM.vector().array()/JMM.vector().array())/beta))
+    Cs.vector().set_local((np.sqrt((JLM.vector().array()/JMM.vector().array())/beta)).clip(max=0.4))
     Cs.vector().apply("insert")
 
     ##################

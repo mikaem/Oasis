@@ -164,9 +164,10 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     #############################
     """
     Important that the term in nut_form is Cs**2 and not Cs
-    since Cs here is stored as sqrt(JLM/JMM).
+    since Cs here is stored as sqrt(JLM/JMM). Also clip Cs in case 
+    of large values
     """
-    Cs.vector().set_local(np.sqrt(JLM.vector().array()/JMM.vector().array()))
+    Cs.vector().set_local((np.sqrt(JLM.vector().array()/JMM.vector().array())).clip(max=0.4))
     Cs.vector().apply("insert")
     
     ##################
