@@ -9,110 +9,37 @@ from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
         dev, outer, as_vector, FunctionAssigner, KrylovSolver, DirichletBC
 from DynamicModules import tophatfilter, lagrange_average, compute_uiuj,\
         compute_magSSij
+import DynamicLagrangian
 import numpy as np
 
 __all__ = ['les_setup', 'les_update']
 
-def les_setup(u_, mesh, dt, krylov_solvers, V, **NS_namespace):
+def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
     scale dependent Lagrangian Averaging.
     """
-
-    # Create function spaces
-    DG = FunctionSpace(mesh, "DG", 0)
-    CG1 = FunctionSpace(mesh, "CG", 1)
-    p,q = TrialFunction(CG1), TestFunction(CG1)
-    p2 = TrialFunction(V)
-    TFS = TensorFunctionSpace(mesh, "CG", 1, symmetry=True)
-    dim = mesh.geometry().dim()
-
-    delta = project(pow(CellVolume(mesh), 1./dim), DG)
-
-    # Define nut_
-    nut_ = Function(DG)
-    Sij = sym(grad(u_))
-    magS = sqrt(2*inner(Sij,Sij))
-    Cs = Function(CG1)
-    nut_form = Cs**2 * delta**2 * magS
-    A_dg = as_backend_type(assemble(TrialFunction(DG)*TestFunction(DG)*dx))
-    dg_diag = A_dg.mat().getDiagonal().array
-
-    # Create functions for holding the different velocities
-    u_CG1 = as_vector([Function(CG1) for i in range(dim)])
-    u_filtered = as_vector([Function(CG1) for i in range(dim)])
-    dummy = Function(CG1)
-
-    # Assemble required filter matrices and functions
-    G_under = Function(CG1, assemble(TestFunction(CG1)*dx))
-    G_under.vector().set_local(1./G_under.vector().array())
-    G_under.vector().apply("insert")
-    # G_matr is also the mass matrix to be used with Lag. avg.
-    G_matr = assemble(TrialFunction(CG1)*TestFunction(CG1)*dx)
-
-    # Assemble some required matrices for solving for rate of strain terms
-    F_uiuj = Function(TFS)
-    F_SSij = Function(TFS)
-    # Check if case is 2D or 3D and set up uiuj product pairs and 
-    # Sij forms
-    Sijcomps = [Function(CG1) for i in range(dim*dim)]
-    Sijforms = [assemble(p2.dx(i)*q*dx) for i in range(dim)]
-    if dim == 3:
-        tensdim = 6
-        uiuj_pairs = ((0,0),(0,1),(0,2),(1,1),(1,2),(2,2))
-    else:
-        tensdim = 3
-        uiuj_pairs = ((0,0),(0,1),(1,1))
-
-    # Set up function assigners
-    # From TFS.sub(i) to CG1
-    assigners = [FunctionAssigner(CG1, TFS.sub(i)) for i in range(tensdim)]
-    # From CG1 to TFS.sub(i)
-    assigners_rev = [FunctionAssigner(TFS.sub(i), CG1) for i in range(tensdim)]
     
-    # Define Lagrangian solver
-    lag_sol = KrylovSolver("bicgstab", "jacobi")
-    lag_sol.parameters.update(krylov_solvers)
-    lag_sol.parameters['preconditioner']['structure'] = 'same'
-
-    # Set up Lagrange Equations
-    JLM = Function(CG1)
-    JLM.vector()[:] += 1e-7
-    JMM = Function(CG1)
-    JMM.vector()[:] += 10.
-    JQN = Function(CG1)
+    # The setup is 99% equal to DynamicLagrangian, hence use its les_setup
+    dyn_dict = DynamicLagrangian.les_setup(**vars())
+    
+    # Add scale dep specific parameters
+    JQN = Function(dyn_dict["CG1"])
     JQN.vector()[:] += 1e-7
-    JNN = Function(CG1)
+    JNN = Function(dyn_dict["CG1"])
     JNN.vector()[:] += 10.
-    eps = Function(CG1)
-    T_ = project(1.5*delta, CG1)
-    T_.vector().set_local(dt/T_.vector().array())
-    T_.vector().apply("insert")
-    # These DirichletBCs are needed for the stability 
-    # when solving the Lagrangian PDEs
-    bcJ1 = DirichletBC(CG1, 0, "on_boundary")
-    bcJ2 = DirichletBC(CG1, 10, "on_boundary")
-
-    return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta,
-                dg_diag=dg_diag, DG=DG, CG1=CG1, v_dg=TestFunction(DG),
-                Cs=Cs, u_CG1=u_CG1, u_filtered=u_filtered, F_uiuj=F_uiuj, 
-                F_SSij=F_SSij, Sijforms=Sijforms, Sijcomps=Sijcomps, JLM=JLM, JMM=JMM, 
-                JQN=JQN, JNN=JNN, bcJ1=bcJ1, bcJ2=bcJ2, eps=eps, T_=T_, dim=dim, 
-                tensdim=tensdim, G_matr=G_matr, G_under=G_under, 
-                dummy=dummy, assigners=assigners, assigners_rev=assigners_rev, 
-                lag_sol=lag_sol, uiuj_pairs=uiuj_pairs)
     
+    # Update and return dict
+    dyn_dict.update(JQN=JQN, JNN=JNN)
+
+    return dyn_dict
+
 def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, F_uiuj, F_SSij, 
             JLM, JMM, JQN, JNN, bcJ1, bcJ2, eps, T_, dim, tensdim, G_matr, 
             G_under, dummy, assigners, assigners_rev, lag_sol, 
-            uiuj_pairs, Sijforms, Sijcomps, **NS_namespace):
+            uiuj_pairs, Sijmats, Sijcomps, **NS_namespace):
 
-    """
-    For the dynamic model Cs needs to be recomputed for the wanted
-    time intervals.
-    """
-    
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
         ##################
@@ -172,9 +99,9 @@ def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
         # Filter
         tophatfilter(unfiltered=u_filtered[i], filtered=u_filtered[i], **vars())
     
-    ###################################################
-    # SET UP Qij = dev(F(F(uiuj)) - F(F(ui))F(F(uj))) #
-    ##################################################
+    ##############
+    # SET UP Qij #
+    ##############
     # Filter F(uiuj) --> F(F(uiuj))
     tophatfilter(unfilterd=F_uiuj, filtered=F_uiuj, N=tensdim, **vars())
     # Define Qij

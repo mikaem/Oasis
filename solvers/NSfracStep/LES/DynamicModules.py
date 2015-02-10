@@ -114,8 +114,8 @@ def compute_uiuj(F_uiuj, uiuj_pairs, tensdim, dummy, G_matr, G_under,
         # Assign to tensor
         assigners_rev[i].assign(F_uiuj.sub(i), dummy)
 
-def compute_magSSij(F_SSij, G_matr, CG1, dim, tensdim, assigners_rev, Sijforms,
-        Sijcomps, lag_sol, u_=None, **NS_namespace):
+def compute_magSSij(F_SSij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
+        Sijcomps, u_=None, **NS_namespace):
     """
     Solve for 
     
@@ -126,16 +126,17 @@ def compute_magSSij(F_SSij, G_matr, CG1, dim, tensdim, assigners_rev, Sijforms,
     Ax, Ay and Az. Array operations are applied
     when removing the trace and computing |S|
     """
+
     Sij = Sijcomps
-    
+
     # Apply pre-assembled matrices and compute right hand sides
     if tensdim == 3:
-        Ax, Ay = Sijforms
+        Ax, Ay = Sijmats
         u = u_[0].vector()
         v = u_[1].vector()
         b = [2*Ax*u, Ay*u + Ax*v, 2*Ay*v]
     else:
-        Ax, Ay, Az = Sijforms
+        Ax, Ay, Az = Sijmats
         u = u_[0].vector()
         v = u_[1].vector()
         w = u_[2].vector()

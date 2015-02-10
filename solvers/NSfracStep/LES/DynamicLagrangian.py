@@ -14,12 +14,12 @@ import numpy as np
 
 __all__ = ['les_setup', 'les_update']
 
-def les_setup(u_, mesh, dt, krylov_solvers, V, **NS_namespace):
+def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
     Lagrangian Averaging.
     """
-
+    
     # Create function spaces
     DG = FunctionSpace(mesh, "DG", 0)
     CG1 = FunctionSpace(mesh, "CG", 1)
@@ -57,7 +57,7 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, **NS_namespace):
     # Check if case is 2D or 3D and set up uiuj product pairs and 
     # Sij forms, assemble required matrices
     Sijcomps = [Function(CG1) for i in range(dim*dim)]
-    Sijforms = [assemble(p2.dx(i)*q*dx) for i in range(dim)]
+    Sijmats = [assemble_matrix(p2.dx(i)*q*dx) for i in range(dim)]
     if dim == 3:
         tensdim = 6
         uiuj_pairs = ((0,0),(0,1),(0,2),(1,1),(1,2),(2,2))
@@ -93,7 +93,7 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, **NS_namespace):
     return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta,
                 dg_diag=dg_diag, DG=DG, CG1=CG1, v_dg=TestFunction(DG),
                 Cs=Cs, u_CG1=u_CG1, u_filtered=u_filtered, 
-                F_uiuj=F_uiuj, F_SSij=F_SSij, Sijforms=Sijforms, Sijcomps=Sijcomps, 
+                F_uiuj=F_uiuj, F_SSij=F_SSij, Sijcomps=Sijcomps, Sijmats=Sijmats, 
                 JLM=JLM, JMM=JMM, bcJ1=bcJ1, bcJ2=bcJ2, eps=eps, T_=T_, 
                 dim=dim, tensdim=tensdim, G_matr=G_matr, G_under=G_under, 
                 dummy=dummy, assigners=assigners, assigners_rev=assigners_rev, 
@@ -102,14 +102,9 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, **NS_namespace):
 def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered,F_uiuj, 
             F_SSij, JLM, JMM, bcJ1, bcJ2, eps, T_, dim, tensdim, G_matr, G_under,
-            dummy, assigners, assigners_rev, lag_sol, uiuj_pairs, Sijforms,
+            dummy, assigners, assigners_rev, lag_sol, uiuj_pairs, Sijmats,
             Sijcomps, **NS_namespace):
 
-    """
-    For the dynamic model Cs needs to be recomputed for the wanted 
-    time intervals.
-    """
-    
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
         ##################
@@ -134,7 +129,7 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
         u_CG1[i].interpolate(u_[i])
         # Filter
         tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
-
+    
     ##############
     # SET UP Lij #
     ##############
@@ -152,14 +147,13 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     compute_magSSij(u=u_, **vars())
     # Compute F(|S|Sij) and add to F_SSij
     tophatfilter(unfilterd=F_SSij, filtered=F_SSij, N=tensdim, **vars())
-    # Define F(Sij)
-    # Sijf = dev(sym(grad(u_filtered)))
+    # Define F(Sij) = Sijf = dev(sym(grad(u_filtered)))
     Sijf = sym(grad(u_filtered))
     # Define F(|S|) = sqrt(2*Sijf:Sijf)
     magSf = sqrt(2*inner(Sijf,Sijf))
     # Define Mij = 2*delta**2(F(|S|Sij) - alpha**2F(|S|)F(Sij))
     Mij = 2*(delta**2)*(F_SSij - (alpha**2)*magSf*Sijf)
-    
+
     ##################################################
     # Solve Lagrange Equations for LijMij and MijMij #
     ##################################################
@@ -174,7 +168,7 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     """
     Cs.vector().set_local(np.sqrt(JLM.vector().array()/JMM.vector().array()))
     Cs.vector().apply("insert")
-
+    
     ##################
     # Solve for nut_ #
     ##################
