@@ -58,7 +58,7 @@ def lagrange_average(eps, T_, u_, dt, G_matr, dummy, CG1, lag_sol,
     J1.vector().set_local(J1.vector().array().clip(min=1E-32))
     J1.vector().apply("insert")
     # Apply ramp function on J2 too; bound at initial value
-    J2.vector().set_local(J2.vector().array().clip(min=1))
+    J2.vector().set_local(J2.vector().array().clip(min=10))
     J2.vector().apply("insert")
 
 def tophatfilter(G_matr, G_under, dummy,
