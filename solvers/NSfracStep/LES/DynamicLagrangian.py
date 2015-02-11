@@ -148,7 +148,7 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     # Compute F(|S|Sij) and add to F_SSij
     tophatfilter(unfilterd=F_SSij, filtered=F_SSij, N=tensdim, **vars())
     # Define F(Sij) = Sijf = dev(sym(grad(u_filtered)))
-    Sijf = sym(grad(u_filtered))
+    Sijf = dev(sym(grad(u_filtered)))
     # Define F(|S|) = sqrt(2*Sijf:Sijf)
     magSf = sqrt(2*inner(Sijf,Sijf))
     # Define Mij = 2*delta**2(F(|S|Sij) - alpha**2F(|S|)F(Sij))

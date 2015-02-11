@@ -88,7 +88,7 @@ def tophatfilter(G_matr, G_under, dummy,
         exec(code_1)
         vec_ = (G_matr*uf.vector())*G_under.vector()
         uf.vector().zero()
-        uf.vector().axpy(1,vec_)
+        uf.vector().axpy(1.0, vec_)
         exec(code)
 
 def compute_uiuj(F_uiuj, uiuj_pairs, tensdim, dummy, G_matr, G_under,
@@ -152,6 +152,14 @@ def compute_magSSij(F_SSij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         S00 = Sij[0].vector().array()
         S01 = Sij[1].vector().array()
         S11 = Sij[2].vector().array()
+        # Remove trace
+        trace = 0.5*(S00+S11)
+        S00 = S00-trace
+        S11 = S11-trace
+        Sij[0].vector().set_local(S00)
+        Sij[0].vector().apply("insert")
+        Sij[2].vector().set_local(S11)
+        Sij[2].vector().apply("insert")
         # Compute |S|
         magS = np.sqrt(2*(S00*S00 + 2*S01*S01 + S11*S11))
     else:
@@ -162,6 +170,17 @@ def compute_magSSij(F_SSij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         S11 = Sij[3].vector().array()
         S12 = Sij[4].vector().array()
         S22 = Sij[5].vector().array()
+        # Remove trace
+        trace = (1./3.)*(S00+S11+S22)
+        S00 = S00-trace
+        S11 = S11-trace
+        S22 = S22-trace
+        Sij[0].vector().set_local(S00)
+        Sij[0].vector().apply("insert")
+        Sij[3].vector().set_local(S11)
+        Sij[3].vector().apply("insert")
+        Sij[5].vector().set_local(S22)
+        Sij[5].vector().apply("insert")
         # Compute |S|
         magS = np.sqrt(2*(S00*S00 + 2*S01*S01 + 2*S02*S02 + S11*S11 +
             2*S12*S12+ S22*S22))

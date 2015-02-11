@@ -71,7 +71,7 @@ def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     # Compute outer product of uiuj
     compute_uiuj(u=u_CG1, **vars())
     # Compute F(uiuj) and add to F_uiuj
-    tophatfilter(unfilterd=F_uiuj, filtered=F_uiuj, N=tensdim, **vars())
+    #tophatfilter(unfilterd=F_uiuj, filtered=F_uiuj, N=tensdim, **vars())
     # Define Lij = dev(F(uiuj)-F(ui)F(uj))
     Lij = dev(F_uiuj - outer(u_filtered, u_filtered))
 
@@ -83,7 +83,7 @@ def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     # Compute F(|S|Sij) and add to F_SSij
     tophatfilter(unfilterd=F_SSij, filtered=F_SSij, N=tensdim, **vars())
     # Define F(Sij)
-    Sijf = sym(grad(u_filtered))
+    Sijf = dev(sym(grad(u_filtered)))
     # Define F(|S|) = sqrt(2*Sijf:Sijf)
     magSf = sqrt(2*inner(Sijf,Sijf))
     # Define Mij = 2*delta**2(F(|S|Sij) - alpha**2F(|S|)F(Sij))
@@ -113,7 +113,7 @@ def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     # F(|S|Sij) has allready been computed, filter once more
     tophatfilter(unfilterd=F_SSij, filtered=F_SSij, N=tensdim, **vars())
     # Define F(Sij)
-    Sijf = sym(grad(u_filtered))
+    Sijf = dev(sym(grad(u_filtered)))
     # Define F(|S|) = sqrt(2*Sijf:Sijf)
     magSf = sqrt(2*inner(Sijf,Sijf))
     # Define Mij = 2*delta**2(F(|S|Sij) - alpha**2F(|S|)F(Sij))
