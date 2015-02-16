@@ -4,7 +4,7 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import TrialFunction, TestFunction, assemble, inner, dx, grad,\
-                    plot, interactive, solve
+                    plot, interactive, solve, project
 import numpy as np
 
 def lagrange_average(eps, T_, u_, dt, G_matr, dummy, CG1, lag_sol, 
@@ -30,14 +30,15 @@ def lagrange_average(eps, T_, u_, dt, G_matr, dummy, CG1, lag_sol,
     # Update eps vector = dt/T
     eps.vector().set_local(((J1.vector().array()*J2.vector().array())**0.125)*T_.vector().array())
     eps.vector().apply("insert")
+    """
     epsT = dummy
     # Update epsT to 1/(1+dt/T)
     epsT.vector().set_local(1./(1.+eps.vector().array()))
     epsT.vector().apply("insert")
+    """
     # Update eps to (dt/T)/(1+dt/T)
-    eps.vector().set_local(eps.vector().array()/(1+eps.vector().array()))
-    eps.vector().apply("insert")
-    
+    eps = eps.vector().array()/(1+eps.vector().array())
+    """
     p, q = TrialFunction(CG1), TestFunction(CG1)
     # Assemble convective term
     A = assemble(-inner(dt*epsT*u_*p, grad(q))*dx)
@@ -52,6 +53,18 @@ def lagrange_average(eps, T_, u_, dt, G_matr, dummy, CG1, lag_sol,
     lag_sol.solve(A, J1.vector(), b1)
     bcJ2.apply(A, b2)
     lag_sol.solve(A, J2.vector(), b2)
+    """
+    J1_back = J1.vector().array()
+    J2_back = J2.vector().array()
+    AijBij = project(inner(Aij,Bij), solver_type="cg", preconditioner_type="default").vector().array()
+    #solve(G_matr, AijBij.vector(), assemble(inner(Aij,Bij),q)*dx)
+    BijBij = project(inner(Bij,Bij), solver_type="cg", preconditioner_type="default").vector().array()
+    #solve(G_matr, BijBij.vector(), assemble(inner(Aij,Bij),q)*dx)
+
+    J1.vector().set_local(eps*AijBij + (1-eps)*J1_back)
+    J1.vector().apply("insert")
+    J2.vector().set_local(eps*BijBij + (1-eps)*J2_back)
+    J2.vector().apply("insert")
 
     # Apply ramp function on J1 to remove negative values,
     # but not set to 0.
