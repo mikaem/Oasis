@@ -22,7 +22,7 @@ scalar_components = ["temp"]
 Schmidt["temp"] = 5
 
 NS_parameters["DynamicSmagorinsky"].update(Cs_comp_step=1)
-NS_parameters["boussinesq"].update(use=True, beta=100, g=0, T_ref=0)
+NS_parameters["boussinesq"].update(use=True, beta=50, g=0, T_ref=0)
 
 mesh = RectangleMesh(0,0,0.2,1,300,600)
 
