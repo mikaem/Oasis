@@ -8,9 +8,10 @@ from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
         TensorFunctionSpace, assign, solve, lhs, rhs, LagrangeInterpolator,\
         dev, outer, as_vector, FunctionAssigner, KrylovSolver, DirichletBC,\
         plot, interactive
-from DynamicModules import tophatfilter, lagrange_average, compute_uiuj,\
-        compute_magSSij
+from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
+        compute_Mij
 import numpy as np
+import time
 
 __all__ = ['les_setup', 'les_update']
 
@@ -52,12 +53,14 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, **NS_namespace):
     G_matr = assemble(inner(p,q)*dx)
 
     # Assemble some required matrices for solving for rate of strain terms
-    F_uiuj = Function(TFS)
-    F_SSij = Function(TFS)
+    Lij = Function(TFS)
+    Mij = Function(TFS)
+    dummyTFS = Function(TFS)
     # Check if case is 2D or 3D and set up uiuj product pairs and 
     # Sij forms, assemble required matrices
     Sijcomps = [Function(CG1) for i in range(dim*dim)]
-    Sijmats = [assemble_matrix(p2.dx(i)*q*dx) for i in range(dim)]
+    Sijfcomps = [Function(CG1) for i in range(dim*dim)]
+    Sijmats = [assemble_matrix(p.dx(i)*q*dx) for i in range(dim)]
     if dim == 3:
         tensdim = 6
         uiuj_pairs = ((0,0),(0,1),(0,2),(1,1),(1,2),(2,2))
@@ -92,18 +95,18 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, **NS_namespace):
 
     return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta,
                 dg_diag=dg_diag, DG=DG, CG1=CG1, v_dg=TestFunction(DG),
-                Cs=Cs, u_CG1=u_CG1, u_filtered=u_filtered, 
-                F_uiuj=F_uiuj, F_SSij=F_SSij, Sijcomps=Sijcomps, Sijmats=Sijmats, 
+                Cs=Cs, u_CG1=u_CG1, u_filtered=u_filtered, dummyTFS=dummyTFS,
+                Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, Sijfcomps=Sijfcomps, Sijmats=Sijmats, 
                 JLM=JLM, JMM=JMM, bcJ1=bcJ1, bcJ2=bcJ2, eps=eps, T_=T_, 
                 dim=dim, tensdim=tensdim, G_matr=G_matr, G_under=G_under, 
                 dummy=dummy, assigners=assigners, assigners_rev=assigners_rev, 
                 lag_sol=lag_sol, uiuj_pairs=uiuj_pairs) 
     
 def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep, 
-            DynamicSmagorinsky, Cs, u_CG1, u_filtered,F_uiuj, 
-            F_SSij, JLM, JMM, bcJ1, bcJ2, eps, T_, dim, tensdim, G_matr, G_under,
+            DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, dummyTFS,
+            JLM, JMM, bcJ1, bcJ2, eps, T_, dim, tensdim, G_matr, G_under,
             dummy, assigners, assigners_rev, lag_sol, uiuj_pairs, Sijmats,
-            Sijcomps, **NS_namespace):
+            Sijcomps, Sijfcomps, **NS_namespace):
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
@@ -115,10 +118,9 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
         # BREAK FUNCTION
         return
     
-    # Ratio between filters, such that delta_tilde = alpha*delta,
-    # where delta is the implicit mesh filter.
-    alpha = 2.
-    
+    t1 = time.time()
+    t2 = time.time()
+
     #############################
     # Filter the velocity field #
     #############################
@@ -129,35 +131,26 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
         u_CG1[i].interpolate(u_[i])
         # Filter
         tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
-    
-    ##############
-    # SET UP Lij #
-    ##############
-    # Compute outer product of uiuj and filter; --> F(uiuj)
-    compute_uiuj(u=u_CG1, **vars())
-    # Compute F(uiuj) and add to F_uiuj
-    tophatfilter(unfilterd=F_uiuj, filtered=F_uiuj, N=tensdim, **vars())
-    # Define Lij = dev(F(uiuj)-F(ui)F(uj))
-    Lij = dev(F_uiuj - outer(u_filtered, u_filtered))
+    print "Time filter u = ", time.time()-t1, "s"
+    t1 = time.time()
 
-    ##############
-    # SET UP Mij #
-    ##############
-    # Compute |S|Sij and add to F_SSij
-    compute_magSSij(u=u_, **vars())
-    # Compute F(|S|Sij) and add to F_SSij
-    tophatfilter(unfilterd=F_SSij, filtered=F_SSij, N=tensdim, **vars())
-    # Define F(Sij) = Sijf = dev(sym(grad(u_filtered)))
-    Sijf = dev(sym(grad(u_filtered)))
-    # Define F(|S|) = sqrt(2*Sijf:Sijf)
-    magSf = sqrt(2*inner(Sijf,Sijf))
-    # Define Mij = 2*delta**2(F(|S|Sij) - alpha**2F(|S|)F(Sij))
-    Mij = 2*(delta**2)*(F_SSij - (alpha**2)*magSf*Sijf)
+    # Compute Lij from dynamic modules function
+    compute_Lij(u=u_CG1, uf=u_filtered, **vars())
+    print "Time Lij = ", time.time()-t1, "s"
+    t1 = time.time()
+
+    # Compute Mij from dynamic modules function
+    alpha = 2.
+    compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
+    print "Time Mij = ", time.time()-t1, "s"
+    t1 = time.time()
 
     ##################################################
     # Solve Lagrange Equations for LijMij and MijMij #
     ##################################################
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
+    print "Time Lag. avg. = ", time.time()-t1, "s"
+    t1 = time.time()
 
     #############################
     # UPDATE Cs = sqrt(JLM/JMM) #
@@ -169,7 +162,8 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     """
     Cs.vector().set_local((np.sqrt(JLM.vector().array()/JMM.vector().array())).clip(max=0.4))
     Cs.vector().apply("insert")
-    
+    print "Time CS total = ", time.time()-t2, "s"
+
     ##################
     # Solve for nut_ #
     ##################

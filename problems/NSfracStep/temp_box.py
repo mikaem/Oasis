@@ -11,7 +11,7 @@ parameters["mesh_partitioner"] = "SCOTCH"
 NS_parameters.update(
     nu = 5e-4,
     T  = 1,
-    dt = .0001,
+    dt = .00005,
     les_model="DynamicLagrangian",
     plot_interval = 20,
     save_step=20,
@@ -22,7 +22,7 @@ scalar_components = ["temp"]
 Schmidt["temp"] = 5
 
 NS_parameters["DynamicSmagorinsky"].update(Cs_comp_step=1)
-NS_parameters["boussinesq"].update(use=True, beta=50, g=0, T_ref=0)
+NS_parameters["boussinesq"].update(use=True, beta=150, g=0, T_ref=0)
 
 mesh = RectangleMesh(0,0,0.2,1,300,600)
 
@@ -33,8 +33,8 @@ right = "on_boundary && std::abs(.2-x[0]) < DOLFIN_EPS"
 # Specify boundary conditions
 def create_bcs(V, Q, **NS_namespace):
     bc0  = DirichletBC(V, 0, noslip)
-    bcT1 = DirichletBC(V, 1, left)
-    bcT2 = DirichletBC(V, -1, right)
+    bcT1 = DirichletBC(V, .1, left)
+    bcT2 = DirichletBC(V, -.1, right)
     return dict(u0 = [bc0],
                 u1 = [bc0],
                 p = [],
