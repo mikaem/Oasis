@@ -5,9 +5,7 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
         dx, inner, as_backend_type, TrialFunction, project, CellVolume, sqrt,\
-        TensorFunctionSpace, assign, solve, lhs, rhs, LagrangeInterpolator,\
-        dev, outer, as_vector, FunctionAssigner, KrylovSolver, DirichletBC,\
-        plot, interactive
+        TensorFunctionSpace, FunctionAssigner, DirichletBC, as_vector
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij
 import numpy as np
@@ -15,7 +13,7 @@ import time
 
 __all__ = ['les_setup', 'les_update']
 
-def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, **NS_namespace):
+def les_setup(u_, mesh, dt, V, assemble_matrix, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
     Lagrangian Averaging.
@@ -74,12 +72,8 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, **NS_namespace):
     # From CG1 to TFS.sub(i)
     assigners_rev = [FunctionAssigner(TFS.sub(i), CG1) for i in range(tensdim)]
     
-    # Define Lagrangian solver
-    lag_sol = KrylovSolver("bicgstab", "jacobi")
-    lag_sol.parameters.update(krylov_solvers)
-    lag_sol.parameters['preconditioner']['structure'] = 'same'
-    
     # Set up Lagrange Equations
+    A_lag = assemble(TrialFunction(CG1)*TestFunction(CG1)*dx) 
     JLM = Function(CG1)
     JLM.vector()[:] += 1e-7
     JMM = Function(CG1)
@@ -91,7 +85,7 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, **NS_namespace):
     # These DirichletBCs are needed for the stability 
     # when solving the Lagrangian PDEs
     bcJ1 = DirichletBC(CG1, 0, "on_boundary")
-    bcJ2 = DirichletBC(CG1, 10, "on_boundary")
+    bcJ2 = DirichletBC(CG1, 1, "on_boundary")
 
     return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta,
                 dg_diag=dg_diag, DG=DG, CG1=CG1, v_dg=TestFunction(DG),
@@ -100,72 +94,52 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, **NS_namespace):
                 JLM=JLM, JMM=JMM, bcJ1=bcJ1, bcJ2=bcJ2, eps=eps, T_=T_, 
                 dim=dim, tensdim=tensdim, G_matr=G_matr, G_under=G_under, 
                 dummy=dummy, assigners=assigners, assigners_rev=assigners_rev, 
-                lag_sol=lag_sol, uiuj_pairs=uiuj_pairs) 
+                uiuj_pairs=uiuj_pairs, A_lag=A_lag) 
     
 def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, dummyTFS,
             JLM, JMM, bcJ1, bcJ2, eps, T_, dim, tensdim, G_matr, G_under,
-            dummy, assigners, assigners_rev, lag_sol, uiuj_pairs, Sijmats,
-            Sijcomps, Sijfcomps, **NS_namespace):
+            dummy, assigners, assigners_rev, uiuj_pairs, Sijmats,
+            Sijcomps, Sijfcomps, A_lag, **NS_namespace):
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
-        ##################
-        # Solve for nut_ #
-        ##################
+        
+        # Update nut_
         nut_.vector().set_local(assemble(nut_form*v_dg*dx).array()/dg_diag)
         nut_.vector().apply("insert")
-        # BREAK FUNCTION
-        return
-    
-    t1 = time.time()
-    t2 = time.time()
 
-    #############################
-    # Filter the velocity field #
-    #############################
-    # All velocity components must be interpolated to CG1
-    # then filtered
+        # Break function
+        return
+
+    t1 = time.time()
+
+    # All velocity components must be interpolated to CG1 then filtered
     for i in xrange(dim):
         # Interpolate to CG1
         u_CG1[i].interpolate(u_[i])
         # Filter
         tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
-    print "Time filter u = ", time.time()-t1, "s"
-    t1 = time.time()
 
     # Compute Lij from dynamic modules function
     compute_Lij(u=u_CG1, uf=u_filtered, **vars())
-    print "Time Lij = ", time.time()-t1, "s"
-    t1 = time.time()
 
     # Compute Mij from dynamic modules function
     alpha = 2.
     compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
-    print "Time Mij = ", time.time()-t1, "s"
-    t1 = time.time()
 
-    ##################################################
-    # Solve Lagrange Equations for LijMij and MijMij #
-    ##################################################
+    # Lagrange average Lij and Mij
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
-    print "Time Lag. avg. = ", time.time()-t1, "s"
-    t1 = time.time()
 
-    #############################
-    # UPDATE Cs = sqrt(JLM/JMM) #
-    #############################
+    # Update Cs = sqrt(JLM/JMM)
     """
     Important that the term in nut_form is Cs**2 and not Cs
-    since Cs here is stored as sqrt(JLM/JMM). Also clip Cs in case 
-    of large values
+    since Cs here is stored as sqrt(JLM/JMM).
     """
     Cs.vector().set_local((np.sqrt(JLM.vector().array()/JMM.vector().array())).clip(max=0.4))
     Cs.vector().apply("insert")
-    print "Time CS total = ", time.time()-t2, "s"
+    print "Time Cs = ", time.time()-t1, "s"
 
-    ##################
-    # Solve for nut_ #
-    ##################
+    # Update nut_
     nut_.vector().set_local(assemble(nut_form*v_dg*dx).array()/dg_diag)
     nut_.vector().apply("insert")

@@ -28,7 +28,7 @@ r3 = Rectangle(Point(0.08, 0), Point(0.1, 0.005))
 
 domain = r2-r3-r1
 
-mesh = generate_mesh(domain, 1000)
+mesh = generate_mesh(domain, 1200)
 
 noslip = "on_boundary && std::abs(0.1-x[0]) > DOLFIN_EPS ||\
                 std::abs(0.01 - x[1]) < DOLFIN_EPS || \

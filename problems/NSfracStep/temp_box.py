@@ -9,7 +9,7 @@ parameters["mesh_partitioner"] = "SCOTCH"
 
 # Set up parameters
 NS_parameters.update(
-    nu = 5e-4,
+    nu = 8e-4,
     T  = 1,
     dt = .00005,
     les_model="DynamicLagrangian",
@@ -19,12 +19,12 @@ NS_parameters.update(
     use_krylov_solvers = True)
 
 scalar_components = ["temp"]
-Schmidt["temp"] = 5
+Schmidt["temp"] = 4
 
 NS_parameters["DynamicSmagorinsky"].update(Cs_comp_step=1)
 NS_parameters["boussinesq"].update(use=True, beta=150, g=0, T_ref=0)
 
-mesh = RectangleMesh(0,0,0.2,1,300,600)
+mesh = RectangleMesh(0,0,0.2,1,400,800)
 
 noslip = "on_boundary"
 left = "on_boundary && x[0] < DOLFIN_EPS"

@@ -4,10 +4,10 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import TrialFunction, TestFunction, assemble, inner, dx, grad,\
-                    plot, interactive, solve, project
+                    Function, dot, solve
 import numpy as np
 
-def lagrange_average(eps, T_, u_, dt, G_matr, dummy, CG1, lag_sol, 
+def lagrange_average(eps, T_, u_, dt, A_lag, dummy, CG1, 
         bcJ1, bcJ2, Sijcomps, Sijfcomps, assigners, tensdim, J1=None, J2=None, 
         Aij=None, Bij=None, **NS_namespace):
     """
@@ -19,37 +19,51 @@ def lagrange_average(eps, T_, u_, dt, G_matr, dummy, CG1, lag_sol,
 
     Cs**2 = J1/J2
 
-    - eps = dt/T and epsT are computed using fast array operations.
-    - The convective term is assembled.
-    - Lhs A is computed by axpying the mass term to the convective term.
-    - Right hand sided are assembled.
-    - Two equations are solved applying pre-defined krylov solvers.
+    - eps = (dt/T)/(1+dt/T) is computed.
+    - The bacckward terms are assembled.
+    - Tensor contractions of AijBij and BijBij are computed manually.
+    - Two equations are solved implicitly and easy, no linear system.
     - J1 is clipped at 1E-32 (not zero, will lead to problems).
-    - J2 is clipped at 10 (initial value).
+    - J2 is clipped at 1 (not 1E-32 -> zero division, 1 is best).
     """
-    
+
     # Update eps vector = dt/T
     eps = ((J1.vector().array()*J2.vector().array())**0.125)*T_.vector().array()
     # Update eps to (dt/T)/(1+dt/T)
     eps = eps/(1+eps)
-    
-    J1_back = J1.vector().array()
-    J2_back = J2.vector().array()
+    """
+    J1_back = Function(CG1)
+    J2_back = Function(CG1)
+    # Assemble and solve for backwards term J1_back = J1-dt*dot(u, grad(J1))
+    b = assemble(inner(TrialFunction(CG1)-dt*dot(u_,grad(TrialFunction(CG1))),TestFunction(CG1))*dx)
+    bJ1 = b*J1.vector()
+    bJ2 = b*J2.vector()
+    bcJ1.apply(A_lag,bJ1)
+    solve(A_lag, J1_back.vector(), bJ1, "cg", "default")
+    bcJ2.apply(A_lag,bJ2)
+    solve(A_lag, J2_back.vector(), bJ2, "cg", "default")
+    """
+    J1_back = J1.vector().array()#np.abs(J1_back.vector().array())
+    J2_back = J2.vector().array()#np.abs(J2_back.vector().array())
+
     # Compute tensor contractions
     AijBij = tensor_inner(A=Aij, B=Bij, **vars())
     BijBij = tensor_inner(A=Bij, B=Bij, **vars())
-
+    
+    # Update J1 to n+1
     J1.vector().set_local(eps*AijBij + (1-eps)*J1_back)
     J1.vector().apply("insert")
+    # Update J2 to n+1
     J2.vector().set_local(eps*BijBij + (1-eps)*J2_back)
     J2.vector().apply("insert")
+    bcJ1.apply(J1.vector())
+    bcJ2.apply(J2.vector())
 
-    # Apply ramp function on J1 to remove negative values,
-    # but not set to 0.
+    # Apply ramp function on J1 to remove negative values, but not set to 0.
     J1.vector().set_local(J1.vector().array().clip(min=1E-32))
     J1.vector().apply("insert")
-    ## Apply ramp function on J2 too; bound at initial value
-    J2.vector().set_local(J2.vector().array().clip(min=10))
+    # Apply ramp function on J2 too; lower bound at 1.0
+    J2.vector().set_local(J2.vector().array().clip(min=1.0))
     J2.vector().apply("insert")
 
 def tophatfilter(G_matr, G_under, dummy,
@@ -85,14 +99,7 @@ def tophatfilter(G_matr, G_under, dummy,
 def compute_Lij(Lij, dummyTFS, uiuj_pairs, tensdim, dummy, G_matr, G_under,
         assigners_rev, assigners, u=None, uf=None, **NS_namespace):
     """
-    Manually compute the term
-
-    F(uiuj)
-
-    and assign to tensor.
-
-    The terms uiuj are computed, then the filter function
-    is called for each term. 
+    Manually compute the tensor Lij = dev(F(uiuj)-F(ui)F(uj))
     """
     trace = np.zeros(len(dummy.vector().array()))
     # Loop over each tensor component
@@ -139,14 +146,7 @@ def compute_Lij(Lij, dummyTFS, uiuj_pairs, tensdim, dummy, G_matr, G_under,
 def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         Sijcomps, Sijfcomps, delta, dt, T_, alphaval=None, u_nf=None, u_f=None, **NS_namespace):
     """
-    Solve for 
-    
-    sqrt(2*inner(Sij,Sij))*Sij
-    
-    componentwise by applying a pre-assembled CG1
-    mass matrix, and pre-assembled derivative matrices
-    Ax, Ay and Az. Array operations are applied
-    when removing the trace and computing |S|
+    Manually compute the tensor Mij = 2*delta**2*(F(|S|Sij)-alpha**2*F(|S|)F(Sij)
     """
 
     Sij = Sijcomps
@@ -264,7 +264,7 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
 def tensor_inner(Sijcomps, Sijfcomps, assigners, tensdim, 
         A=None, B=None, **NS_namespace):
     """
-    Compute tensor inner product of two symmetric tensors Aij and Bij
+    Compute tensor contraction Aij:Bij of two symmetric tensors Aij and Bij.
     """
     
     # Apply dummy functions
@@ -278,14 +278,15 @@ def tensor_inner(Sijcomps, Sijfcomps, assigners, tensdim,
         assigners[i].assign(dummiesB[i], B.sub(i))
     
     if tensdim == 3:
-        contr = dummiesA[0].vector().array()*dummiesB[0].vector().array() +\
+        contraction = dummiesA[0].vector().array()*dummiesB[0].vector().array() +\
                 2*dummiesA[1].vector().array()*dummiesB[1].vector().array() +\
                 dummiesA[2].vector().array()*dummiesB[2].vector().array()
     else:
-        contr = dummiesA[0].vector().array()*dummiesB[0].vector().array() +\
+        contraction = dummiesA[0].vector().array()*dummiesB[0].vector().array() +\
                 2*dummiesA[1].vector().array()*dummiesB[1].vector().array() +\
                 2*dummiesA[2].vector().array()*dummiesB[2].vector().array() +\
                 dummiesA[3].vector().array()*dummiesB[3].vector().array() +\
                 2*dummiesA[4].vector().array()*dummiesB[4].vector().array() +\
                 dummiesA[5].vector().array()*dummiesB[5].vector().array()
-    return contr
+
+    return contraction
