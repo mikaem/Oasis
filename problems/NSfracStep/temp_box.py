@@ -11,7 +11,7 @@ parameters["mesh_partitioner"] = "SCOTCH"
 NS_parameters.update(
     nu = 8e-4,
     T  = 1,
-    dt = .00005,
+    dt = .0005,
     les_model="DynamicLagrangian",
     plot_interval = 20,
     save_step=20,
@@ -22,9 +22,10 @@ scalar_components = ["temp"]
 Schmidt["temp"] = 4
 
 NS_parameters["DynamicSmagorinsky"].update(Cs_comp_step=1)
-NS_parameters["boussinesq"].update(use=True, beta=150, g=0, T_ref=0)
+NS_parameters["boussinesq"].update(use=True, beta=150, g=0, T_ref=0,
+            vertical_direction="y")
 
-mesh = RectangleMesh(0,0,0.2,1,400,800)
+mesh = BoxMesh(0,0,0,0.2,0.5,0.2, 50,120,50)
 
 noslip = "on_boundary"
 left = "on_boundary && x[0] < DOLFIN_EPS"
@@ -33,10 +34,11 @@ right = "on_boundary && std::abs(.2-x[0]) < DOLFIN_EPS"
 # Specify boundary conditions
 def create_bcs(V, Q, **NS_namespace):
     bc0  = DirichletBC(V, 0, noslip)
-    bcT1 = DirichletBC(V, .1, left)
-    bcT2 = DirichletBC(V, -.1, right)
+    bcT1 = DirichletBC(V, 1, left)
+    bcT2 = DirichletBC(V, -1, right)
     return dict(u0 = [bc0],
                 u1 = [bc0],
+                u2 = [bc0],
                 p = [],
                 temp = [bcT1, bcT2])
                 
@@ -68,6 +70,7 @@ def temporal_hook(tstep, save_step, nut_, u_, nutfile, v_file, uv,
         nutfile << nut_
         assign(uv.sub(0), u_[0])
         assign(uv.sub(1), u_[1])
+        assign(uv.sub(2), u_[2])
         v_file << uv
         CSGSFile << Cs
         T_file << Temp

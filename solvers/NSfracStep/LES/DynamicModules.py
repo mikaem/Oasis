@@ -42,9 +42,12 @@ def lagrange_average(eps, T_, u_, dt, A_lag, dummy, CG1,
     solve(A_lag, J1_back.vector(), bJ1, "cg", "default")
     bcJ2.apply(A_lag,bJ2)
     solve(A_lag, J2_back.vector(), bJ2, "cg", "default")
+    
+    J1_back = np.abs(J1_back.vector().array())
+    J2_back = np.abs(J2_back.vector().array())
     """
-    J1_back = J1.vector().array()#np.abs(J1_back.vector().array())
-    J2_back = J2.vector().array()#np.abs(J2_back.vector().array())
+    J1_back = J1.vector().array()
+    J2_back = J2.vector().array()
 
     # Compute tensor contractions
     AijBij = tensor_inner(A=Aij, B=Bij, **vars())
@@ -168,9 +171,9 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         u = u_nf[0].vector()
         v = u_nf[1].vector()
         w = u_nf[2].vector()
-        uf = uf_f[0].vector()
-        vf = uf_f[1].vector()
-        wf = uf_f[0].vector()
+        uf = u_f[0].vector()
+        vf = u_f[1].vector()
+        wf = u_f[0].vector()
         bu = [2*Ax*u, Ay*u + Ax*v, Az*u + Ay*w, 2*Ay*v, Az*v + Ay*w, 2*Az*w]
         buf = [2*Ax*uf, Ay*uf + Ax*vf, Az*uf + Ay*wf, 2*Ay*vf, Az*vf + Ay*wf, 2*Az*wf]
 
