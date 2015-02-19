@@ -69,9 +69,18 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     # Setup for solving convection
     u_ab = as_vector([Function(V) for i in range(len(u_components))])
     a_conv = inner(v, dot(u_ab, nabla_grad(u)))*dx
-    a_scalar = a_conv    
-    LT = None if les_model is None else LESsource((nu+nut_), u_ab, V, name='LTd')    
-    d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT, KT=KT)
+    a_scalar = a_conv
+
+    dim = V.mesh().geometry().dim()
+    if les_model is None:
+        LT = None
+        les_trans_lhs = None
+    else:
+        LT = LESsource((nu+nut_), u_, V, name='LTd')
+        les_trans_lhs = {ui: 0.5*u.dx(i)*v.dx(i) for i, ui in enumerate(u_components)}
+
+    d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT, KT=KT,
+            les_trans_lhs=les_trans_lhs)
     return d
 
 def get_solvers(use_krylov_solvers, krylov_solvers, bcs, 
@@ -174,9 +183,9 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
         b_tmp[ui].zero()              # start with body force
         b_tmp[ui].axpy(1., b0[ui])
         b_tmp[ui].axpy(1., A*x_1[ui]) # Add transient, convection and diffusion
-        #if not les_model is None:
-        #    LT.assemble_rhs(i)
-        #    b_tmp[ui].axpy(1., LT.vector())
+        if not les_model is None:
+            LT.assemble_rhs(i)
+            b_tmp[ui].axpy(1., LT.vector())
         
     # Reset matrix for lhs
     A._scale(-1.)
@@ -200,7 +209,8 @@ def velocity_tentative_assemble(ui, b, b_tmp, p_, gradp, **NS_namespace):
     b[ui].axpy(-1., gradp[ui].rhs)
         
 def velocity_tentative_solve(ui, A, bcs, x_, x_2, u_sol, b, udiff, 
-                             use_krylov_solvers, **NS_namespace):    
+                             use_krylov_solvers, nut_, les_trans_lhs, 
+                             les_model, nu, **NS_namespace):    
     """Linear algebra solve of tentative velocity component."""    
     if use_krylov_solvers:
         if ui == 'u0':
@@ -212,7 +222,15 @@ def velocity_tentative_solve(ui, A, bcs, x_, x_2, u_sol, b, udiff,
     x_2[ui].zero()                 # x_2 only used on inner_iter 1, so use here as work vector
     x_2[ui].axpy(1., x_[ui])
     t1 = Timer("Tentative Linear Algebra Solve")
-    u_sol.solve(A, x_[ui], b[ui])
+    # Add CN lhs of transient term to A if les_model
+    if les_model:
+        les_mat_ex = assemble((nu+nut_)*les_trans_lhs[ui]*dx)
+        A.axpy(1.0, les_mat_ex, True)
+        [bc.apply(A) for bc in bcs[ui]]
+        u_sol.solve(A, x_[ui], b[ui])
+        A.axpy(-1.0, les_mat_ex, True)
+    else:
+        u_sol.solve(A, x_[ui], b[ui])
     t1.stop()
     udiff[0] += norm(x_2[ui] - x_[ui])
 

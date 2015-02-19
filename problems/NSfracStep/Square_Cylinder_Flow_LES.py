@@ -9,16 +9,14 @@ parameters["mesh_partitioner"] = "SCOTCH"
 
 # Set up parameters
 NS_parameters.update(
-    nu = 5.35e-5,
+    nu = 5.35e-7,
     T  = .01,
     dt = 1e-5,
     plot_interval = 20,
-    les_model="DynamicLagrangian",
-    save_step=20,
+    les_model="Smagorinsky",
+    save_step=1,
     print_intermediate_info = 100,
     use_krylov_solvers = True)
-
-NS_parameters["DynamicSmagorinsky"].update(Cs_comp_step=1)
 
 mesh = Mesh("mesh/square.xml")
 
@@ -30,7 +28,7 @@ outlet = "on_boundary && std::abs(0.1-x[0]) < DOLFIN_EPS"
 # Specify boundary conditions
 def create_bcs(V, Q, **NS_namespace):
     bc0  = DirichletBC(V, 0, noslip)
-    bc00 = DirichletBC(V, 2, inlet)
+    bc00 = DirichletBC(V, 0.535, inlet)
     bc01 = DirichletBC(V, 0, inlet)
     bcp = DirichletBC(Q, 0, outlet)
     return dict(u0 = [bc0, bc00],
@@ -56,11 +54,11 @@ def start_timestep_hook(t, **NS_namespace):
     print "t = ", t, "s"
     
 def temporal_hook(tstep, save_step, nut_, u_, nutfile, v_file, uv, 
-        CSGSFile, Cs, **NS_namespace):
+        CSGSFile, **NS_namespace):
     
     if tstep%save_step == 0:
         nutfile << nut_
         assign(uv.sub(0), u_[0])
         assign(uv.sub(1), u_[1])
         v_file << uv
-        CSGSFile << Cs
+        #CSGSFile << Cs

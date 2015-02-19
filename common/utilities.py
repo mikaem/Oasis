@@ -5,7 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import assemble, KrylovSolver, LUSolver,  Function, TrialFunction, \
     TestFunction, dx, Vector, Matrix, GenericMatrix, FunctionSpace, Timer, div, \
-    Form, Coefficient, inner, grad
+    Form, Coefficient, inner, grad, as_vector
 
 # Create some dictionaries to hold work matrices
 class Mat_cache_dict(dict):
@@ -234,13 +234,21 @@ class DivFunction(OasisFunction):
 class LESsource(Function):
     """Function used for computing the transposed source to the LES equation.
     """
-    def __init__(self, nut, u_ab, Space, bcs=[], name=""):
+    def __init__(self, nut, u_, Space, bcs=[], name=""):
         
         Function.__init__(self, Space, name=name)
         
         dim = Space.mesh().geometry().dim()    
         test = TestFunction(Space)
-        self.bf = [-inner(grad(test), nut*u_ab.dx(i))*dx() for i in range(dim)]
+        if dim == 2:
+            self.bf = [
+                    -inner(grad(test), nut*as_vector([0.5*u_[0],u_[1]]).dx(0))*dx(),
+                    -inner(grad(test), nut*as_vector([u_[0],0.5*u_[1]]).dx(1))*dx()]
+        elif dim == 3:
+            self.bf = [
+                    -inner(grad(test), nut*as_vector([0.5*u_[0],u_[1], u_[2]]).dx(0))*dx(),
+                    -inner(grad(test), nut*as_vector([u_[0],0.5*u_[1], u_[2]]).dx(1))*dx(),
+                    -inner(grad(test), nut*as_vector([u_[0], u_[1],0.5*u_[2]]).dx(2))*dx()]
 
     def assemble_rhs(self, i=0):
         """Assemble right hand side        
