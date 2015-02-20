@@ -11,10 +11,10 @@ parameters["mesh_partitioner"] = "SCOTCH"
 NS_parameters.update(
     nu = 15.11E-7,
     T  = 1,
-    dt = 1E-5,
+    dt = 5E-5,
     les_model="DynamicLagrangian",
     plot_interval = 20,
-    save_step=5,
+    save_step=1,
     print_intermediate_info = 100,
     use_krylov_solvers = True)
 
