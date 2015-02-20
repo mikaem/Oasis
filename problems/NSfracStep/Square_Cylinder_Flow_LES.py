@@ -11,7 +11,7 @@ parameters["mesh_partitioner"] = "SCOTCH"
 NS_parameters.update(
     nu = 5.35e-7,
     T  = .01,
-    dt = 1e-5,
+    dt = 5e-5,
     plot_interval = 20,
     les_model="Smagorinsky",
     save_step=1,
