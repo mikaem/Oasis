@@ -71,7 +71,6 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     a_conv = inner(v, dot(u_ab, nabla_grad(u)))*dx
     a_scalar = a_conv
 
-    dim = V.mesh().geometry().dim()
     if les_model is None:
         LT = None
         les_trans_lhs = None

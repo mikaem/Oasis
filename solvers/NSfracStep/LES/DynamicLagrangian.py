@@ -5,9 +5,9 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
         dx, inner, as_backend_type, TrialFunction, project, CellVolume, sqrt,\
-        TensorFunctionSpace, FunctionAssigner, DirichletBC, as_vector
+        TensorFunctionSpace, FunctionAssigner, DirichletBC, as_vector, solve
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
-        compute_Mij
+        compute_Mij, tensor_inner
 import numpy as np
 import time
 
@@ -30,7 +30,7 @@ def les_setup(u_, mesh, dt, V, assemble_matrix, **NS_namespace):
     delta = project(pow(CellVolume(mesh), 1./dim), DG)
 
     # Define nut_
-    nut_ = Function(DG)
+    nut_ = Function(CG1)
     Sij = sym(grad(u_))
     magS = sqrt(2*inner(Sij,Sij))
     Cs = Function(CG1)
@@ -80,7 +80,9 @@ def les_setup(u_, mesh, dt, V, assemble_matrix, **NS_namespace):
     JMM.vector()[:] += 10.
     eps = Function(CG1)
     T_ = project(1.5*delta, CG1)
-    T_.vector().set_local(dt/T_.vector().array())
+    delta_CG1 = Function(CG1)
+    delta_CG1.vector().axpy(1./1.5, T_.vector())
+    T_.vector().set_local(1./T_.vector().array())
     T_.vector().apply("insert")
     # These DirichletBCs are needed for the stability 
     # when solving the Lagrangian PDEs
@@ -88,6 +90,7 @@ def les_setup(u_, mesh, dt, V, assemble_matrix, **NS_namespace):
     bcJ2 = DirichletBC(CG1, 1, "on_boundary")
 
     return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta,
+                delta_CG1=delta_CG1,
                 dg_diag=dg_diag, DG=DG, CG1=CG1, v_dg=TestFunction(DG),
                 Cs=Cs, u_CG1=u_CG1, u_filtered=u_filtered, dummyTFS=dummyTFS,
                 Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, Sijfcomps=Sijfcomps, Sijmats=Sijmats, 
@@ -100,18 +103,16 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, dummyTFS,
             JLM, JMM, bcJ1, bcJ2, eps, T_, dim, tensdim, G_matr, G_under,
             dummy, assigners, assigners_rev, uiuj_pairs, Sijmats,
-            Sijcomps, Sijfcomps, A_lag, **NS_namespace):
+            Sijcomps, Sijfcomps, A_lag, delta_CG1, **NS_namespace):
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
         
         # Update nut_
-        nut_.vector().set_local(assemble(nut_form*v_dg*dx).array()/dg_diag)
-        nut_.vector().apply("insert")
-
+        solve(G_matr, nut_.vector(), assemble(nut_form*TestFunction(CG1)*dx), "cg", "default")
         # Break function
         return
-
+    
     t1 = time.time()
 
     # All velocity components must be interpolated to CG1 then filtered
@@ -121,12 +122,12 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
         # Filter
         tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
 
-    # Compute Lij from dynamic modules function
+    # Compute Lij applying dynamic modules function
     compute_Lij(u=u_CG1, uf=u_filtered, **vars())
 
-    # Compute Mij from dynamic modules function
+    # Compute Mij applying dynamic modules function
     alpha = 2.
-    compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
+    magS = compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
 
     # Lagrange average Lij and Mij
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
@@ -141,5 +142,5 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
     print "Time Cs = ", time.time()-t1, "s"
 
     # Update nut_
-    nut_.vector().set_local(assemble(nut_form*v_dg*dx).array()/dg_diag)
+    nut_.vector().set_local(Cs.vector().array()**2 * delta_CG1.vector().array()**2 * magS)
     nut_.vector().apply("insert")

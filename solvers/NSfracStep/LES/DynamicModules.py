@@ -4,7 +4,7 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import TrialFunction, TestFunction, assemble, inner, dx, grad,\
-                    Function, dot, solve
+                    Function, dot, solve, plot, interactive
 import numpy as np
 
 def lagrange_average(eps, T_, u_, dt, A_lag, dummy, CG1, 
@@ -26,37 +26,56 @@ def lagrange_average(eps, T_, u_, dt, A_lag, dummy, CG1,
     - J1 is clipped at 1E-32 (not zero, will lead to problems).
     - J2 is clipped at 1 (not 1E-32 -> zero division, 1 is best).
     """
-
-    # Update eps vector = dt/T
-    eps = ((J1.vector().array()*J2.vector().array())**0.125)*T_.vector().array()
-    # Update eps to (dt/T)/(1+dt/T)
-    eps = eps/(1+eps)
+    p,q = TrialFunction(CG1), TestFunction(CG1)
     """
-    J1_back = Function(CG1)
-    J2_back = Function(CG1)
-    # Assemble and solve for backwards term J1_back = J1-dt*dot(u, grad(J1))
-    b = assemble(inner(TrialFunction(CG1)-dt*dot(u_,grad(TrialFunction(CG1))),TestFunction(CG1))*dx)
-    bJ1 = b*J1.vector()
-    bJ2 = b*J2.vector()
-    bcJ1.apply(A_lag,bJ1)
-    solve(A_lag, J1_back.vector(), bJ1, "cg", "default")
-    bcJ2.apply(A_lag,bJ2)
-    solve(A_lag, J2_back.vector(), bJ2, "cg", "default")
-    
-    J1_back = np.abs(J1_back.vector().array())
-    J2_back = np.abs(J2_back.vector().array())
-    """
-    J1_back = J1.vector().array()
-    J2_back = J2.vector().array()
-
     # Compute tensor contractions
+    AijBij,BijBij = Function(CG1), Function(CG1)
+    AijBij.vector().set_local(tensor_inner(A=Aij, B=Bij, **vars()))
+    AijBij.vector().apply("insert")
+    BijBij.vector().set_local(tensor_inner(A=Bij, B=Bij, **vars()))
+    BijBij.vector().apply("insert")
+    
+    invT = Function(CG1)
+    invT.vector().set_local(T_.vector().array()*(J1.vector().array()*J2.vector().array())**(1./8.))
+    invT.vector().apply("insert")
+    
+    # Assemble convective term
+    A = assemble(inner(dt*dot(u_,grad(p)),q)*dx)
+    # Assemble invT matrix
+    invTA = assemble(inner(dt*invT*p,q)*dx)
+    # Axpy mass and invT to A
+    A.axpy(1.0, A_lag, True)
+    A.axpy(1.0, invTA, True)
+    # Compute right hand sides
+    bJ1 = A_lag*J1.vector() + invTA*AijBij.vector()
+    bJ2 = A_lag*J2.vector() + invTA*BijBij.vector()
+    
+    # Apply bcs and solve systems
+    bcJ1.apply(A, bJ1)
+    solve(A, J1.vector(), bJ1, "bicgstab", "additive_schwarz")
+    bcJ2.apply(A, bJ2)
+    solve(A, J2.vector(), bJ2, "bicgstab", "additive_schwarz")
+    """
+    eps = dt*T_.vector().array()*(J1.vector().array()*J2.vector().array())**(1./8.)
+    eps = eps/(1+eps)
     AijBij = tensor_inner(A=Aij, B=Bij, **vars())
     BijBij = tensor_inner(A=Bij, B=Bij, **vars())
     
-    # Update J1 to n+1
+    J1_back = J1
+    J2_back = J2
+    """
+    J1_back = Function(CG1)
+    J2_back = Function(CG1)
+    b = assemble(inner(p-dt*dot(u_,grad(p)),q)*dx)
+    solve(A_lag, J1_back.vector(), b*J1.vector(), "cg", "default")
+    solve(A_lag, J2_back.vector(), b*J2.vector(), "cg", "default")
+    """
+    J1_back = J1_back.vector().array()
+    J2_back = J2_back.vector().array()
+
+    # Update J1 and J2
     J1.vector().set_local(eps*AijBij + (1-eps)*J1_back)
     J1.vector().apply("insert")
-    # Update J2 to n+1
     J2.vector().set_local(eps*BijBij + (1-eps)*J2_back)
     J2.vector().apply("insert")
     bcJ1.apply(J1.vector())
@@ -65,8 +84,9 @@ def lagrange_average(eps, T_, u_, dt, A_lag, dummy, CG1,
     # Apply ramp function on J1 to remove negative values, but not set to 0.
     J1.vector().set_local(J1.vector().array().clip(min=1E-32))
     J1.vector().apply("insert")
-    # Apply ramp function on J2 too; lower bound at 1.0
-    J2.vector().set_local(J2.vector().array().clip(min=1.0))
+    J2_vec = J2.vector().array()
+    J2_vec[J2_vec < 0] = 1
+    J2.vector().set_local(J2_vec)
     J2.vector().apply("insert")
 
 def tophatfilter(G_matr, G_under, dummy,
@@ -147,7 +167,8 @@ def compute_Lij(Lij, dummyTFS, uiuj_pairs, tensdim, dummy, G_matr, G_under,
         Lij.vector().axpy(-1.0, dummyTFS.vector())
 
 def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
-        Sijcomps, Sijfcomps, delta, dt, T_, alphaval=None, u_nf=None, u_f=None, **NS_namespace):
+        Sijcomps, Sijfcomps, delta, dt, T_, dummy, G_under, assigners,
+        delta_CG1, alphaval=None, u_nf=None, u_f=None, **NS_namespace):
     """
     Manually compute the tensor Mij = 2*delta**2*(F(|S|Sij)-alpha**2*F(|S|)F(Sij)
     """
@@ -155,7 +176,8 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
     Sij = Sijcomps
     Sijf = Sijfcomps
     alpha = alphaval
-    deltasq = 2*(dt/(1.5*T_.vector().array()))**2
+    # Compute 2*delta**2 from T_ = dt/(1.5*delta)
+    deltasq = 2*(delta_CG1.vector().array())**2
     
     # Apply pre-assembled matrices and compute right hand sides
     if tensdim == 3:
@@ -164,7 +186,9 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         v = u_nf[1].vector()
         uf = u_f[0].vector()
         vf = u_f[1].vector()
+        # Unfiltered rhs
         bu = [2*Ax*u, Ay*u + Ax*v, 2*Ay*v]
+        # Filtered rhs
         buf = [2*Ax*uf, Ay*uf + Ax*vf, 2*Ay*vf]
     else:
         Ax, Ay, Az = Sijmats
@@ -258,11 +282,17 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
 
     # Multiply each component of Sij by magS, and each comp of F(Sij) by magSf
     for i in xrange(tensdim):
+        # Compute |S|*Sij
+        Sij[i].vector().set_local(magS*Sij[i].vector().array())
+        Sij[i].vector().apply("insert")
+        # Compute F(|S|*Sij)
+        tophatfilter(unfiltered=Sij[i], filtered=Sij[i], **vars())
         # Compute 2*delta**2(F(|S|Sij) - alpha**2*F(|S|)F(Sij)) and add to Sij[i]
-        Sij[i].vector().set_local(deltasq*(magS*Sij[i].vector().array()-(alpha**2)*magSf*Sijf[i].vector().array()))
+        Sij[i].vector().set_local(deltasq*(Sij[i].vector().array()-(alpha**2)*magSf*Sijf[i].vector().array()))
         Sij[i].vector().apply("insert")
         # Last but not least, assign to Mij
         assigners_rev[i].assign(Mij.sub(i), Sij[i])
+    return magS
 
 def tensor_inner(Sijcomps, Sijfcomps, assigners, tensdim, 
         A=None, B=None, **NS_namespace):

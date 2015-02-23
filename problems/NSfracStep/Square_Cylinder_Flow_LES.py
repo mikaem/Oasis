@@ -11,12 +11,13 @@ parameters["mesh_partitioner"] = "SCOTCH"
 NS_parameters.update(
     nu = 5.35e-7,
     T  = .01,
-    dt = 5e-5,
+    dt = 2e-5,
     plot_interval = 20,
-    les_model="Smagorinsky",
+    les_model="DynamicLagrangian",
     save_step=1,
     print_intermediate_info = 100,
     use_krylov_solvers = True)
+NS_parameters["DynamicSmagorinsky"].update(Cs_comp_step=1)
 
 mesh = Mesh("mesh/square.xml")
 
@@ -54,11 +55,11 @@ def start_timestep_hook(t, **NS_namespace):
     print "t = ", t, "s"
     
 def temporal_hook(tstep, save_step, nut_, u_, nutfile, v_file, uv, 
-        CSGSFile, **NS_namespace):
+        CSGSFile, Cs, **NS_namespace):
     
     if tstep%save_step == 0:
         nutfile << nut_
         assign(uv.sub(0), u_[0])
         assign(uv.sub(1), u_[1])
         v_file << uv
-        #CSGSFile << Cs
+        CSGSFile << Cs
