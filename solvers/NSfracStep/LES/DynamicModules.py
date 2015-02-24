@@ -27,7 +27,7 @@ def lagrange_average(eps, T_, u_, dt, A_lag, dummy, CG1,
     - J2 is clipped at 1 (not 1E-32 -> zero division, 1 is best).
     """
     p,q = TrialFunction(CG1), TestFunction(CG1)
-    """
+    
     # Compute tensor contractions
     AijBij,BijBij = Function(CG1), Function(CG1)
     AijBij.vector().set_local(tensor_inner(A=Aij, B=Bij, **vars()))
@@ -35,44 +35,41 @@ def lagrange_average(eps, T_, u_, dt, A_lag, dummy, CG1,
     BijBij.vector().set_local(tensor_inner(A=Bij, B=Bij, **vars()))
     BijBij.vector().apply("insert")
     
-    invT = Function(CG1)
-    invT.vector().set_local(T_.vector().array()*(J1.vector().array()*J2.vector().array())**(1./8.))
-    invT.vector().apply("insert")
-    
     # Assemble convective term
-    A = assemble(inner(dt*dot(u_,grad(p)),q)*dx)
+    A = assemble(-inner(0.5*dt*u_*p,grad(q))*dx)
     # Assemble invT matrix
-    invTA = assemble(inner(dt*invT*p,q)*dx)
-    # Axpy mass and invT to A
-    A.axpy(1.0, A_lag, True)
-    A.axpy(1.0, invTA, True)
+    invTA = assemble(inner(dt*T_*(J1*J2)**(1./8.)*p,q)*dx)
+    # Axpy invT to A
+    A.axpy(0.5, invTA, True)
     # Compute right hand sides
-    bJ1 = A_lag*J1.vector() + invTA*AijBij.vector()
-    bJ2 = A_lag*J2.vector() + invTA*BijBij.vector()
-    
+    bJ1 = A_lag*J1.vector() - A*J1.vector() + invTA*AijBij.vector()
+    bJ2 = A_lag*J2.vector() - A*J2.vector() + invTA*BijBij.vector()
+    # Axpy mass to A
+    A.axpy(1.0, A_lag, True)
+
     # Apply bcs and solve systems
     bcJ1.apply(A, bJ1)
     solve(A, J1.vector(), bJ1, "bicgstab", "additive_schwarz")
     bcJ2.apply(A, bJ2)
     solve(A, J2.vector(), bJ2, "bicgstab", "additive_schwarz")
+    
     """
     eps = dt*T_.vector().array()*(J1.vector().array()*J2.vector().array())**(1./8.)
-    eps = eps/(1+eps)
+    eps = eps/(1.0+eps)
+    print eps.max()
     AijBij = tensor_inner(A=Aij, B=Bij, **vars())
     BijBij = tensor_inner(A=Bij, B=Bij, **vars())
     
-    J1_back = J1
-    J2_back = J2
-    """
+    J1_back = J1.vector().array()
+    J2_back = J2.vector().array()
     J1_back = Function(CG1)
     J2_back = Function(CG1)
-    b = assemble(inner(p-dt*dot(u_,grad(p)),q)*dx)
+    b = assemble(-inner(dt*u_*p,grad(q))*dx)
     solve(A_lag, J1_back.vector(), b*J1.vector(), "cg", "default")
     solve(A_lag, J2_back.vector(), b*J2.vector(), "cg", "default")
-    """
-    J1_back = J1_back.vector().array()
-    J2_back = J2_back.vector().array()
-
+    
+    J1_back = J1.vector().array()-J1_back.vector().array()
+    J2_back = J2.vector().array()-J2_back.vector().array()
     # Update J1 and J2
     J1.vector().set_local(eps*AijBij + (1-eps)*J1_back)
     J1.vector().apply("insert")
@@ -80,12 +77,12 @@ def lagrange_average(eps, T_, u_, dt, A_lag, dummy, CG1,
     J2.vector().apply("insert")
     bcJ1.apply(J1.vector())
     bcJ2.apply(J2.vector())
-
+    """
     # Apply ramp function on J1 to remove negative values, but not set to 0.
     J1.vector().set_local(J1.vector().array().clip(min=1E-32))
     J1.vector().apply("insert")
     J2_vec = J2.vector().array()
-    J2_vec[J2_vec < 0] = 1
+    J2_vec[J2_vec < 0] = 10
     J2.vector().set_local(J2_vec)
     J2.vector().apply("insert")
 

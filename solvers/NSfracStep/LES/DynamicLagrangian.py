@@ -75,9 +75,9 @@ def les_setup(u_, mesh, dt, V, assemble_matrix, **NS_namespace):
     # Set up Lagrange Equations
     A_lag = assemble(TrialFunction(CG1)*TestFunction(CG1)*dx) 
     JLM = Function(CG1)
-    JLM.vector()[:] += 1e-7
+    JLM.vector()[:] += 1E-32
     JMM = Function(CG1)
-    JMM.vector()[:] += 10.
+    JMM.vector()[:] += 1
     eps = Function(CG1)
     T_ = project(1.5*delta, CG1)
     delta_CG1 = Function(CG1)
@@ -114,14 +114,14 @@ def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
         return
     
     t1 = time.time()
-
+    
     # All velocity components must be interpolated to CG1 then filtered
     for i in xrange(dim):
         # Interpolate to CG1
         u_CG1[i].interpolate(u_[i])
         # Filter
         tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
-
+    
     # Compute Lij applying dynamic modules function
     compute_Lij(u=u_CG1, uf=u_filtered, **vars())
 
