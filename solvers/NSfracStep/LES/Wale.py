@@ -30,6 +30,7 @@ def les_setup(u_, mesh, Wale, **NS_namespace):
     
 def les_update(nut_, nut_form, v_dg, dg_diag, **NS_namespace):
     nut_.vector().set_local(assemble(nut_form*v_dg*dx).array()/dg_diag)
+    nut_.vector().apply("insert")
     
     
     
