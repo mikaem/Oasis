@@ -7,7 +7,7 @@ from dolfin import TrialFunction, TestFunction, assemble, inner, dx, grad,\
                     Function, dot, solve, plot, interactive
 import numpy as np
 
-def lagrange_average(u_ab, dt, A_lag, dummy, CG1, bcJ1, bcJ2, Sijcomps, 
+def lagrange_average(u_ab, dt, dummy, CG1, bcJ1, bcJ2, Sijcomps, 
         Sijfcomps, assigners, tensdim, delta_CG1, J1=None, J2=None, 
         Aij=None, Bij=None, **NS_namespace):
     """
@@ -24,53 +24,22 @@ def lagrange_average(u_ab, dt, A_lag, dummy, CG1, bcJ1, bcJ2, Sijcomps,
     - Tensor contractions of AijBij and BijBij are computed manually.
     - Two equations are solved implicitly and easy, no linear system.
     - J1 is clipped at 1E-32 (not zero, will lead to problems).
-    - J2 is clipped at 1 (not 1E-32 -> zero division, 1 is best).
     """
-    
-    p,q = TrialFunction(CG1), TestFunction(CG1)
-    """
-    # Compute tensor contractions
-    AijBij,BijBij = Function(CG1), Function(CG1)
-    AijBij.vector().set_local(tensor_inner(A=Aij, B=Bij, **vars()))
-    AijBij.vector().apply("insert")
-    BijBij.vector().set_local(tensor_inner(A=Bij, B=Bij, **vars()))
-    BijBij.vector().apply("insert")
-    
-    # Define invT
-    invT = (J1*J2)**(1./8.)/(1.5*delta)
-    # Assemble convective term
-    A = assemble(inner(0.5*dt*dot(u_ab,grad(p)),q)*dx)
-    # Assemble invT matrix
-    invTA = assemble(inner(dt*invT*p,q)*dx)
-    # Axpy invT to A
-    A.axpy(0.5, invTA, True)
-    # Compute right hand sides
-    bJ1 = A_lag*J1.vector() - A*J1.vector() + invTA*AijBij.vector()
-    bJ2 = A_lag*J2.vector() - A*J2.vector() + invTA*BijBij.vector()
-    # Axpy mass to A
-    A.axpy(1.0, A_lag, True)
 
-    # Apply bcs and solve systems
-    bcJ1.apply(A, bJ1)
-    solve(A, J1.vector(), bJ1, "bicgstab", "additive_schwarz")
-    bcJ2.apply(A, bJ2)
-    solve(A, J2.vector(), bJ2, "bicgstab", "additive_schwarz")
-    """
     # Update eps
     eps = dt*(J1.vector().array()*J2.vector().array())**(1./8.)/(1.5*delta_CG1.vector().array())
     eps = eps/(1.0+eps)
 
-    # Compute contractions
+    # Compute tensor contractions
     AijBij = tensor_inner(A=Aij, B=Bij, **vars())
     BijBij = tensor_inner(A=Bij, B=Bij, **vars())
-    
-    # Compute backward convective terms J(x-dt*u)
+
+    # Compute backward convective terms J(x-dt*u) (!! NOT STABLE !!)
     J1_back = Function(CG1)
     J2_back = Function(CG1)
-    #b = assemble(dt*dot(u_ab,grad(p))*q*dx)
+    #b = assemble(dt*dot(u_ab,grad(TrialFunction(CG1)))*TestFunction(CG1)*dx)
     #solve(A_lag, J1_back.vector(), b*J1.vector(), "cg", "additive_schwarz")
     #solve(A_lag, J2_back.vector(), b*J2.vector(), "cg", "additive_schwarz")
-
     J1_back = J1.vector().array()-J1_back.vector().array()
     J2_back = np.abs(J2.vector().array()-J2_back.vector().array())
 
@@ -84,10 +53,6 @@ def lagrange_average(u_ab, dt, A_lag, dummy, CG1, bcJ1, bcJ2, Sijcomps,
     # Apply ramp function on J1 to remove negative values, but not set to 0.
     J1.vector().set_local(J1.vector().array().clip(min=1E-32))
     J1.vector().apply("insert")
-    #J2_vec = J2.vector().array()
-    #J2_[vec < 0] = 100
-    #J2.vector().set_local(np.abs(J2_vec))
-    #J2.vector().apply("insert")
 
 def tophatfilter(G_matr, G_under, dummy,
         assigners, assigners_rev, unfiltered=None, filtered=None,
@@ -152,7 +117,6 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
     Sij = Sijcomps
     Sijf = Sijfcomps
     alpha = alphaval
-    # Compute 2*delta**2 from T_ = dt/(1.5*delta)
     deltasq = 2*(delta_CG1.vector().array())**2
     
     # Apply pre-assembled matrices and compute right hand sides
@@ -182,40 +146,10 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         solve(G_matr, Sij[i].vector(), 0.5*bu[i], "cg", "default")
         # Second we need to solve for the diff. components of F(Sij)
         solve(G_matr, Sijf[i].vector(), 0.5*buf[i], "cg", "default")
-
-    # Compute |S| = sqrt(2*Sij:Sij) and F(|S|) = sqrt(2*F(Sij):F(Sij))
-    if tensdim == 3:
-        # Extract Sij vectors
-        S00 = Sij[0].vector().array()
-        S01 = Sij[1].vector().array()
-        S11 = Sij[2].vector().array()
-        S00f = Sijf[0].vector().array()
-        S01f = Sijf[1].vector().array()
-        S11f = Sijf[2].vector().array()
-        # Compute |S|
-        magS = np.sqrt(2*(S00*S00 + 2*S01*S01 + S11*S11))
-        # Compute F(|S|)
-        magSf = np.sqrt(2*(S00f*S00f + 2*S01f*S01f + S11f*S11f))
-    elif tensdim == 6:
-        # Extract Sij vectors
-        S00 = Sij[0].vector().array()
-        S01 = Sij[1].vector().array()
-        S02 = Sij[2].vector().array()
-        S11 = Sij[3].vector().array()
-        S12 = Sij[4].vector().array()
-        S22 = Sij[5].vector().array()
-        S00f = Sijf[0].vector().array()
-        S01f = Sijf[1].vector().array()
-        S02f = Sijf[2].vector().array()
-        S11f = Sijf[3].vector().array()
-        S12f = Sijf[4].vector().array()
-        S22f = Sijf[5].vector().array()
-        # Compute |S|
-        magS = np.sqrt(2*(S00*S00 + 2*S01*S01 + 2*S02*S02 + S11*S11 +
-            2*S12*S12+ S22*S22))
-        # Compute F(|S|)
-        magSf = np.sqrt(2*(S00f*S00f + 2*S01f*S01f + 2*S02f*S02f + S11f*S11f +
-            2*S12f*S12f+ S22f*S22f))
+    
+    # Compute magnitudes of Sij and Sijf
+    magS = compute_magSij(Sij, tensdim)
+    magSf = compute_magSij(Sijf, tensdim)
 
     # Multiply each component of Sij by magS, and each comp of F(Sij) by magSf
     for i in xrange(tensdim):
@@ -232,12 +166,14 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         Sij[i].vector().apply("insert")
         # Last but not least, assign to Mij
         assigners_rev[i].assign(Mij.sub(i), Sij[i])
+
+    # Return magS for use when updating nut_
     return magS
 
 def compute_Qij(Qij, uiuj_pairs, tensdim, dummy, G_matr, G_under,
         assigners_rev, assigners, uf=None, **NS_namespace):
     """
-    Manually compute the tensor Lij = F(uiuj)-F(ui)F(uj)
+    Function for computing Qij in ScaleDepLagrangian
     """
     # Compute Qij
     for i in range(tensdim):
@@ -255,7 +191,7 @@ def compute_Nij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         Sijcomps, Sijfcomps, dt, delta_CG1, dummy, G_under, assigners,
         alphaval=None, u_nf=None, u_f=None, Nij=None, **NS_namespace):
     """
-    Manually compute the tensor Nij = F(uiuj)-F(ui)F(uj)
+    Function for computing Nij in ScaleDepLagrangian
     """
     
     Sijf = Sijfcomps
@@ -280,26 +216,9 @@ def compute_Nij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
     for i in xrange(tensdim):
         # Solve for the diff. components of F(F(Sij)))
         solve(G_matr, Sijf[i].vector(), 0.5*buf[i], "cg", "default")
-
-    # Compute magSf = F(F(|S|)
-    if tensdim == 3:
-        # Extract Sij vectors
-        S00f = Sijf[0].vector().array()
-        S01f = Sijf[1].vector().array()
-        S11f = Sijf[2].vector().array()
-        # Compute F(|S|)
-        magSf = np.sqrt(2*(S00f*S00f + 2*S01f*S01f + S11f*S11f))
-    elif tensdim == 6:
-        # Extract Sij vectors
-        S00f = Sijf[0].vector().array()
-        S01f = Sijf[1].vector().array()
-        S02f = Sijf[2].vector().array()
-        S11f = Sijf[3].vector().array()
-        S12f = Sijf[4].vector().array()
-        S22f = Sijf[5].vector().array()
-        # Compute F(|S|)
-        magSf = np.sqrt(2*(S00f*S00f + 2*S01f*S01f + 2*S02f*S02f + S11f*S11f +
-            2*S12f*S12f+ S22f*S22f))
+    
+    # Compute magSf
+    magSf = compute_magSij(Sijf, tensdim)
     
     for i in range(tensdim):
         # Extract F(|S|Sij) from Nij
@@ -316,6 +235,7 @@ def tensor_inner(Sijcomps, Sijfcomps, assigners, tensdim,
         A=None, B=None, **NS_namespace):
     """
     Compute tensor contraction Aij:Bij of two symmetric tensors Aij and Bij.
+    A numpy array is returned.
     """
     
     # Apply dummy functions
@@ -341,3 +261,28 @@ def tensor_inner(Sijcomps, Sijfcomps, assigners, tensdim,
                 dummiesA[5].vector().array()*dummiesB[5].vector().array()
 
     return contraction
+
+def compute_magSij(Sij, tensdim):
+    """
+    Compute |S| = magS = 2*sqrt(inner(Sij,Sij))
+    """
+    if tensdim == 3:
+        # Extract Sij vectors
+        S00 = Sij[0].vector().array()
+        S01 = Sij[1].vector().array()
+        S11 = Sij[2].vector().array()
+        # Compute |S|
+        magS = np.sqrt(2*(S00*S00 + 2*S01*S01 + S11*S11))
+    elif tensdim == 6:
+        # Extract Sij vectors
+        S00 = Sij[0].vector().array()
+        S01 = Sij[1].vector().array()
+        S02 = Sij[2].vector().array()
+        S11 = Sij[3].vector().array()
+        S12 = Sij[4].vector().array()
+        S22 = Sij[5].vector().array()
+        # Compute |S|
+        magS = np.sqrt(2*(S00*S00 + 2*S01*S01 + 2*S02*S02 + S11*S11 +
+            2*S12*S12+ S22*S22))
+    
+    return magS

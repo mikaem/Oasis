@@ -14,7 +14,7 @@ NS_parameters.update(
     dt = 2E-6,
     les_model="DynamicLagrangian",
     plot_interval = 20,
-    save_step=1,
+    save_step=20,
     print_intermediate_info = 100,
     use_krylov_solvers = True)
 NS_parameters["DynamicSmagorinsky"].update(Cs_comp_step=1)
