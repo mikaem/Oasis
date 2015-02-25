@@ -7,8 +7,8 @@ from dolfin import TrialFunction, TestFunction, assemble, inner, dx, grad,\
                     Function, dot, solve, plot, interactive
 import numpy as np
 
-def lagrange_average(eps, T_, u_, dt, A_lag, dummy, CG1, 
-        bcJ1, bcJ2, Sijcomps, Sijfcomps, assigners, tensdim, J1=None, J2=None, 
+def lagrange_average(u_ab, dt, A_lag, dummy, CG1, bcJ1, bcJ2, Sijcomps, 
+        Sijfcomps, assigners, tensdim, delta_CG1, J1=None, J2=None, 
         Aij=None, Bij=None, **NS_namespace):
     """
     Function for Lagrange Averaging two tensors
@@ -26,8 +26,9 @@ def lagrange_average(eps, T_, u_, dt, A_lag, dummy, CG1,
     - J1 is clipped at 1E-32 (not zero, will lead to problems).
     - J2 is clipped at 1 (not 1E-32 -> zero division, 1 is best).
     """
-    p,q = TrialFunction(CG1), TestFunction(CG1)
     
+    p,q = TrialFunction(CG1), TestFunction(CG1)
+    """
     # Compute tensor contractions
     AijBij,BijBij = Function(CG1), Function(CG1)
     AijBij.vector().set_local(tensor_inner(A=Aij, B=Bij, **vars()))
@@ -35,10 +36,12 @@ def lagrange_average(eps, T_, u_, dt, A_lag, dummy, CG1,
     BijBij.vector().set_local(tensor_inner(A=Bij, B=Bij, **vars()))
     BijBij.vector().apply("insert")
     
+    # Define invT
+    invT = (J1*J2)**(1./8.)/(1.5*delta)
     # Assemble convective term
-    A = assemble(-inner(0.5*dt*u_*p,grad(q))*dx)
+    A = assemble(inner(0.5*dt*dot(u_ab,grad(p)),q)*dx)
     # Assemble invT matrix
-    invTA = assemble(inner(dt*T_*(J1*J2)**(1./8.)*p,q)*dx)
+    invTA = assemble(inner(dt*invT*p,q)*dx)
     # Axpy invT to A
     A.axpy(0.5, invTA, True)
     # Compute right hand sides
@@ -52,39 +55,39 @@ def lagrange_average(eps, T_, u_, dt, A_lag, dummy, CG1,
     solve(A, J1.vector(), bJ1, "bicgstab", "additive_schwarz")
     bcJ2.apply(A, bJ2)
     solve(A, J2.vector(), bJ2, "bicgstab", "additive_schwarz")
-    
     """
-    eps = dt*T_.vector().array()*(J1.vector().array()*J2.vector().array())**(1./8.)
+    # Update eps
+    eps = dt*(J1.vector().array()*J2.vector().array())**(1./8.)/(1.5*delta_CG1.vector().array())
     eps = eps/(1.0+eps)
-    print eps.max()
+
+    # Compute contractions
     AijBij = tensor_inner(A=Aij, B=Bij, **vars())
     BijBij = tensor_inner(A=Bij, B=Bij, **vars())
     
-    J1_back = J1.vector().array()
-    J2_back = J2.vector().array()
+    # Compute backward convective terms J(x-dt*u)
     J1_back = Function(CG1)
     J2_back = Function(CG1)
-    b = assemble(-inner(dt*u_*p,grad(q))*dx)
-    solve(A_lag, J1_back.vector(), b*J1.vector(), "cg", "default")
-    solve(A_lag, J2_back.vector(), b*J2.vector(), "cg", "default")
-    
+    #b = assemble(dt*dot(u_ab,grad(p))*q*dx)
+    #solve(A_lag, J1_back.vector(), b*J1.vector(), "cg", "additive_schwarz")
+    #solve(A_lag, J2_back.vector(), b*J2.vector(), "cg", "additive_schwarz")
+
     J1_back = J1.vector().array()-J1_back.vector().array()
-    J2_back = J2.vector().array()-J2_back.vector().array()
-    # Update J1 and J2
+    J2_back = np.abs(J2.vector().array()-J2_back.vector().array())
+
+    # Update J1
     J1.vector().set_local(eps*AijBij + (1-eps)*J1_back)
     J1.vector().apply("insert")
+    # Update J2
     J2.vector().set_local(eps*BijBij + (1-eps)*J2_back)
     J2.vector().apply("insert")
-    bcJ1.apply(J1.vector())
-    bcJ2.apply(J2.vector())
-    """
+
     # Apply ramp function on J1 to remove negative values, but not set to 0.
     J1.vector().set_local(J1.vector().array().clip(min=1E-32))
     J1.vector().apply("insert")
-    J2_vec = J2.vector().array()
-    J2_vec[J2_vec < 0] = 10
-    J2.vector().set_local(J2_vec)
-    J2.vector().apply("insert")
+    #J2_vec = J2.vector().array()
+    #J2_[vec < 0] = 100
+    #J2.vector().set_local(np.abs(J2_vec))
+    #J2.vector().apply("insert")
 
 def tophatfilter(G_matr, G_under, dummy,
         assigners, assigners_rev, unfiltered=None, filtered=None,
@@ -116,12 +119,12 @@ def tophatfilter(G_matr, G_under, dummy,
         uf.vector().axpy(1.0, vec_)
         exec(code)
 
-def compute_Lij(Lij, dummyTFS, uiuj_pairs, tensdim, dummy, G_matr, G_under,
-        assigners_rev, assigners, u=None, uf=None, **NS_namespace):
+def compute_Lij(Lij, uiuj_pairs, tensdim, dummy, G_matr, G_under,
+        assigners_rev, assigners, u=None, uf=None, Qij=None, **NS_namespace):
     """
-    Manually compute the tensor Lij = dev(F(uiuj)-F(ui)F(uj))
+    Manually compute the tensor Lij = F(uiuj)-F(ui)F(uj)
     """
-    trace = np.zeros(len(dummy.vector().array()))
+    
     # Loop over each tensor component
     for i in xrange(tensdim):
         # Extract velocity pair
@@ -131,41 +134,17 @@ def compute_Lij(Lij, dummyTFS, uiuj_pairs, tensdim, dummy, G_matr, G_under,
         dummy.vector().axpy(1.0, u[j].vector()*u[k].vector())
         # Filter dummy -> F(ujuk)
         tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
+        # Add to Qij if ScaleDep model
+        if Qij != None:
+            assigners_rev[i].assign(Qij.sub(i), dummy)
         # Axpy - F(uj)F(uk)
         dummy.vector().axpy(-1.0, uf[j].vector()*uf[k].vector())
         # Assign to Lij
         assigners_rev[i].assign(Lij.sub(i), dummy)
 
-        # Add to trace if j == k
-        if j == k:
-            trace += dummy.vector().array()
-    
-    # The deviatoric part of Lij must now be removed
-    if tensdim == 3:
-        # Compute trace and add to dummy
-        trace = 0.5*trace
-        dummy.vector().set_local(trace)
-        dummy.vector().apply("insert")
-        # Assign the trace to the diagonal of dummyTFS
-        assigners_rev[0].assign(dummyTFS.sub(0), dummy)
-        assigners_rev[2].assign(dummyTFS.sub(2), dummy)
-        # Axpy trace from Lij
-        Lij.vector().axpy(-1.0, dummyTFS.vector())
-    else:
-        # Compute trace and add to dummy
-        trace = 1./3.*trace
-        dummy.vector().set_local(trace)
-        dummy.vector().apply("insert")
-        # Assign the trace to the diagonal of dummyTFS
-        assigners_rev[0].assign(dummyTFS.sub(0), dummy)
-        assigners_rev[3].assign(dummyTFS.sub(3), dummy)
-        assigners_rev[5].assign(dummyTFS.sub(5), dummy)
-        # Axpy trace from Lij
-        Lij.vector().axpy(-1.0, dummyTFS.vector())
-
 def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
-        Sijcomps, Sijfcomps, delta, dt, T_, dummy, G_under, assigners,
-        delta_CG1, alphaval=None, u_nf=None, u_f=None, **NS_namespace):
+        Sijcomps, Sijfcomps, dt, delta_CG1, dummy, G_under, assigners,
+        alphaval=None, u_nf=None, u_f=None, Nij=None, **NS_namespace):
     """
     Manually compute the tensor Mij = 2*delta**2*(F(|S|Sij)-alpha**2*F(|S|)F(Sij)
     """
@@ -198,11 +177,10 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         bu = [2*Ax*u, Ay*u + Ax*v, Az*u + Ay*w, 2*Ay*v, Az*v + Ay*w, 2*Az*w]
         buf = [2*Ax*uf, Ay*uf + Ax*vf, Az*uf + Ay*wf, 2*Ay*vf, Az*vf + Ay*wf, 2*Az*wf]
 
-    # First we need to solve for the different components of Sij
     for i in xrange(tensdim):
+        # First we need to solve for the different components of Sij
         solve(G_matr, Sij[i].vector(), 0.5*bu[i], "cg", "default")
-    # Second we need to solve for the diff. components of F(Sij)
-    for i in xrange(tensdim):
+        # Second we need to solve for the diff. components of F(Sij)
         solve(G_matr, Sijf[i].vector(), 0.5*buf[i], "cg", "default")
 
     # Compute |S| = sqrt(2*Sij:Sij) and F(|S|) = sqrt(2*F(Sij):F(Sij))
@@ -214,27 +192,11 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         S00f = Sijf[0].vector().array()
         S01f = Sijf[1].vector().array()
         S11f = Sijf[2].vector().array()
-        # Remove trace from Sij
-        trace = 0.5*(S00+S11)
-        S00 = S00-trace
-        S11 = S11-trace
-        Sij[0].vector().set_local(S00)
-        Sij[0].vector().apply("insert")
-        Sij[2].vector().set_local(S11)
-        Sij[2].vector().apply("insert")
-        # Remove trace from F(Sij)
-        trace = 0.5*(S00f+S11f)
-        S00f = S00f-trace
-        S11f = S11f-trace
-        Sijf[0].vector().set_local(S00f)
-        Sijf[0].vector().apply("insert")
-        Sijf[2].vector().set_local(S11f)
-        Sijf[2].vector().apply("insert")
         # Compute |S|
         magS = np.sqrt(2*(S00*S00 + 2*S01*S01 + S11*S11))
         # Compute F(|S|)
         magSf = np.sqrt(2*(S00f*S00f + 2*S01f*S01f + S11f*S11f))
-    else:
+    elif tensdim == 6:
         # Extract Sij vectors
         S00 = Sij[0].vector().array()
         S01 = Sij[1].vector().array()
@@ -248,28 +210,6 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         S11f = Sijf[3].vector().array()
         S12f = Sijf[4].vector().array()
         S22f = Sijf[5].vector().array()
-        # Remove trace from Sij
-        trace = (1./3.)*(S00+S11+S22)
-        S00 = S00-trace
-        S11 = S11-trace
-        S22 = S22-trace
-        Sij[0].vector().set_local(S00)
-        Sij[0].vector().apply("insert")
-        Sij[3].vector().set_local(S11)
-        Sij[3].vector().apply("insert")
-        Sij[5].vector().set_local(S22)
-        Sij[5].vector().apply("insert")
-        # Remove trace from F(Sij)
-        trace = (1./3.)*(S00f+S11f+S22f)
-        S00f = S00f-trace
-        S11f = S11f-trace
-        S22f = S22f-trace
-        Sijf[0].vector().set_local(S00f)
-        Sijf[0].vector().apply("insert")
-        Sijf[3].vector().set_local(S11f)
-        Sijf[3].vector().apply("insert")
-        Sijf[5].vector().set_local(S22f)
-        Sijf[5].vector().apply("insert")
         # Compute |S|
         magS = np.sqrt(2*(S00*S00 + 2*S01*S01 + 2*S02*S02 + S11*S11 +
             2*S12*S12+ S22*S22))
@@ -284,12 +224,93 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         Sij[i].vector().apply("insert")
         # Compute F(|S|*Sij)
         tophatfilter(unfiltered=Sij[i], filtered=Sij[i], **vars())
-        # Compute 2*delta**2(F(|S|Sij) - alpha**2*F(|S|)F(Sij)) and add to Sij[i]
+        # Check if Nij
+        if Nij != None:
+            assigners_rev[i].assign(Nij.sub(i), Sij[i])
+        # Compute 2*delta**2*(F(|S|Sij) - alpha**2*F(|S|)F(Sij)) and add to Sij[i]
         Sij[i].vector().set_local(deltasq*(Sij[i].vector().array()-(alpha**2)*magSf*Sijf[i].vector().array()))
         Sij[i].vector().apply("insert")
         # Last but not least, assign to Mij
         assigners_rev[i].assign(Mij.sub(i), Sij[i])
     return magS
+
+def compute_Qij(Qij, uiuj_pairs, tensdim, dummy, G_matr, G_under,
+        assigners_rev, assigners, uf=None, **NS_namespace):
+    """
+    Manually compute the tensor Lij = F(uiuj)-F(ui)F(uj)
+    """
+    # Compute Qij
+    for i in range(tensdim):
+        j, k = uiuj_pairs[i]
+        # Assign Qij comp to dummy
+        assigners[i].assign(dummy, Qij.sub(i))
+        # Filter component
+        tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
+        # Axpy outer(uf,uf)
+        dummy.vector().axpy(-1.0, uf[j].vector()*uf[k].vector())
+        # Assign to Qij
+        assigners_rev[i].assign(Qij.sub(i), dummy)
+
+def compute_Nij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
+        Sijcomps, Sijfcomps, dt, delta_CG1, dummy, G_under, assigners,
+        alphaval=None, u_nf=None, u_f=None, Nij=None, **NS_namespace):
+    """
+    Manually compute the tensor Nij = F(uiuj)-F(ui)F(uj)
+    """
+    
+    Sijf = Sijfcomps
+    alpha = alphaval
+    # Compute 2*delta**2 from T_ = dt/(1.5*delta)
+    deltasq = 2*(delta_CG1.vector().array())**2
+    
+    # Need to compute F(F(Sij)), set up right hand sides
+    if tensdim == 3:
+        Ax, Ay = Sijmats
+        uf = u_f[0].vector()
+        vf = u_f[1].vector()
+        # Filtered rhs
+        buf = [2*Ax*uf, Ay*uf + Ax*vf, 2*Ay*vf]
+    else:
+        Ax, Ay, Az = Sijmats
+        uf = u_f[0].vector()
+        vf = u_f[1].vector()
+        wf = u_f[0].vector()
+        buf = [2*Ax*uf, Ay*uf + Ax*vf, Az*uf + Ay*wf, 2*Ay*vf, Az*vf + Ay*wf, 2*Az*wf]
+    
+    for i in xrange(tensdim):
+        # Solve for the diff. components of F(F(Sij)))
+        solve(G_matr, Sijf[i].vector(), 0.5*buf[i], "cg", "default")
+
+    # Compute magSf = F(F(|S|)
+    if tensdim == 3:
+        # Extract Sij vectors
+        S00f = Sijf[0].vector().array()
+        S01f = Sijf[1].vector().array()
+        S11f = Sijf[2].vector().array()
+        # Compute F(|S|)
+        magSf = np.sqrt(2*(S00f*S00f + 2*S01f*S01f + S11f*S11f))
+    elif tensdim == 6:
+        # Extract Sij vectors
+        S00f = Sijf[0].vector().array()
+        S01f = Sijf[1].vector().array()
+        S02f = Sijf[2].vector().array()
+        S11f = Sijf[3].vector().array()
+        S12f = Sijf[4].vector().array()
+        S22f = Sijf[5].vector().array()
+        # Compute F(|S|)
+        magSf = np.sqrt(2*(S00f*S00f + 2*S01f*S01f + 2*S02f*S02f + S11f*S11f +
+            2*S12f*S12f+ S22f*S22f))
+    
+    for i in range(tensdim):
+        # Extract F(|S|Sij) from Nij
+        assigners[i].assign(dummy, Nij.sub(i))
+        # Filter dummy
+        tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
+        # Axpy - alpha**2*magSf*Sijf
+        dummy.vector().set_local(deltasq*(dummy.vector().array()-alpha**2*magSf*Sijf[i].vector().array()))
+        dummy.vector().apply("insert")
+        # Assign to Nij
+        assigners_rev[i].assign(Nij.sub(i), dummy)
 
 def tensor_inner(Sijcomps, Sijfcomps, assigners, tensdim, 
         A=None, B=None, **NS_namespace):

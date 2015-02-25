@@ -5,11 +5,11 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
         dx, inner, as_backend_type, TrialFunction, project, CellVolume, sqrt,\
-        TensorFunctionSpace, FunctionAssigner, DirichletBC, as_vector, solve
+        TensorFunctionSpace, FunctionAssigner, DirichletBC, as_vector, solve,\
+        plot, interactive
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij, tensor_inner
 import numpy as np
-import time
 
 __all__ = ['les_setup', 'les_update']
 
@@ -27,8 +27,10 @@ def les_setup(u_, mesh, dt, V, assemble_matrix, **NS_namespace):
     TFS = TensorFunctionSpace(mesh, "CG", 1, symmetry=True)
     dim = mesh.geometry().dim()
 
+    # Create delta in DG0 and CG1
     delta = project(pow(CellVolume(mesh), 1./dim), DG)
-
+    delta_CG1 = project(delta, CG1)
+    
     # Define nut_
     nut_ = Function(CG1)
     Sij = sym(grad(u_))
@@ -78,69 +80,61 @@ def les_setup(u_, mesh, dt, V, assemble_matrix, **NS_namespace):
     JLM.vector()[:] += 1E-32
     JMM = Function(CG1)
     JMM.vector()[:] += 1
-    eps = Function(CG1)
-    T_ = project(1.5*delta, CG1)
-    delta_CG1 = Function(CG1)
-    delta_CG1.vector().axpy(1./1.5, T_.vector())
-    T_.vector().set_local(1./T_.vector().array())
-    T_.vector().apply("insert")
     # These DirichletBCs are needed for the stability 
     # when solving the Lagrangian PDEs
     bcJ1 = DirichletBC(CG1, 0, "on_boundary")
     bcJ2 = DirichletBC(CG1, 1, "on_boundary")
-
-    return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta,
-                delta_CG1=delta_CG1,
+    
+    return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta, delta_CG1=delta_CG1,
                 dg_diag=dg_diag, DG=DG, CG1=CG1, v_dg=TestFunction(DG),
                 Cs=Cs, u_CG1=u_CG1, u_filtered=u_filtered, dummyTFS=dummyTFS,
                 Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, Sijfcomps=Sijfcomps, Sijmats=Sijmats, 
-                JLM=JLM, JMM=JMM, bcJ1=bcJ1, bcJ2=bcJ2, eps=eps, T_=T_, 
+                JLM=JLM, JMM=JMM, bcJ1=bcJ1, bcJ2=bcJ2, TFS=TFS,
                 dim=dim, tensdim=tensdim, G_matr=G_matr, G_under=G_under, 
                 dummy=dummy, assigners=assigners, assigners_rev=assigners_rev, 
                 uiuj_pairs=uiuj_pairs, A_lag=A_lag) 
     
 def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, dummyTFS,
-            JLM, JMM, bcJ1, bcJ2, eps, T_, dim, tensdim, G_matr, G_under,
+            JLM, JMM, bcJ1, bcJ2, dim, tensdim, G_matr, G_under,
             dummy, assigners, assigners_rev, uiuj_pairs, Sijmats,
             Sijcomps, Sijfcomps, A_lag, delta_CG1, **NS_namespace):
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
-        
         # Update nut_
         solve(G_matr, nut_.vector(), assemble(nut_form*TestFunction(CG1)*dx), "cg", "default")
         # Break function
         return
-    
-    t1 = time.time()
-    
+
     # All velocity components must be interpolated to CG1 then filtered
     for i in xrange(dim):
         # Interpolate to CG1
-        u_CG1[i].interpolate(u_[i])
+        u_CG1[i].interpolate(u_ab[i])
         # Filter
         tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
-    
+
     # Compute Lij applying dynamic modules function
     compute_Lij(u=u_CG1, uf=u_filtered, **vars())
 
     # Compute Mij applying dynamic modules function
-    alpha = 2.
+    alpha = 2.0
     magS = compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
 
     # Lagrange average Lij and Mij
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
 
-    # Update Cs = sqrt(JLM/JMM)
+    # Update Cs = sqrt(JLM/JMM) and filter/smooth Cs 
     """
     Important that the term in nut_form is Cs**2 and not Cs
     since Cs here is stored as sqrt(JLM/JMM).
     """
-    Cs.vector().set_local((np.sqrt(JLM.vector().array()/JMM.vector().array())).clip(max=0.4))
+    Cs.vector().set_local(np.sqrt(JLM.vector().array()/JMM.vector().array()))
     Cs.vector().apply("insert")
-    print "Time Cs = ", time.time()-t1, "s"
+    tophatfilter(unfiltered=Cs, filtered=Cs, **vars())
+    tophatfilter(unfiltered=Cs, filtered=Cs, **vars())
+    Cs.vector().apply("insert")
 
     # Update nut_
-    nut_.vector().set_local(Cs.vector().array()**2 * delta_CG1.vector().array()**2 * magS)
+    nut_.vector().set_local(Cs.vector().array().clip(max=0.3)**2 * delta_CG1.vector().array()**2 * magS)
     nut_.vector().apply("insert")

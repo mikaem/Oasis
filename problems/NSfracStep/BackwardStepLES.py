@@ -11,29 +11,27 @@ parameters["mesh_partitioner"] = "SCOTCH"
 NS_parameters.update(
     nu = 15.11E-7,
     T  = 1,
-    dt = 5E-6,
-    les_model="KineticEnergySGS",
+    dt = 2E-6,
+    les_model="DynamicLagrangian",
     plot_interval = 20,
     save_step=1,
     print_intermediate_info = 100,
     use_krylov_solvers = True)
+NS_parameters["DynamicSmagorinsky"].update(Cs_comp_step=1)
 
 from mshr import *
 
 r1 = Rectangle(Point(0, 0), Point(0.02, 0.005))
 r2 = Rectangle(Point(0, 0), Point(0.1, 0.01))
 r3 = Rectangle(Point(0.08, 0), Point(0.1, 0.005))
+t1 = Polygon([Point(0.08, 0.005), Point(0.1, 0.005), Point(0.1,0.006)])
+t2 = Polygon([Point(0.08, 0.01), Point(0.1, 0.009), Point(0.1,0.01)])
 
-domain = r2-r3-r1
+domain = r2-r3-r1-t1-t2
 
-mesh = generate_mesh(domain, 700)
+mesh = generate_mesh(domain, 1300)
 
-noslip = "on_boundary && std::abs(0.1-x[0]) > DOLFIN_EPS ||\
-                std::abs(0.01 - x[1]) < DOLFIN_EPS || \
-                std::abs(0.005 - x[1]) < DOLFIN_EPS ||\
-                x[1] < DOLFIN_EPS || \
-                std::abs(0.02 - x[0]) < DOLFIN_EPS ||\
-                std::abs(0.08 - x[0]) < DOLFIN_EPS"
+noslip = "on_boundary && std::abs(0.1-x[0]) > DOLFIN_EPS"
 inlet = "on_boundary && x[0] < DOLFIN_EPS"
 outlet = "on_boundary && std::abs(0.1-x[0]) < DOLFIN_EPS"
 
@@ -56,7 +54,7 @@ def initialize(x_1, x_2, bcs, **NS_namespace):
 def pre_solve_hook(mesh, nut_, velocity_degree, **NS_namespace):
     Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree)
     nutfile = File("results/bwfstep/nut.pvd")
-    CSGSFile = File("results/bwfstep/ksgs.pvd")
+    CSGSFile = File("results/bwfstep/Cs.pvd")
     v_file = File("results/bwfstep/U.pvd")
     JLM_file = File("results/bwfstep/JLM.pvd")
     JMM_file = File("results/bwfstep/JMM.pvd")
@@ -69,12 +67,12 @@ def start_timestep_hook(t, **NS_namespace):
     print "t = ", t, "s"
     
 def temporal_hook(tstep, save_step, nut_, u_, nutfile, v_file, uv, 
-        CSGSFile, ksgs,  **NS_namespace):
+        CSGSFile, Cs, JLM_file, JMM_file, JLM, JMM,  **NS_namespace):
     if tstep%save_step == 0:
         nutfile << nut_
         assign(uv.sub(0), u_[0])
         assign(uv.sub(1), u_[1])
         v_file << uv
-        CSGSFile << ksgs
-        #JLM_file << JLM
-        #JMM_file << JMM
+        CSGSFile << Cs
+        JLM_file << JLM
+        JMM_file << JMM

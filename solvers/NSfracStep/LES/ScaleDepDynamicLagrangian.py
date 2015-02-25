@@ -8,9 +8,10 @@ from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
         TensorFunctionSpace, assign, solve, lhs, rhs, LagrangeInterpolator,\
         dev, outer, as_vector, FunctionAssigner, KrylovSolver, DirichletBC
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
-        compute_Mij
+        compute_Mij, compute_Qij, compute_Nij
 import DynamicLagrangian
 import numpy as np
+import time
 
 __all__ = ['les_setup', 'les_update']
 
@@ -25,30 +26,34 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, **NS_namespace):
     
     # Add scale dep specific parameters
     JQN = Function(dyn_dict["CG1"])
-    JQN.vector()[:] += 1e-7
+    JQN.vector()[:] += 1E-32
     JNN = Function(dyn_dict["CG1"])
-    JNN.vector()[:] += 10.
-    
+    JNN.vector()[:] += 1.
+
+    TFS = dyn_dict["TFS"]
+    Qij = Function(TFS)
+    Nij = Function(TFS)
+
     # Update and return dict
-    dyn_dict.update(JQN=JQN, JNN=JNN)
+    dyn_dict.update(JQN=JQN, JNN=JNN, Qij=Qij, Nij=Nij)
 
     return dyn_dict
 
-def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep, 
-            DynamicSmagorinsky, Cs, u_CG1, u_filtered, F_uiuj, F_SSij, 
-            JLM, JMM, JQN, JNN, bcJ1, bcJ2, eps, T_, dim, tensdim, G_matr, 
-            G_under, dummy, assigners, assigners_rev, lag_sol, 
-            uiuj_pairs, Sijmats, Sijcomps, **NS_namespace):
+def les_update(u_, u_ab, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep, 
+            DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, dummyTFS,
+            JLM, JMM, bcJ1, bcJ2, dim, tensdim, G_matr, G_under,
+            dummy, assigners, assigners_rev, uiuj_pairs, Sijmats,
+            Sijcomps, Sijfcomps, A_lag, delta_CG1, Qij, Nij, JNN, JQN, **NS_namespace): 
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
         
         # Update nut_
-        nut_.vector().set_local(assemble(nut_form*v_dg*dx).array()/dg_diag)
-        nut_.vector().apply("insert")
-
+        solve(G_matr, nut_.vector(), assemble(nut_form*TestFunction(CG1)*dx), "cg", "default")
         # Break function
         return
+
+    t1 = time.time()
 
     # All velocity components must be interpolated to CG1 then filtered
     for i in xrange(dim):
@@ -62,7 +67,7 @@ def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
 
     # Compute Mij from dynamic modules function
     alpha = 2.
-    compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
+    magS = compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
 
     # Lagrange average Lij and Mij
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
@@ -72,22 +77,23 @@ def les_update(u_, nut_, nut_form, v_dg, dg_diag, dt, CG1, delta, tstep,
         # Filter
         tophatfilter(unfiltered=u_filtered[i], filtered=u_filtered[i], **vars())
     
-    # Compute Qij from dynamic modules function
-    compute_Lij(u=u_CG1, uf=u_filtered, **vars())
+    # Compute Qij
+    compute_Qij(uf=u_filtered, **vars())
 
     # Compute Nij from dynamic modules function
     alpha = 4.
-    compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
+    compute_Nij(alphaval=alpha, u_f=u_filtered, **vars())
 
-    # Lagrange average Lij and Mij
+    # Lagrange average Qij and Nij
     lagrange_average(J1=JQN, J2=JNN, Aij=Qij, Bij=Nij, **vars())
 
     # UPDATE Cs**2 = (JLM*JMM)/beta, beta = JQN/JNN
     beta = JQN.vector().array()/JNN.vector().array()
-    beta = beta.clip(min=0.5)
-    Cs.vector().set_local((np.sqrt((JLM.vector().array()/JMM.vector().array())/beta)).clip(max=0.4))
+    beta = beta.clip(min=0.125)
+    Cs.vector().set_local((np.sqrt((JLM.vector().array()/JMM.vector().array())/beta)))
     Cs.vector().apply("insert")
+    print "Time Cs = ", time.time()-t1, "s"
 
     # Update nut_
-    nut_.vector().set_local(assemble(nut_form*v_dg*dx).array()/dg_diag)
+    nut_.vector().set_local(Cs.vector().array().clip(max=0.3)**2 * delta_CG1.vector().array()**2 * magS)
     nut_.vector().apply("insert")
