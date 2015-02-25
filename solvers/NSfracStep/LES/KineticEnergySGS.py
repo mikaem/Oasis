@@ -5,7 +5,8 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
         dx, inner, as_backend_type, TrialFunction, project, CellVolume, sqrt,\
-        solve, dot, lhs, rhs, interpolate, Constant, DirichletBC
+        solve, dot, lhs, rhs, interpolate, Constant, DirichletBC, plot,\
+        interactive
 
 __all__ = ['les_setup', 'les_update']
 
@@ -29,10 +30,9 @@ def les_setup(u_, mesh, KineticEnergySGS, assemble_matrix, **NS_namespace):
     bc_ksgs = DirichletBC(CG1, 0, "on_boundary")
 
     return dict(nut_form=nut_form, nut_=nut_, delta=delta, ksgs=ksgs,
-                nut_test=TestFunction(CG1), CG1=CG1, A_nut=A_nut,
-                bc_ksgs=bc_ksgs)    
+                CG1=CG1, A_nut=A_nut, bc_ksgs=bc_ksgs)    
     
-def les_update(nut_, nut_form, nut_test, A_nut, u_, dt, bc_ksgs,
+def les_update(nut_, nut_form, A_nut, u_, dt, bc_ksgs,
         KineticEnergySGS, CG1, ksgs, delta, **NS_namespace):
 
     p, q = TrialFunction(CG1), TestFunction(CG1)
@@ -41,20 +41,20 @@ def les_update(nut_, nut_form, nut_test, A_nut, u_, dt, bc_ksgs,
     Ce = KineticEnergySGS["Ce"]
     
     Sij = sym(grad(u_))
-    A = assemble(dt*inner(dot(u_,grad(p)), q)*dx \
-            + (dt*Ce*sqrt(ksgs)/delta)*p*q*dx \
-            + inner(dt*Ck*sqrt(ksgs)*delta*grad(p),grad(q))*dx)
+    A = assemble(dt*inner(dot(u_,0.5*grad(p)), q)*dx \
+            + inner((dt*Ce*sqrt(ksgs)/delta)*0.5*p,q)*dx \
+            + inner(dt*Ck*sqrt(ksgs)*delta*grad(0.5*p),grad(q))*dx)
+    b = A_nut*ksgs.vector() - A*ksgs.vector() + assemble(dt*2*Ck*delta*sqrt(ksgs)*inner(Sij,grad(u_))*q*dx)
     A.axpy(1.0, A_nut, True)
-    b = A_nut*ksgs.vector() + assemble(dt*2*Ck*delta*sqrt(ksgs)*inner(Sij,grad(u_))*q*dx)
-
+    
     # Solve for ksgs
     bc_ksgs.apply(A,b)
     solve(A, ksgs.vector(), b, "bicgstab", "additive_schwarz")
     ksgs.vector().set_local(ksgs.vector().array().clip(min=1e-7))
     ksgs.vector().apply("insert")
-
+    
     # Solve for nut_
-    solve(A_nut, nut_.vector(), assemble(nut_form*nut_test*dx), "cg", "default")
+    solve(A_nut, nut_.vector(), assemble(nut_form*q*dx), "cg", "default")
     # Remove negative values
     nut_.vector().set_local(nut_.vector().array().clip(min=0))
     nut_.vector().apply("insert")
