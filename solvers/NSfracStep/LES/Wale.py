@@ -4,7 +4,7 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad, tr, \
-    Identity, dx, inner, Max, homogenize
+    Identity, dx, inner, Max
 
 __all__ = ['les_setup', 'les_update']
 
