@@ -41,10 +41,6 @@ NS_parameters.update(
   DynamicSmagorinsky = dict(Cs_comp_step=1), # Time step interval for Cs to be recomputed
   KineticEnergySGS = dict(Ck=0.08, Ce=1.05),
 
-  # Boussinesq parameters
-  boussinesq = dict(use=False, g = 9.81, beta=1, T_ref=0, 
-      Temp_scalar_index=0, vertical_direction=None),
-
   # Solver parameters that will be transferred to dolfins parameters['krylov_solver']
   krylov_solvers = dict(
     monitor_convergence = False,

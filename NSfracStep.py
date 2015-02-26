@@ -127,10 +127,6 @@ for ci in scalar_components:
 # Preassemble and allocate
 vars().update(setup(**vars()))
 
-# Boussinesq setup
-exec("from solvers.NSfracStep.Boussinesq.boussinesq import *")
-vars().update(boussinesq_setup(**vars()))
-
 # Anything problem specific
 vars().update(pre_solve_hook(**vars()))
 
@@ -156,7 +152,6 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         t0 = OasisTimer("Tentative velocity")
         if inner_iter == 1:
             les_update(**vars())
-            boussinesq_update(**vars())
             assemble_first_inner_iter(**vars())
         udiff[0] = 0.0
         for i, ui in enumerate(u_components):
