@@ -100,12 +100,12 @@ for ci in scalar_components:
 
 print_solve_info = use_krylov_solvers and krylov_solvers['monitor_convergence']
 
+# Boundary conditions
+bcs = create_bcs(**vars())
+
 # LES setup
 exec("from solvers.NSfracStep.LES.{} import *".format(les_model))
 vars().update(les_setup(**vars()))
-
-# Boundary conditions
-bcs = create_bcs(**vars())
 
 # Initialize solution
 initialize(**vars())
