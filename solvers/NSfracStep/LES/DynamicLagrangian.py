@@ -4,9 +4,8 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
-        dx, inner, as_backend_type, TrialFunction, project, CellVolume, sqrt,\
-        TensorFunctionSpace, FunctionAssigner, DirichletBC, as_vector, solve,\
-        plot, interactive
+        dx, inner, TrialFunction, project, CellVolume, sqrt,\
+        TensorFunctionSpace, FunctionAssigner, DirichletBC, as_vector, solve
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij, tensor_inner
 import numpy as np
@@ -22,8 +21,7 @@ def les_setup(u_, mesh, dt, V, assemble_matrix, **NS_namespace):
     # Create function spaces
     DG = FunctionSpace(mesh, "DG", 0)
     CG1 = FunctionSpace(mesh, "CG", 1)
-    p,q = TrialFunction(CG1), TestFunction(CG1)
-    p2 = TrialFunction(V)
+    p, q = TrialFunction(CG1), TestFunction(CG1)
     TFS = TensorFunctionSpace(mesh, "CG", 1, symmetry=True)
     dim = mesh.geometry().dim()
 
@@ -81,15 +79,13 @@ def les_setup(u_, mesh, dt, V, assemble_matrix, **NS_namespace):
     bcJ2 = DirichletBC(CG1, 1, "on_boundary")
     
     return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta, delta_CG1=delta_CG1,
-                DG=DG, CG1=CG1,
-                Cs=Cs, u_CG1=u_CG1, u_filtered=u_filtered,
+                DG=DG, CG1=CG1, Cs=Cs, u_CG1=u_CG1, u_filtered=u_filtered,
                 Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, Sijfcomps=Sijfcomps, Sijmats=Sijmats, 
-                JLM=JLM, JMM=JMM, bcJ1=bcJ1, bcJ2=bcJ2, TFS=TFS,
-                dim=dim, tensdim=tensdim, G_matr=G_matr, G_under=G_under, 
-                dummy=dummy, assigners=assigners, assigners_rev=assigners_rev, 
-                uiuj_pairs=uiuj_pairs) 
+                JLM=JLM, JMM=JMM, bcJ1=bcJ1, bcJ2=bcJ2, TFS=TFS,dim=dim, tensdim=tensdim, 
+                G_matr=G_matr, G_under=G_under, dummy=dummy, assigners=assigners, 
+                assigners_rev=assigners_rev, uiuj_pairs=uiuj_pairs) 
     
-def les_update(u_, u_ab, nut_, nut_form, dt, CG1, delta, tstep, 
+def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij,
             JLM, JMM, bcJ1, bcJ2, dim, tensdim, G_matr, G_under,
             dummy, assigners, assigners_rev, uiuj_pairs, Sijmats,

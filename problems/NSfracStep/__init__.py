@@ -39,7 +39,7 @@ NS_parameters.update(
   Smagorinsky = dict(Cs=0.1677),             # Standard Cs, same as OpenFOAM
   Wale = dict(Cw=0.325),
   DynamicSmagorinsky = dict(Cs_comp_step=1), # Time step interval for Cs to be recomputed
-  KineticEnergySGS = dict(Ck=0.08, Ce =1.05),
+  KineticEnergySGS = dict(Ck=0.08, Ce=1.05),
 
   # Boussinesq parameters
   boussinesq = dict(use=False, g = 9.81, beta=1, T_ref=0, 

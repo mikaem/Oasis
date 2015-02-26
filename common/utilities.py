@@ -5,7 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import assemble, KrylovSolver, LUSolver,  Function, TrialFunction, \
     TestFunction, dx, Vector, Matrix, GenericMatrix, FunctionSpace, Timer, div, \
-    Form, Coefficient, inner, grad, as_vector, dot
+    Form, Coefficient, inner, grad
 
 # Create some dictionaries to hold work matrices
 class Mat_cache_dict(dict):
@@ -240,7 +240,7 @@ class LESsource(Function):
         
         dim = Space.mesh().geometry().dim()    
         test = TestFunction(Space)
-        self.bf = [inner(dot(grad(nut),u_ab.dx(i)),test)*dx for i in range(dim)]
+        self.bf = [inner(inner(grad(nut),u_ab.dx(i)),test)*dx for i in range(dim)]
     
     def assemble_rhs(self, i=0):
         """Assemble right hand side        

@@ -70,11 +70,9 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     u_ab = as_vector([Function(V) for i in range(len(u_components))])
     a_conv = inner(v, dot(u_ab, nabla_grad(u)))*dx
     a_scalar = a_conv
-
     LT = None if les_model is None else LESsource(nut_, u_ab, V, name='LTd')
 
     d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT, KT=KT)
-
     return d
 
 def get_solvers(use_krylov_solvers, krylov_solvers, bcs, 

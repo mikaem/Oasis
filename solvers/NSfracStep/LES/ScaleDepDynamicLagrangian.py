@@ -5,8 +5,7 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
         dx, inner, as_backend_type, TrialFunction, project, CellVolume, sqrt,\
-        TensorFunctionSpace, assign, solve, lhs, rhs, LagrangeInterpolator,\
-        dev, outer, as_vector, FunctionAssigner
+        TensorFunctionSpace, assign, solve, as_vector, FunctionAssigner
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij, compute_Qij, compute_Nij
 import DynamicLagrangian

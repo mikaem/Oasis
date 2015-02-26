@@ -4,7 +4,7 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import TrialFunction, TestFunction, assemble, inner, dx, grad,\
-                    Function, dot, solve, plot, interactive
+                    Function, dot, solve
 import numpy as np
 
 def lagrange_average(u_ab, dt, dummy, CG1, bcJ1, bcJ2, Sijcomps, 
@@ -20,7 +20,7 @@ def lagrange_average(u_ab, dt, dummy, CG1, bcJ1, bcJ2, Sijcomps,
     Cs**2 = J1/J2
 
     - eps = (dt/T)/(1+dt/T) is computed.
-    - The bacckward terms are assembled.
+    - The bacckward terms are assembled (UNSTABLE)
     - Tensor contractions of AijBij and BijBij are computed manually.
     - Two equations are solved implicitly and easy, no linear system.
     - J1 is clipped at 1E-32 (not zero, will lead to problems).
@@ -54,35 +54,21 @@ def lagrange_average(u_ab, dt, dummy, CG1, bcJ1, bcJ2, Sijcomps,
     J1.vector().set_local(J1.vector().array().clip(min=1E-32))
     J1.vector().apply("insert")
 
-def tophatfilter(G_matr, G_under, dummy,
-        assigners, assigners_rev, unfiltered=None, filtered=None,
-        N=1, **NS_namespace):
+def tophatfilter(G_matr, G_under, dummy, assigners, assigners_rev, 
+        unfiltered=None, filtered=None, **NS_namespace):
     """
-    Filtering function for applying a generalized top hat filter.
+    Filtering a CG1 function for applying a generalized top hat filter.
     uf = int(G*u)/int(G).
 
     G = CG1-basis functions.
-    u = unfiltered
-    uf = filtered
-
-    All functions must be in CG1!
     """
     
-    uf = dummy
-
-    if N > 1:
-        code_1 = "assigners[i].assign(uf, filtered.sub(i))"
-        code = "assigners_rev[i].assign(filtered.sub(i), uf)"
-    else:
-        code_1 = "uf.vector()[:] = unfiltered.vector()"
-        code = "filtered.vector()[:] = uf.vector()"
-
-    for i in xrange(N):
-        exec(code_1)
-        vec_ = (G_matr*uf.vector())*G_under.vector()
-        uf.vector().zero()
-        uf.vector().axpy(1.0, vec_)
-        exec(code)
+    # Compute filtered quantity
+    vec_ = (G_matr*unfiltered.vector())*G_under.vector()
+    # Zero filtered vector
+    filtered.vector().zero()
+    # Axpy vec_ to filtered
+    filtered.vector().axpy(1.0, vec_)
 
 def compute_Lij(Lij, uiuj_pairs, tensdim, dummy, G_matr, G_under,
         assigners_rev, assigners, u=None, uf=None, Qij=None, **NS_namespace):
@@ -158,7 +144,7 @@ def compute_Mij(Mij, G_matr, CG1, dim, tensdim, assigners_rev, Sijmats,
         Sij[i].vector().apply("insert")
         # Compute F(|S|*Sij)
         tophatfilter(unfiltered=Sij[i], filtered=Sij[i], **vars())
-        # Check if Nij
+        # Check if Nij, assign F(|S|Sij) if there.
         if Nij != None:
             assigners_rev[i].assign(Nij.sub(i), Sij[i])
         # Compute 2*delta**2*(F(|S|Sij) - alpha**2*F(|S|)F(Sij)) and add to Sij[i]
