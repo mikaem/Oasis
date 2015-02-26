@@ -36,9 +36,10 @@ NS_parameters.update(
   les_model = None,       # None, Smagorinsky, Wale, DynamicLagrangian, ScaleDepDynamicLagrangian
  
   # LES model parameters
-  Smagorinsky = dict(Cs=0.1677),	# Standard Cs, same as OpenFOAM
+  Smagorinsky = dict(Cs=0.1677),             # Standard Cs, same as OpenFOAM
   Wale = dict(Cw=0.325),
   DynamicSmagorinsky = dict(Cs_comp_step=1), # Time step interval for Cs to be recomputed
+  KineticEnergySGS = dict(Ck=0.08, Ce=1.05),
 
   # Solver parameters that will be transferred to dolfins parameters['krylov_solver']
   krylov_solvers = dict(
