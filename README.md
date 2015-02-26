@@ -26,6 +26,7 @@ Oasis is developed by
 
   * Mikael Mortensen
   * Kristian Valen-Sendstad
+  * Joakim Bø
 
 Licence
 -------
