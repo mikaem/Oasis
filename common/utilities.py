@@ -241,7 +241,7 @@ class LESsource(Function):
         dim = Space.mesh().geometry().dim()    
         test = TestFunction(Space)
         self.bf = [inner(inner(grad(nut),u_ab.dx(i)),test)*dx for i in range(dim)]
-    
+
     def assemble_rhs(self, i=0):
         """Assemble right hand side        
         """

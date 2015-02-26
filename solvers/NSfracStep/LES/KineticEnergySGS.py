@@ -31,7 +31,7 @@ def les_setup(u_, mesh, KineticEnergySGS, assemble_matrix, **NS_namespace):
 
     return dict(nut_form=nut_form, nut_=nut_, delta=delta, ksgs=ksgs,
                 CG1=CG1, A_nut=A_nut, bc_ksgs=bc_ksgs)    
-    
+
 def les_update(nut_, nut_form, A_nut, u_, dt, bc_ksgs,
         KineticEnergySGS, CG1, ksgs, delta, **NS_namespace):
 
@@ -39,20 +39,20 @@ def les_update(nut_, nut_form, A_nut, u_, dt, bc_ksgs,
 
     Ck = KineticEnergySGS["Ck"]
     Ce = KineticEnergySGS["Ce"]
-    
+
     Sij = sym(grad(u_))
     A = assemble(dt*inner(dot(u_,0.5*grad(p)), q)*dx \
             + inner((dt*Ce*sqrt(ksgs)/delta)*0.5*p,q)*dx \
             + inner(dt*Ck*sqrt(ksgs)*delta*grad(0.5*p),grad(q))*dx)
     b = A_nut*ksgs.vector() - A*ksgs.vector() + assemble(dt*2*Ck*delta*sqrt(ksgs)*inner(Sij,grad(u_))*q*dx)
     A.axpy(1.0, A_nut, True)
-    
+
     # Solve for ksgs
     bc_ksgs.apply(A,b)
     solve(A, ksgs.vector(), b, "bicgstab", "additive_schwarz")
     ksgs.vector().set_local(ksgs.vector().array().clip(min=1e-7))
     ksgs.vector().apply("insert")
-    
+
     # Solve for nut_
     solve(A_nut, nut_.vector(), assemble(nut_form*q*dx), "cg", "default")
     # Remove negative values

@@ -7,12 +7,12 @@ from dolfin import Function, FunctionSpace, TestFunction, sym, grad, dx, inner,\
         sqrt, TrialFunction, project, CellVolume, as_vector, solve,\
         LagrangeInterpolator, assemble
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
-        compute_Mij, tensor_inner
+        compute_Mij
 import numpy as np
 
 __all__ = ['les_setup', 'les_update']
 
-def les_setup(u_, mesh, dt, V, assemble_matrix, **NS_namespace):
+def les_setup(u_, mesh, assemble_matrix, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
     Lagrangian Averaging.
@@ -23,7 +23,7 @@ def les_setup(u_, mesh, dt, V, assemble_matrix, **NS_namespace):
     p, q = TrialFunction(CG1), TestFunction(CG1)
     dim = mesh.geometry().dim()
     
-    # Create delta in DG0 and CG1
+    # Define delta and project delta**2 to CG1
     delta = pow(CellVolume(mesh), 1./dim)
     delta_CG1_sq = project(delta, CG1)
     delta_CG1_sq.vector().set_local(delta_CG1_sq.vector().array()**2)
@@ -71,11 +71,11 @@ def les_setup(u_, mesh, dt, V, assemble_matrix, **NS_namespace):
     JMM.vector()[:] += 1
     
     return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta,
-                delta_CG1_sq=delta_CG1_sq,
-                CG1=CG1, Cs=Cs, u_CG1=u_CG1, u_filtered=u_filtered, ll=ll,
-                Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, Sijfcomps=Sijfcomps, Sijmats=Sijmats, 
-                JLM=JLM, JMM=JMM, dim=dim, tensdim=tensdim, 
-                G_matr=G_matr, G_under=G_under, dummy=dummy, uiuj_pairs=uiuj_pairs) 
+                delta_CG1_sq=delta_CG1_sq, CG1=CG1, Cs=Cs, u_CG1=u_CG1, 
+                u_filtered=u_filtered, ll=ll, Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, 
+                Sijfcomps=Sijfcomps, Sijmats=Sijmats, JLM=JLM, JMM=JMM, dim=dim, 
+                tensdim=tensdim, G_matr=G_matr, G_under=G_under, dummy=dummy, 
+                uiuj_pairs=uiuj_pairs) 
     
 def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij,
