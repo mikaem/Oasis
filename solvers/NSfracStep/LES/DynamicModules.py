@@ -132,9 +132,9 @@ def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq
         w = u_nf[2].vector()
         uf = u_f[0].vector()
         vf = u_f[1].vector()
-        wf = u_f[0].vector()
-        bu = [Ax*u, 0.5*(Ay*u + Ax*v), 0.5*(Az*u + Ay*w), Ay*v, 0.5*(Az*v + Ay*w), Az*w]
-        buf = [Ax*uf, 0.5*(Ay*uf + Ax*vf), 0.5*(Az*uf + Ay*wf), Ay*vf, 0.5*(Az*vf + Ay*wf), Az*wf]
+        wf = u_f[2].vector()
+        bu = [Ax*u, 0.5*(Ay*u + Ax*v), 0.5*(Az*u + Ax*w), Ay*v, 0.5*(Az*v + Ay*w), Az*w]
+        buf = [Ax*uf, 0.5*(Ay*uf + Ax*vf), 0.5*(Az*uf + Ax*wf), Ay*vf, 0.5*(Az*vf + Ay*wf), Az*wf]
 
     for i in xrange(tensdim):
         # Solve for the different components of Sij
@@ -194,17 +194,17 @@ def compute_Nij(Nij, G_matr, G_under, tensdim, Sijmats, Sijfcomps, delta_CG1_sq,
         uf = u_f[0].vector()
         vf = u_f[1].vector()
         # Filtered rhs
-        buf = [2*Ax*uf, Ay*uf + Ax*vf, 2*Ay*vf]
+        buf = [Ax*uf, 0.5*(Ay*uf + Ax*vf), Ay*vf]
     else:
         Ax, Ay, Az = Sijmats
         uf = u_f[0].vector()
         vf = u_f[1].vector()
-        wf = u_f[0].vector()
-        buf = [2*Ax*uf, Ay*uf + Ax*vf, Az*uf + Ay*wf, 2*Ay*vf, Az*vf + Ay*wf, 2*Az*wf]
+        wf = u_f[2].vector()
+        buf = [Ax*uf, 0.5*(Ay*uf + Ax*vf), 0.5*(Az*uf + Ax*wf), Ay*vf, 0.5*(Az*vf + Ay*wf), Az*wf]
     
     for i in xrange(tensdim):
         # Solve for the diff. components of F(F(Sij)))
-        solve(G_matr, Sijf[i].vector(), 0.5*buf[i], "cg", "default")
+        solve(G_matr, Sijf[i].vector(), buf[i], "cg", "default")
     
     # Compute magSf
     magSf = mag(Sijf, tensdim)
