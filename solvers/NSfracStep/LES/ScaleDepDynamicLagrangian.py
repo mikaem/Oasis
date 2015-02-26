@@ -3,9 +3,7 @@ __date__ = '2015-02-04'
 __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
-from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
-        dx, inner, as_backend_type, TrialFunction, project, CellVolume, sqrt,\
-        TensorFunctionSpace, assign, solve, as_vector, FunctionAssigner
+from dolfin import Function, assemble, TestFunction, dx, solve
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij, compute_Qij, compute_Nij
 import DynamicLagrangian
@@ -27,21 +25,22 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, **NS_namespace):
     JQN.vector()[:] += 1E-32
     JNN = Function(dyn_dict["CG1"])
     JNN.vector()[:] += 1.
-
-    TFS = dyn_dict["TFS"]
-    Qij = Function(TFS)
-    Nij = Function(TFS)
+    
+    dim = dyn_dict["dim"]
+    CG1 = dyn_dict["CG1"]
+    Qij = [Function(CG1) for i in range(dim*dim)]
+    Nij = [Function(CG1) for i in range(dim*dim)]
 
     # Update and return dict
     dyn_dict.update(JQN=JQN, JNN=JNN, Qij=Qij, Nij=Nij)
 
     return dyn_dict
 
-def les_update(u_, u_ab, nut_, nut_form, dt, CG1, delta, tstep, 
+def les_update(u_ab, nut_, nut_form, dt, CG1, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij,
-            JLM, JMM, bcJ1, bcJ2, dim, tensdim, G_matr, G_under,
-            dummy, assigners, assigners_rev, uiuj_pairs, Sijmats,
-            Sijcomps, Sijfcomps, delta_CG1, Qij, Nij, JNN, JQN, **NS_namespace): 
+            JLM, JMM, dim, tensdim, G_matr, G_under, ll,
+            dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
+            Qij, Nij, JNN, JQN, **NS_namespace): 
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
@@ -51,13 +50,14 @@ def les_update(u_, u_ab, nut_, nut_form, dt, CG1, delta, tstep,
         # Remove negative values
         nut_.vector().set_local(nut_.vector().array().clip(min=0))
         nut_.vector().apply("insert")
+        
         # Break function
         return
 
     # All velocity components must be interpolated to CG1 then filtered
     for i in xrange(dim):
         # Interpolate to CG1
-        u_CG1[i].interpolate(u_[i])
+        ll.interpolate(u_CG1[i], u_ab[i])
         # Filter
         tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
 
@@ -74,8 +74,9 @@ def les_update(u_, u_ab, nut_, nut_form, dt, CG1, delta, tstep,
     # Now u needs to be filtered once more
     for i in xrange(dim):
         # Filter
-        tophatfilter(unfiltered=u_filtered[i], filtered=u_filtered[i], **vars())
-    
+        tophatfilter(unfiltered=u_filtered[i], filtered=u_filtered[i],
+                weight=1, **vars())
+
     # Compute Qij from dynamic modules function
     compute_Qij(uf=u_filtered, **vars())
 
@@ -90,11 +91,10 @@ def les_update(u_, u_ab, nut_, nut_form, dt, CG1, delta, tstep,
     beta = (JQN.vector().array()/JNN.vector().array()).clip(min=0.125)
     Cs.vector().set_local((np.sqrt((JLM.vector().array()/JMM.vector().array())/beta)))
     Cs.vector().apply("insert")
-    tophatfilter(unfiltered=Cs, filtered=Cs, **vars())
-    tophatfilter(unfiltered=Cs, filtered=Cs, **vars())
+    tophatfilter(unfiltered=Cs, filtered=Cs, N=2, weight=1, **vars())
     Cs.vector().set_local(Cs.vector().array().clip(max=0.3))
     Cs.vector().apply("insert")
 
     # Update nut_
-    nut_.vector().set_local(Cs.vector().array()**2 * delta_CG1.vector().array()**2 * magS)
+    nut_.vector().set_local(Cs.vector().array()**2 * delta_CG1_sq.vector().array() * magS)
     nut_.vector().apply("insert")
