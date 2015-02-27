@@ -34,7 +34,7 @@ Licence
 Oasis is licensed under the GNU GPL, version 3 or (at your option) any
 later version.
 
-Oasis is Copyright (2013-2014) by the authors.
+Oasis is Copyright (2013-2015) by the authors.
 
 Documentation
 -------------
