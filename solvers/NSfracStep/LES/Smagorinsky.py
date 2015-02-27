@@ -32,7 +32,7 @@ def les_setup(u_, mesh, Smagorinsky, CG1Function, nut_krylov_solver, bcs, **NS_n
         bcs_nut.append(DirichletBC(CG1, Constant(0), ff, i+1))
 
     return dict(Sij=Sij, nut_=nut_, delta=delta, bcs_nut=bcs_nut)    
-    
+
 def les_update(nut_, **NS_namespace):
     """Compute nut_"""
     nut_()

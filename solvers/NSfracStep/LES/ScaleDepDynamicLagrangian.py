@@ -3,7 +3,8 @@ __date__ = '2015-02-04'
 __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
-from dolfin import Function, assemble, TestFunction, dx, solve
+from dolfin import Function, assemble, TestFunction, dx, solve, Constant,\
+        FacetFunction, DirichletBC
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij, compute_Qij, compute_Nij
 import DynamicLagrangian
@@ -11,7 +12,8 @@ import numpy as np
 
 __all__ = ['les_setup', 'les_update']
 
-def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, **NS_namespace):
+def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut_krylov_solver, 
+        bcs, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
     scale dependent Lagrangian Averaging.
@@ -44,13 +46,8 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, tstep,
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
-        
         # Update nut_
-        solve(G_matr, nut_.vector(), assemble(nut_form*TestFunction(CG1)*dx), "cg", "default")
-        # Remove negative values
-        nut_.vector().set_local(nut_.vector().array().clip(min=0))
-        nut_.vector().apply("insert")
-        
+        nut_()
         # Break function
         return
 
@@ -88,7 +85,7 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, tstep,
     lagrange_average(J1=JQN, J2=JNN, Aij=Qij, Bij=Nij, **vars())
 
     # UPDATE Cs**2 = (JLM*JMM)/beta, beta = JQN/JNN
-    beta = (JQN.vector().array()/JNN.vector().array()).clip(min=0.125)
+    beta = (JQN.vector().array()/JNN.vector().array()).clip(min=0.5)
     Cs.vector().set_local((np.sqrt((JLM.vector().array()/JMM.vector().array())/beta)))
     Cs.vector().apply("insert")
     tophatfilter(unfiltered=Cs, filtered=Cs, N=2, weight=1, **vars())
