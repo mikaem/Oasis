@@ -5,7 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import assemble, KrylovSolver, LUSolver,  Function, TrialFunction, \
     TestFunction, dx, Vector, Matrix, GenericMatrix, FunctionSpace, Timer, div, \
-    Form, Coefficient, inner, grad
+    Form, Coefficient, inner, grad, as_backend_type
 
 # Create some dictionaries to hold work matrices
 class Mat_cache_dict(dict):
@@ -19,8 +19,24 @@ class Mat_cache_dict(dict):
 
         self[key] = A
         return self[key]
-        
+
+# Create some dictionaries to hold solvers used for projection
+class Solver_cache_dict(dict):
+    """Items in dictionary are Linear algebra solvers stored for efficient reuse.
+    """
+    def __missing__(self, key):
+        assert len(key) == 4
+        form, bcs, solver_type, preconditioner_type = key
+        sol = KrylovSolver(solver_type, preconditioner_type)
+        sol.parameters["preconditioner"]["structure"] = "same"
+        sol.parameters["error_on_nonconvergence"] = False
+        sol.parameters["monitor_convergence"] = False
+        sol.parameters["report"] = False
+        self[key] = sol
+        return self[key]
+
 A_cache = Mat_cache_dict()
+Solver_cache = Solver_cache_dict()
 
 def assemble_matrix(form, bcs=[]):
     """Assemble matrix using cache register.
@@ -64,11 +80,7 @@ class OasisFunction(Function):
         
         if method.lower() == "default":
             self.A = A_cache[(Mass, tuple(bcs))]
-            self.sol = KrylovSolver(solver_type, preconditioner_type)
-            self.sol.parameters["preconditioner"]["structure"] = "same"
-            self.sol.parameters["error_on_nonconvergence"] = False
-            self.sol.parameters["monitor_convergence"] = False
-            self.sol.parameters["report"] = False
+            self.sol = Solver_cache[(Mass, tuple(bcs), solver_type, preconditioner_type)]
                 
         elif method.lower() == "lumping":
             assert Space.ufl_element().degree() < 2
@@ -106,7 +118,8 @@ class OasisFunction(Function):
             self.sol.solve(self.A, self.vector(), self.rhs)
             
         else:
-            self.vector()[:] = self.rhs * self.ML
+            self.vector().zero()
+            self.vector().axpy(1.0, self.rhs * self.ML)
 
 class GradFunction(OasisFunction):
     """
@@ -168,7 +181,8 @@ class GradFunction(OasisFunction):
             self.bf = u.dx(self.i)*self.test*dx()
 
         if self.method.lower() == "gradient_matrix":    
-            self.vector()[:] = self.WGM * self.matvec[1].vector()
+            self.vector().zero()
+            self.vector().axpy(1.0, self.WGM * self.matvec[1].vector())
         else:
             OasisFunction.__call__(self, assemb_rhs=assemb_rhs)
 
@@ -230,17 +244,66 @@ class DivFunction(OasisFunction):
 
         else:
             OasisFunction.__call__(self, assemb_rhs=assemb_rhs)
-       
+
+class CG1Function(OasisFunction):
+    """
+    Function used for projecting a CG1 space, possibly using a weighted average.
+    
+    Typically used for computing turbulent viscosity in LES.
+    
+    """
+    def __init__(self, form, mesh, bcs=[], name="CG1", method={}, bounded=False):
+        
+        solver_type = method.get('solver_type', 'cg')
+        preconditioner_type = method.get('preconditioner_type', 'default')
+        solver_method = method.get('method', 'default')
+        self.bounded = bounded
+        
+        Space = FunctionSpace(mesh, "CG", 1)
+        OasisFunction.__init__(self, form, Space, 
+                               bcs=bcs, name=name, 
+                               method=solver_method, solver_type=solver_type,
+                               preconditioner_type=preconditioner_type)
+                
+        if solver_method.lower() == "weightedaverage":
+            from fenicstools import compiled_gradient_module
+            DG = FunctionSpace(mesh, 'DG', 0)
+            self.A = assemble(TrialFunction(DG)*self.test*dx()) # Cannot use cache. Matrix will be modified
+            self.dg = dg = Function(DG)
+            compiled_gradient_module.compute_DG0_to_CG_weight_matrix(self.A, dg)
+            self.bf_dg = inner(form, TestFunction(DG))*dx()
+           
+    def __call__(self):
+
+        if self.method.lower() == "weightedaverage":
+            
+            assemble(self.bf_dg, tensor=self.dg.vector())
+            
+            # Compute weighted average on CG1
+            self.vector().zero()
+            self.vector().axpy(1.0, self.A*self.dg.vector())
+            self.vector().apply("insert")
+            [bc.apply(self.vector()) for bc in self.bcs]
+
+        else:
+            OasisFunction.__call__(self)
+
+        if self.bounded: self.bound()
+            
+    def bound(self):
+        self.vector().set_local(self.vector().array().clip(min=0))
+        self.vector().apply("insert")
+
 class LESsource(Function):
     """Function used for computing the transposed source to the LES equation.
     """
-    def __init__(self, nut, u_ab, Space, bcs=[], name=""):
+    def __init__(self, nut, u, Space, bcs=[], name=""):
         
         Function.__init__(self, Space, name=name)
         
         dim = Space.mesh().geometry().dim()    
         test = TestFunction(Space)
-        self.bf = [inner(inner(grad(nut),u_ab.dx(i)),test)*dx for i in range(dim)]
+        self.bf = [inner(inner(grad(nut), u.dx(i)), test)*dx for i in range(dim)]
 
     def assemble_rhs(self, i=0):
         """Assemble right hand side        

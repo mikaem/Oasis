@@ -68,7 +68,12 @@ NS_parameters.update(
   
   scalar_krylov_solver = dict(
     solver_type = 'bicgstab',
-    preconditioner_type = 'jacobi')
+    preconditioner_type = 'jacobi'),
+  
+  nut_krylov_solver = dict(
+    method = 'WeightedAverage', # Or 'default'
+    solver_type = 'cg',
+    preconditioner_type = 'jacobi'),
   
 )
   

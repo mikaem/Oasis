@@ -33,3 +33,6 @@ def parse_command_line():
                 
         commandline_kwargs[key] = value
     return commandline_kwargs
+
+# Note to self. To change a dictionary variable through commandline do, e.g.,
+# run NSfracStep velocity_update_solver='{"method":"gradient_matrix"}'
