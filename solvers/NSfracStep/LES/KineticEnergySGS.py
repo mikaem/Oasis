@@ -7,6 +7,8 @@ from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad,\
         dx, inner, as_backend_type, TrialFunction, project, CellVolume, sqrt,\
         solve, dot, lhs, rhs, interpolate, Constant, DirichletBC, FacetFunction
 
+from common import derived_bcs
+
 __all__ = ['les_setup', 'les_update']
 
 def les_setup(u_, mesh, KineticEnergySGS, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **NS_namespace):
@@ -16,24 +18,19 @@ def les_setup(u_, mesh, KineticEnergySGS, assemble_matrix, CG1Function, nut_kryl
     DG = FunctionSpace(mesh, "DG", 0)
     CG1 = FunctionSpace(mesh, "CG", 1)
     dim = mesh.geometry().dim()
-    
-    delta = project(pow(CellVolume(mesh), 1./dim), DG)
+    delta = Function(DG)
+    delta.vector().zero()
+    delta.vector().axpy(1.0, assemble(TestFunction(DG)*dx))
+    delta.vector().set_local(delta.vector().array()**(1./dim))
+    delta.vector().apply('insert')
     
     Ck = KineticEnergySGS["Ck"]
     Ce = KineticEnergySGS["Ce"]
     ksgs = interpolate(Constant(1E-7), CG1)
     bc_ksgs = DirichletBC(CG1, 0, "on_boundary")
     A_mass = assemble_matrix(TrialFunction(CG1)*TestFunction(CG1)*dx)
-
     nut_form = Ck * delta * sqrt(ksgs)
-    # Create nut BCs
-    ff = FacetFunction("size_t", mesh, 0)
-    bcs_nut = []
-    for i, bc in enumerate(bcs['u0']):
-        bc.apply(u_[0].vector()) # Need to initialize bc
-        m = bc.markers() # Get facet indices of boundary
-        ff.array()[m] = i+1
-        bcs_nut.append(DirichletBC(CG1, Constant(0), ff, i+1))
+    bcs_nut = derived_bcs(CG1, bcs['u0'], u_)
     nut_ = CG1Function(nut_form, mesh, method=nut_krylov_solver, bcs=bcs_nut, bounded=True, name="nut")
 
     return dict(nut_form=nut_form, nut_=nut_, delta=delta, ksgs=ksgs,
