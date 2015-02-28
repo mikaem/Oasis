@@ -4,15 +4,15 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import Function, FunctionSpace, TestFunction, sym, grad, dx, inner,\
-        sqrt, TrialFunction, project, CellVolume, as_vector, solve,\
-        LagrangeInterpolator, assemble
+        sqrt, TrialFunction, project, CellVolume, as_vector, solve, Constant,\
+        LagrangeInterpolator, assemble, FacetFunction, DirichletBC
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij
 import numpy as np
 
 __all__ = ['les_setup', 'les_update']
 
-def les_setup(u_, mesh, assemble_matrix, **NS_namespace):
+def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
     Lagrangian Averaging.
@@ -30,11 +30,19 @@ def les_setup(u_, mesh, assemble_matrix, **NS_namespace):
     delta_CG1_sq.vector().apply("insert")
 
     # Define nut_
-    nut_ = Function(CG1)
     Sij = sym(grad(u_))
     magS = sqrt(2*inner(Sij,Sij))
     Cs = Function(CG1)
     nut_form = Cs**2 * delta**2 * magS
+    # Create nut_ BCs
+    ff = FacetFunction("size_t", mesh, 0)
+    bcs_nut = []
+    for i, bc in enumerate(bcs['u0']):
+        bc.apply(u_[0].vector()) # Need to initialize bc
+        m = bc.markers() # Get facet indices of boundary
+        ff.array()[m] = i+1
+        bcs_nut.append(DirichletBC(CG1, Constant(0), ff, i+1))
+    nut_ = CG1Function(nut_form, mesh, method=nut_krylov_solver, bcs=bcs_nut, bounded=True, name="nut")
 
     # Create functions for holding the different velocities
     u_CG1 = as_vector([Function(CG1) for i in range(dim)])
@@ -70,7 +78,7 @@ def les_setup(u_, mesh, assemble_matrix, **NS_namespace):
     JMM = Function(CG1)
     JMM.vector()[:] += 1
     
-    return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta,
+    return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta, bcs_nut=bcs_nut,
                 delta_CG1_sq=delta_CG1_sq, CG1=CG1, Cs=Cs, u_CG1=u_CG1, 
                 u_filtered=u_filtered, ll=ll, Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, 
                 Sijfcomps=Sijfcomps, Sijmats=Sijmats, JLM=JLM, JMM=JMM, dim=dim, 
@@ -85,13 +93,8 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep,
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
-
         # Update nut_
-        solve(G_matr, nut_.vector(), assemble(nut_form*TestFunction(CG1)*dx), "cg", "default")
-        # Remove negative values
-        nut_.vector().set_local(nut_.vector().array().clip(min=0))
-        nut_.vector().apply("insert")
-
+        nut_()
         # Break function
         return
     
