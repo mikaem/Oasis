@@ -34,8 +34,7 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **
     magS = sqrt(2*inner(Sij,Sij))
     Cs = Function(CG1)
     nut_form = Cs**2 * delta**2 * magS
-    nut_ = CG1Function(nut_form, mesh, method=nut_krylov_solver, bounded=True, name="nut")
-    # Create nut BCs
+    # Create nut_ BCs
     ff = FacetFunction("size_t", mesh, 0)
     bcs_nut = []
     for i, bc in enumerate(bcs['u0']):
@@ -43,6 +42,7 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **
         m = bc.markers() # Get facet indices of boundary
         ff.array()[m] = i+1
         bcs_nut.append(DirichletBC(CG1, Constant(0), ff, i+1))
+    nut_ = CG1Function(nut_form, mesh, method=nut_krylov_solver, bcs=bcs_nut, bounded=True, name="nut")
 
     # Create functions for holding the different velocities
     u_CG1 = as_vector([Function(CG1) for i in range(dim)])

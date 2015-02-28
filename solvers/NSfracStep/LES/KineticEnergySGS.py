@@ -22,12 +22,10 @@ def les_setup(u_, mesh, KineticEnergySGS, assemble_matrix, CG1Function, nut_kryl
     Ck = KineticEnergySGS["Ck"]
     Ce = KineticEnergySGS["Ce"]
     ksgs = interpolate(Constant(1E-7), CG1)
-    nut_form = Ck * delta * sqrt(ksgs)
     bc_ksgs = DirichletBC(CG1, 0, "on_boundary")
     A_mass = assemble_matrix(TrialFunction(CG1)*TestFunction(CG1)*dx)
 
     nut_form = Ck * delta * sqrt(ksgs)
-    nut_ = CG1Function(nut_form, mesh, method=nut_krylov_solver, bounded=True, name="nut")
     # Create nut BCs
     ff = FacetFunction("size_t", mesh, 0)
     bcs_nut = []
@@ -36,6 +34,7 @@ def les_setup(u_, mesh, KineticEnergySGS, assemble_matrix, CG1Function, nut_kryl
         m = bc.markers() # Get facet indices of boundary
         ff.array()[m] = i+1
         bcs_nut.append(DirichletBC(CG1, Constant(0), ff, i+1))
+    nut_ = CG1Function(nut_form, mesh, method=nut_krylov_solver, bcs=bcs_nut, bounded=True, name="nut")
 
     return dict(nut_form=nut_form, nut_=nut_, delta=delta, ksgs=ksgs,
                 CG1=CG1, A_mass=A_mass, bc_ksgs=bc_ksgs, bcs_nut=bcs_nut)    
