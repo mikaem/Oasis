@@ -41,8 +41,8 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut
 
     tau_ij = Lij_L - 2*Cs**2*delta**2*|S|*Sij
 
-    - Test filter F = 0.5 iterations on filter
-    - Grid filter G = 0.25 iteration on filter
+    - Test filter F = 1 iteration on filter
+    - Grid filter G = 0.75 iteration on filter
     """
     
     # The setup is 99% equal to DynamicLagrangian, hence use its les_setup
