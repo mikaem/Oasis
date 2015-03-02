@@ -224,7 +224,7 @@ def compute_Hij(Hij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
     """
 
     dummy2 = Function(CG1)
-    w = .75
+    w = 0.75
     
     # Loop over tensor components
     for i in range(tensdim):
@@ -293,7 +293,7 @@ def compute_Hij_DMM1(Hij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
     Tensor applied in the DMM1 model by Zang et.al.
     """
     dummy2 = Function(CG1)
-    w = .75
+    w = 0.75
     for i in xrange(tensdim):
 
         Hij[i].vector().zero()
@@ -325,7 +325,8 @@ def compute_Leonard(Lij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
     """
     Leonard tensor for rhs of NS when mixed dynamic SGS-model applied.
     """
-    w = .75
+
+    w = 0.75
 
     # Loop over components
     for i in range(tensdim):

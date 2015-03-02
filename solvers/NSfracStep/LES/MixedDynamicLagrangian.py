@@ -7,14 +7,14 @@ from dolfin import Function, assemble, TestFunction, dx, solve, Constant,\
         FacetFunction, DirichletBC, TestFunction, as_vector, div,\
         TrialFunction
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
-        compute_Mij, compute_Hij, compute_Leonard
+        compute_Mij, compute_Leonard
 import DynamicLagrangian
 import numpy as np
 
 __all__ = ['les_setup', 'les_update']
 
 def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut_krylov_solver, 
-        bcs, u_components, **NS_namespace):
+        bcs, u_components, MixedDynamicLagrangian, **NS_namespace):
     """
     Set up for solving the mixed scale similar Germano Dynamic LES model applying
     Lagrangian Averaging. The implementation is based on the work of
@@ -52,8 +52,13 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut
     Hij = [Function(dyn_dict["CG1"]) for i in range(dyn_dict["dim"]**2)]
     mixedmats = [assemble_matrix(TrialFunction(dyn_dict["CG1"]).dx(i)*TestFunction(V)*dx)
         for i in range(dyn_dict["dim"])]
-
-    dyn_dict.update(Hij=Hij, mixedmats=mixedmats)
+    
+    if MixedDynamicLagrangian["model"] == "DMM2":
+        from DynamicModules import compute_Hij
+    elif MixedDynamicLagrangian["model"] == "DMM1":
+        from DynamicModules import compute_Hij_DMM1 as compute_Hij
+    
+    dyn_dict.update(Hij=Hij, mixedmats=mixedmats, compute_Hij=compute_Hij)
 
     return dyn_dict
 
@@ -61,7 +66,7 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, u_components, V,
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, Hij,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll, mixedLESSource,
             dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
-            mixedmats, Sij_sol, **NS_namespace):
+            mixedmats, Sij_sol, compute_Hij, **NS_namespace):
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
