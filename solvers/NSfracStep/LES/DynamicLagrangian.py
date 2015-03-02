@@ -122,11 +122,9 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep,
     Important that the term in nut_form is Cs**2 and not Cs
     since Cs here is stored as sqrt(JLM/JMM).
     """
-    Cs.vector().set_local(JLM.vector().array()/JMM.vector().array())
+    Cs.vector().set_local((JLM.vector().array()/JMM.vector().array()).clip(max=0.09))
     Cs.vector().apply("insert")
     tophatfilter(unfiltered=Cs, filtered=Cs, N=2, weight=1., **vars())
-    Cs.vector().set_local(Cs.vector().array().clip(max=0.09))
-    Cs.vector().apply("insert")
 
     # Update nut_
     nut_.vector().set_local(Cs.vector().array() * delta_CG1_sq.vector().array() * magS)

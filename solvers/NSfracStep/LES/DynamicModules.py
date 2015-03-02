@@ -61,7 +61,7 @@ def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
     J1.vector().apply("insert")
 
 def tophatfilter(G_matr, G_under, unfiltered=None, filtered=None, N=1,
-        weight=0.5, **NS_namespace):
+        weight=1.0, **NS_namespace):
     """
     Filtering a CG1 function for applying a generalized top hat filter.
     uf = int(G*u)/int(G).
@@ -174,7 +174,7 @@ def compute_Qij(Qij, uiuj_pairs, tensdim, G_matr, G_under, uf=None, **NS_namespa
     for i in xrange(tensdim):
         j, k = uiuj_pairs[i]
         # Filter component of Qij
-        tophatfilter(unfiltered=Qij[i], filtered=Qij[i], weight=1, **vars())
+        tophatfilter(unfiltered=Qij[i], filtered=Qij[i], **vars())
         # Axpy outer(uf,uf) to Qij
         Qij[i].vector().axpy(-1.0, uf[j].vector()*uf[k].vector())
 
@@ -211,7 +211,7 @@ def compute_Nij(Nij, G_matr, G_under, tensdim, Sijmats, Sijfcomps, delta_CG1_sq,
     
     for i in xrange(tensdim):
         # Filter Nij = F(|S|Sij) --> F(F(|S|Sij))
-        tophatfilter(unfiltered=Nij[i], filtered=Nij[i], weight=1, **vars())
+        tophatfilter(unfiltered=Nij[i], filtered=Nij[i], **vars())
         # Compute 2*delta**2*(F(F(|S|Sij)) - alpha**2*F(F(|S))F(F(Sij)))
         Nij[i].vector().set_local(deltasq*(Nij[i].vector().array()-(alpha**2)*magSf*Sijf[i].vector().array()))
         Nij[i].vector().apply("insert")
@@ -219,9 +219,13 @@ def compute_Nij(Nij, G_matr, G_under, tensdim, Sijmats, Sijfcomps, delta_CG1_sq,
 def compute_Hij(Hij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
         u=None, uf=None, **NS_namespace):
     """
-    Scale similarity tensor Hij for use with the mixed dynamic sgs-model.
+    Scale similarity tensor Hij for use with the mixed dynamic sgs-model
+    DMM2 by Vreman et.al.
     """
 
+    dummy2 = Function(CG1)
+    w = .75
+    
     # Loop over tensor components
     for i in range(tensdim):
         # Compute 
@@ -231,14 +235,14 @@ def compute_Hij(Hij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
         Hij[i].vector().zero()
         # Extract uiuj_pair
         j,k = uiuj_pairs[i]
-
+        
         # Compute and add F(G(F(ui)F(uj)))
         dummy.vector().zero()
         dummy.vector().axpy(1.0, uf[j].vector()*uf[k].vector())
         # Filter grid filter
-        tophatfilter(unfiltered=dummy, filtered=dummy, weight=.25, **vars())
+        tophatfilter(unfiltered=dummy, filtered=dummy, weight=w, **vars())
         # Filter test filter
-        tophatfilter(unfiltered=dummy, filtered=dummy, weight=.5, **vars())
+        tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
         # Add to Hij
         Hij[i].vector().axpy(1.0, dummy.vector())
 
@@ -246,14 +250,13 @@ def compute_Hij(Hij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
         dummy.vector().zero()
         dummy.vector().axpy(1.0, uf[j].vector())
         # Filter uf[j] twice, first grid then test
-        tophatfilter(unfiltered=dummy, filtered=dummy, weight=.25, **vars())
-        tophatfilter(unfiltered=dummy, filtered=dummy, weight=.5, **vars())
-        dummy2 = Function(CG1)
+        tophatfilter(unfiltered=dummy, filtered=dummy, weight=w, **vars())
+        tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
         dummy2.vector().zero()
         dummy2.vector().axpy(1.0, uf[k].vector())
         # Filter uf[k] twice, first grid then test
-        tophatfilter(unfiltered=dummy2, filtered=dummy2, weight=.25, **vars())
-        tophatfilter(unfiltered=dummy2, filtered=dummy2, weight=.5, **vars())
+        tophatfilter(unfiltered=dummy2, filtered=dummy2, weight=w, **vars())
+        tophatfilter(unfiltered=dummy2, filtered=dummy2, **vars())
         # Add to Hij
         Hij[i].vector().axpy(-1.0, dummy.vector()*dummy2.vector())
 
@@ -261,8 +264,8 @@ def compute_Hij(Hij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
         dummy.vector().zero()
         dummy.vector().axpy(1.0, u[j].vector()*u[k].vector())
         # Filter twice, grid then test
-        tophatfilter(unfiltered=dummy, filtered=dummy, weight=.25, **vars())
-        tophatfilter(unfiltered=dummy, filtered=dummy, weight=.5, **vars())
+        tophatfilter(unfiltered=dummy, filtered=dummy, weight=w, **vars())
+        tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
         # Add to Hij
         Hij[i].vector().axpy(-1.0, dummy.vector())
 
@@ -270,25 +273,59 @@ def compute_Hij(Hij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
         dummy.vector().zero()
         dummy.vector().axpy(1.0, u[j].vector())
         # Filter u[j]
-        tophatfilter(unfiltered=dummy, filtered=dummy, weight=.25, **vars())
+        tophatfilter(unfiltered=dummy, filtered=dummy, weight=w, **vars())
         dummy2.vector().zero()
         dummy2.vector().axpy(1.0, u[k].vector())
         # Filter u[k]
-        tophatfilter(unfiltered=dummy2, filtered=dummy2, weight=.25, **vars())
+        tophatfilter(unfiltered=dummy2, filtered=dummy2, weight=w, **vars())
         # Axpy to dummy
         vec_ = dummy.vector()*dummy2.vector()
         dummy.vector().zero()
         dummy.vector().axpy(1.0, vec_)
         # Filter dummy
-        tophatfilter(unfiltered=dummy, filtered=dummy, weight=.5, **vars())
+        tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
         # Add to Hij
         Hij[i].vector().axpy(1.0, dummy.vector())
+
+def compute_Hij_DMM1(Hij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
+        u=None, uf=None, **NS_namespace):
+    """
+    Tensor applied in the DMM1 model by Zang et.al.
+    """
+    dummy2 = Function(CG1)
+    w = .75
+    for i in xrange(tensdim):
+
+        Hij[i].vector().zero()
+        j,k = uiuj_pairs[i]
+
+        # Compute and add F(G(ui)G(uj))
+        dummy.vector().zero()
+        dummy.vector().axpy(1.0, u[j].vector())
+        # Grid filter u[j]
+        tophatfilter(unfiltered=dummy, filtered=dummy, weight=w, **vars())
+        dummy2.vector().zero()
+        dummy2.vector().axpy(1.0, u[k].vector())
+        # Grid filter u[k]
+        tophatfilter(unfiltered=dummy2, filtered=dummy2, weight=w, **vars())
+        # Axpy to Hij
+        vec_ = dummy.vector()*dummy2.vector()
+        Hij[i].vector().axpy(1.0, vec_)
+        # Filter dummy
+        tophatfilter(unfiltered=Hij[i], filtered=Hij[i], **vars())
+
+        # Compute and add F(G(ui))F(G(uj))
+        tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
+        tophatfilter(unfiltered=dummy2, filtered=dummy2, **vars())
+        # Axpy to Hij
+        Hij[i].vector().axpy(-1.0, dummy.vector()*dummy2.vector())
 
 def compute_Leonard(Lij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
         u=None, **NS_namespace):
     """
-    Leonard tensor for rhs of NS when mixed dynamic sgs-model applied.
+    Leonard tensor for rhs of NS when mixed dynamic SGS-model applied.
     """
+    w = .75
 
     # Loop over components
     for i in range(tensdim):
@@ -297,11 +334,11 @@ def compute_Leonard(Lij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
         # Add uiuj
         Lij[i].vector().axpy(1.0, u[j].vector()*u[k].vector())
         # Grid filter --> G(uiuj)
-        tophatfilter(unfiltered=Lij[i], filtered=Lij[i], weight=.25, **vars())
+        tophatfilter(unfiltered=Lij[i], filtered=Lij[i], weight=w, **vars())
         # Filter u velocities once through grid filter
-        tophatfilter(unfiltered=u[j], filtered=dummy, weight=.25, **vars())
+        tophatfilter(unfiltered=u[j], filtered=dummy, weight=w, **vars())
         vec_ = dummy.vector().array()
-        tophatfilter(unfiltered=u[k], filtered=dummy, weight=.25, **vars())
+        tophatfilter(unfiltered=u[k], filtered=dummy, weight=w, **vars())
         dummy.vector().set_local(vec_*dummy.vector().array())
         dummy.vector().apply("insert")
         # Axpy G(ui)G(uj) to Lij

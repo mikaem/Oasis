@@ -71,8 +71,7 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, tstep,
     # Now u needs to be filtered once more
     for i in xrange(dim):
         # Filter
-        tophatfilter(unfiltered=u_filtered[i], filtered=u_filtered[i],
-                weight=1, **vars())
+        tophatfilter(unfiltered=u_filtered[i], filtered=u_filtered[i], **vars())
 
     # Compute Qij from dynamic modules function
     compute_Qij(uf=u_filtered, **vars())
@@ -86,11 +85,9 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, tstep,
 
     # UPDATE Cs**2 = (JLM*JMM)/beta, beta = JQN/JNN
     beta = (JQN.vector().array()/JNN.vector().array()).clip(min=0.5)
-    Cs.vector().set_local((JLM.vector().array()/JMM.vector().array())/beta)
+    Cs.vector().set_local(((JLM.vector().array()/JMM.vector().array())/beta).clip(max=0.09))
     Cs.vector().apply("insert")
     tophatfilter(unfiltered=Cs, filtered=Cs, N=2, weight=1, **vars())
-    Cs.vector().set_local(Cs.vector().array().clip(max=0.09))
-    Cs.vector().apply("insert")
 
     # Update nut_
     nut_.vector().set_local(Cs.vector().array() * delta_CG1_sq.vector().array() * magS)
