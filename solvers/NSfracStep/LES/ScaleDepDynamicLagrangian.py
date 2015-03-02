@@ -42,7 +42,7 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, tstep,
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll,
             dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
-            Qij, Nij, JNN, JQN, **NS_namespace): 
+            Qij, Nij, JNN, JQN, Sij_sol, **NS_namespace): 
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
@@ -71,8 +71,7 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, tstep,
     # Now u needs to be filtered once more
     for i in xrange(dim):
         # Filter
-        tophatfilter(unfiltered=u_filtered[i], filtered=u_filtered[i],
-                weight=1, **vars())
+        tophatfilter(unfiltered=u_filtered[i], filtered=u_filtered[i], **vars())
 
     # Compute Qij from dynamic modules function
     compute_Qij(uf=u_filtered, **vars())
@@ -86,12 +85,10 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, tstep,
 
     # UPDATE Cs**2 = (JLM*JMM)/beta, beta = JQN/JNN
     beta = (JQN.vector().array()/JNN.vector().array()).clip(min=0.5)
-    Cs.vector().set_local((np.sqrt((JLM.vector().array()/JMM.vector().array())/beta)))
+    Cs.vector().set_local(((JLM.vector().array()/JMM.vector().array())/beta).clip(max=0.09))
     Cs.vector().apply("insert")
     tophatfilter(unfiltered=Cs, filtered=Cs, N=2, weight=1, **vars())
-    Cs.vector().set_local(Cs.vector().array().clip(max=0.3))
-    Cs.vector().apply("insert")
 
     # Update nut_
-    nut_.vector().set_local(Cs.vector().array()**2 * delta_CG1_sq.vector().array() * magS)
+    nut_.vector().set_local(Cs.vector().array() * delta_CG1_sq.vector().array() * magS)
     nut_.vector().apply("insert")

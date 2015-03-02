@@ -5,10 +5,12 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import Function, FunctionSpace, TestFunction, sym, grad, dx, inner,\
         sqrt, TrialFunction, project, CellVolume, as_vector, solve, Constant,\
-        LagrangeInterpolator, assemble, FacetFunction, DirichletBC
+        LagrangeInterpolator, assemble, FacetFunction, DirichletBC,\
+        KrylovSolver
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij
 import numpy as np
+from common import derived_bcs
 
 __all__ = ['les_setup', 'les_update']
 
@@ -33,15 +35,9 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **
     Sij = sym(grad(u_))
     magS = sqrt(2*inner(Sij,Sij))
     Cs = Function(CG1)
-    nut_form = Cs**2 * delta**2 * magS
-    # Create nut_ BCs
-    ff = FacetFunction("size_t", mesh, 0)
-    bcs_nut = []
-    for i, bc in enumerate(bcs['u0']):
-        bc.apply(u_[0].vector()) # Need to initialize bc
-        m = bc.markers() # Get facet indices of boundary
-        ff.array()[m] = i+1
-        bcs_nut.append(DirichletBC(CG1, Constant(0), ff, i+1))
+    nut_form = Cs * delta**2 * magS
+    # Create nut_ BCs and nut_
+    bcs_nut = derived_bcs(CG1, bcs['u0'], u_)
     nut_ = CG1Function(nut_form, mesh, method=nut_krylov_solver, bcs=bcs_nut, bounded=True, name="nut")
 
     # Create functions for holding the different velocities
@@ -71,7 +67,13 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **
     else:
         tensdim = 3
         uiuj_pairs = ((0,0),(0,1),(1,1))
-    
+    # Setip Sij krylov solver
+    Sij_sol = KrylovSolver("cg", "default")
+    Sij_sol.parameters["preconditioner"]["structure"] = "same_nonzero_pattern"
+    Sij_sol.parameters["error_on_nonconvergence"] = False
+    Sij_sol.parameters["monitor_convergence"] = False
+    Sij_sol.parameters["report"] = False
+
     # Set up Lagrange functions
     JLM = Function(CG1)
     JLM.vector()[:] += 1E-32
@@ -83,12 +85,12 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **
                 u_filtered=u_filtered, ll=ll, Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, 
                 Sijfcomps=Sijfcomps, Sijmats=Sijmats, JLM=JLM, JMM=JMM, dim=dim, 
                 tensdim=tensdim, G_matr=G_matr, G_under=G_under, dummy=dummy, 
-                uiuj_pairs=uiuj_pairs) 
+                uiuj_pairs=uiuj_pairs, Sij_sol=Sij_sol) 
     
 def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij,
-            JLM, JMM, dim, tensdim, G_matr, G_under, ll,
-            dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
+            JLM, JMM, dim, tensdim, G_matr, G_under, ll, dummy, uiuj_pairs, 
+            Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, Sij_sol,
             **NS_namespace):
 
     # Check if Cs is to be computed, if not update nut_ and break
@@ -120,12 +122,10 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep,
     Important that the term in nut_form is Cs**2 and not Cs
     since Cs here is stored as sqrt(JLM/JMM).
     """
-    Cs.vector().set_local(np.sqrt(JLM.vector().array()/JMM.vector().array()))
+    Cs.vector().set_local((JLM.vector().array()/JMM.vector().array()).clip(max=0.09))
     Cs.vector().apply("insert")
     tophatfilter(unfiltered=Cs, filtered=Cs, N=2, weight=1., **vars())
-    Cs.vector().set_local(Cs.vector().array().clip(max=0.3))
-    Cs.vector().apply("insert")
 
     # Update nut_
-    nut_.vector().set_local(Cs.vector().array()**2 * delta_CG1_sq.vector().array() * magS)
+    nut_.vector().set_local(Cs.vector().array() * delta_CG1_sq.vector().array() * magS)
     nut_.vector().apply("insert")
