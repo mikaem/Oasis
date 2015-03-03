@@ -6,15 +6,16 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 from dolfin import Function, FunctionSpace, TestFunction, sym, grad, dx, inner,\
         sqrt, TrialFunction, project, CellVolume, as_vector, solve, Constant,\
         LagrangeInterpolator, assemble, FacetFunction, DirichletBC,\
-        KrylovSolver
+        KrylovSolver, plot, interactive
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
-        compute_Mij
+        compute_Mij, dyn_u_ops
 import numpy as np
 from common import derived_bcs
 
 __all__ = ['les_setup', 'les_update']
 
-def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **NS_namespace):
+def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
+        u_components, bcs, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
     Lagrangian Averaging.
@@ -39,6 +40,16 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **
     # Create nut_ BCs and nut_
     bcs_nut = derived_bcs(CG1, bcs['u0'], u_)
     nut_ = CG1Function(nut_form, mesh, method=nut_krylov_solver, bcs=bcs_nut, bounded=True, name="nut")
+    
+    # Create CG1 bcs for velocity components
+    bcs_u_CG1 = dict()
+    for ui in u_components:
+        bcs_CG1 = []
+        for bc in bcs[ui]:
+            val = bc.value()
+            sbd = bc.user_sub_domain()
+            bcs_CG1.append(DirichletBC(CG1, bc.value(), bc.user_sub_domain()))
+        bcs_u_CG1[ui] = bcs_CG1
 
     # Create functions for holding the different velocities
     u_CG1 = as_vector([Function(CG1) for i in range(dim)])
@@ -85,12 +96,12 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **
                 u_filtered=u_filtered, ll=ll, Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, 
                 Sijfcomps=Sijfcomps, Sijmats=Sijmats, JLM=JLM, JMM=JMM, dim=dim, 
                 tensdim=tensdim, G_matr=G_matr, G_under=G_under, dummy=dummy, 
-                uiuj_pairs=uiuj_pairs, Sij_sol=Sij_sol) 
+                uiuj_pairs=uiuj_pairs, Sij_sol=Sij_sol, bcs_u_CG1=bcs_u_CG1) 
     
-def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, 
+def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll, dummy, uiuj_pairs, 
-            Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, Sij_sol,
+            Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, Sij_sol, bcs_u_CG1,
             **NS_namespace):
 
     # Check if Cs is to be computed, if not update nut_ and break
@@ -100,12 +111,8 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep,
         # Break function
         return
     
-    # All velocity components must be interpolated to CG1 then filtered
-    for i in xrange(dim):
-        # Interpolate to CG1
-        ll.interpolate(u_CG1[i], u_ab[i])
-        # Filter
-        tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
+    # All velocity components must be interpolated to CG1 then filtered, apply bcs
+    dyn_u_ops(**vars())
 
     # Compute Lij applying dynamic modules function
     compute_Lij(u=u_CG1, uf=u_filtered, **vars())
@@ -129,3 +136,4 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep,
     # Update nut_
     nut_.vector().set_local(Cs.vector().array() * delta_CG1_sq.vector().array() * magS)
     nut_.vector().apply("insert")
+    [bc.apply(nut_.vector()) for bc in nut_.bcs]

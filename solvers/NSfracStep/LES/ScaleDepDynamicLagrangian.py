@@ -6,7 +6,7 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 from dolfin import Function, assemble, TestFunction, dx, solve, Constant,\
         FacetFunction, DirichletBC
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
-        compute_Mij, compute_Qij, compute_Nij
+        compute_Mij, compute_Qij, compute_Nij, dyn_u_ops
 import DynamicLagrangian
 import numpy as np
 
@@ -38,7 +38,7 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut
 
     return dyn_dict
 
-def les_update(u_ab, nut_, nut_form, dt, CG1, tstep, 
+def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll,
             dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
@@ -52,11 +52,7 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, tstep,
         return
 
     # All velocity components must be interpolated to CG1 then filtered
-    for i in xrange(dim):
-        # Interpolate to CG1
-        ll.interpolate(u_CG1[i], u_ab[i])
-        # Filter
-        tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
+    dyn_u_ops(**vars())
 
     # Compute Lij from dynamic modules function
     compute_Lij(u=u_CG1, uf=u_filtered, **vars())
@@ -92,3 +88,4 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, tstep,
     # Update nut_
     nut_.vector().set_local(Cs.vector().array() * delta_CG1_sq.vector().array() * magS)
     nut_.vector().apply("insert")
+    [bc.apply(nut_.vector()) for bc in nut_.bcs]

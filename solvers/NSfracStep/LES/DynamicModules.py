@@ -6,6 +6,23 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 from dolfin import solve, Function
 import numpy as np
 
+def dyn_u_ops(u_ab, u_components, u_CG1, u_filtered, ll, bcs_u_CG1,
+        G_matr, G_under, **NS_namespace):
+    """
+    Function for interpolating u to CG1, apply BCS, then filter,
+    then apply BCS to filtered.
+    """
+    # Loop over u_components
+    for i, ui in enumerate(u_components):
+        # Interpolate to CG1
+        ll.interpolate(u_CG1[i], u_ab[i])
+        # Apply BCS
+        [bc.apply(u_CG1[i].vector()) for bc in bcs_u_CG1[ui]]
+        # Filter
+        tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
+        # Apply BCS
+        [bc.apply(u_filtered[i].vector()) for bc in bcs_u_CG1[ui]]
+
 def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
         Sijmats, G_matr, J1=None, J2=None, Aij=None, Bij=None, **NS_namespace):
     """
@@ -348,6 +365,24 @@ def compute_Leonard(Lij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
     # Remove trace from Lij
     remove_trace(Lij)
 
+def update_mixedLESSource(u_components, u_CG1, mixedmats, Lij, tensdim,
+        uiuj_pairs, G_matr, G_under, CG1, mixedLESSource, dummy, **NS_namespace):
+
+    # Compute Leonard Tensor for velocity, added to Lij
+    compute_Leonard(u=u_CG1, **vars())
+    # Update components of mixedLESSource
+    if tensdim == 3:
+        Ax, Ay = mixedmats
+        for i, ui in enumerate(u_components):
+            mixedLESSource[ui] = Ax*Lij[i].vector() + Ay*Lij[i+1].vector()
+
+    elif tensdim == 6:
+        Ax, Ay, Az = mixedmats
+        k = 0
+        for i, ui in enumerate(u_components):
+            mixedLESSource[ui] = Ax*Lij[i].vector() + Ay*Lij[i+k+1].vector() + Az*Lij[i+k+1].vector()
+            k = 1
+
 def remove_trace(tensdim, Aij=None, **NS_namespace):
     """
     Remove trace from a symetric tensor Aij.
@@ -385,27 +420,27 @@ def tensor_inner(tensdim, A=None, B=None, **NS_namespace):
                       A[5].vector().array()*B[5].vector().array()
     return contraction
 
-def mag(Sij, tensdim, **NS_namespace):
+def mag(Aij, tensdim, **NS_namespace):
     """
-    Compute |S| = magS = 2*sqrt(inner(Sij,Sij))
+    Compute |A| = magA = 2*sqrt(inner(Aij,Aij))
     """
     if tensdim == 3:
         # Extract Sij vectors
-        S00 = Sij[0].vector().array()
-        S01 = Sij[1].vector().array()
-        S11 = Sij[2].vector().array()
+        A00 = Aij[0].vector().array()
+        A01 = Aij[1].vector().array()
+        A11 = Aij[2].vector().array()
         # Compute |S|
-        magS = np.sqrt(2*(S00*S00 + 2*S01*S01 + S11*S11))
+        magA = np.sqrt(2*(A00*A00 + 2*A01*A01 + A11*A11))
     elif tensdim == 6:
         # Extract Sij vectors
-        S00 = Sij[0].vector().array()
-        S01 = Sij[1].vector().array()
-        S02 = Sij[2].vector().array()
-        S11 = Sij[3].vector().array()
-        S12 = Sij[4].vector().array()
-        S22 = Sij[5].vector().array()
+        A00 = Aij[0].vector().array()
+        A01 = Aij[1].vector().array()
+        A02 = Aij[2].vector().array()
+        A11 = Aij[3].vector().array()
+        A12 = Aij[4].vector().array()
+        A22 = Aij[5].vector().array()
         # Compute |S|
-        magS = np.sqrt(2*(S00*S00 + 2*S01*S01 + 2*S02*S02 + S11*S11 +
-            2*S12*S12 + S22*S22))
+        magA = np.sqrt(2*(A00*A00 + 2*A01*A01 + 2*A02*A02 + A11*A11 +
+            2*A12*A12 + A22*A22))
 
-    return magS
+    return magA

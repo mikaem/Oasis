@@ -7,7 +7,7 @@ from dolfin import Function, assemble, TestFunction, dx, solve, Constant,\
         FacetFunction, DirichletBC, TestFunction, as_vector, div,\
         TrialFunction
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
-        compute_Mij, compute_Leonard
+        compute_Mij, compute_Leonard, update_mixedLESSource, dyn_u_ops
 import DynamicLagrangian
 import numpy as np
 
@@ -66,7 +66,7 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, u_components, V,
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, Hij,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll, mixedLESSource,
             dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
-            mixedmats, Sij_sol, compute_Hij, **NS_namespace):
+            mixedmats, Sij_sol, compute_Hij, bcs_u_CG1, **NS_namespace):
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
@@ -75,12 +75,10 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, u_components, V,
         # Break function
         return
     
+    bcs_u = DirichletBC(CG1, 0, "on_boundary")
+
     # All velocity components must be interpolated to CG1 then filtered
-    for i in xrange(dim):
-        # Interpolate to CG1
-        ll.interpolate(u_CG1[i], u_ab[i])
-        # Filter
-        tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
+    dyn_u_ops(**vars())
 
     # Compute Lij applying dynamic modules function
     compute_Lij(u=u_CG1, uf=u_filtered, **vars())
@@ -112,16 +110,8 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, u_components, V,
     # Update nut_
     nut_.vector().set_local(Cs.vector().array() * delta_CG1_sq.vector().array() * magS)
     nut_.vector().apply("insert")
-    
-    # Compute Leonard Tensor
-    compute_Leonard(u=u_CG1, **vars())
-    # Update components of mixedLESSource
-    if tensdim == 3:
-        Ax, Ay = mixedmats
-        for i, ui in enumerate(u_components):
-            mixedLESSource[ui] = -(Ax*Lij[i].vector()+Ay*Lij[i+1].vector())
-    elif tensdim == 6:
-        Ax, Ay, Az = mixedmats
-        mixedLESSource["u0"] = -(Ax*Lij[0].vector()+Ay*Lij[1].vector()+Az*Lij[2].vector())
-        mixedLESSource["u1"] = -(Ax*Lij[1].vector()+Ay*Lij[3].vector()+Az*Lij[4].vector())
-        mixedLESSource["u2"] = -(Ax*Lij[2].vector()+Ay*Lij[4].vector()+Az*Lij[5].vector())
+    [bc.apply(nut_.vector()) for bc in nut_.bcs]
+
+    # Update MixedSources for rhs NS
+    update_mixedLESSource(**vars())
+
