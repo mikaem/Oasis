@@ -24,7 +24,7 @@ def dyn_u_ops(u_ab, u_components, u_CG1, u_filtered, ll, bcs_u_CG1,
         [bc.apply(u_filtered[i].vector()) for bc in bcs_u_CG1[ui]]
 
 def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
-        Sijmats, G_matr, J1=None, J2=None, Aij=None, Bij=None, **NS_namespace):
+        Sijmats, G_matr, dummy, J1=None, J2=None, Aij=None, Bij=None, **NS_namespace):
     """
     Function for Lagrange Averaging two tensors
     AijBij and BijBij, PDE's are solved implicitly.
@@ -43,40 +43,24 @@ def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
     # Update eps
     eps = dt*(J1.vector().array()*J2.vector().array())**(1./8.)/(1.5*np.sqrt(delta_CG1_sq.vector().array()))
     eps = eps/(1.0+eps)
+    dummy.vector().zero()
+    dummy.vector().set_local(eps)
+    dummy.vector().apply("insert")
 
     # Compute tensor contractions
     AijBij = tensor_inner(A=Aij, B=Bij, **vars())
     BijBij = tensor_inner(A=Bij, B=Bij, **vars())
 
-    # Compute backward convective terms J(x-dt*u) (!! NOT STABLE !!)
-    """
-    gradJ1 = [Function(CG1) for i in xrange(dim)]
-    gradJ2 = [Function(CG1) for i in xrange(dim)]
-    # Solve for the gradients of J1 and J2
-    for i in xrange(dim):
-        solve(G_matr, gradJ1[i].vector(), dt*Sijmats[i]*J1.vector(), "cg", "hypre_amg")
-        solve(G_matr, gradJ2[i].vector(), dt*Sijmats[i]*J2.vector(), "cg", "hypre_amg")
-    # Compute J1 - dt*dot(u_ab,grad(J1))
-    J1_back = J1.vector().array()-([u_CG1[i].vector().array()*gradJ1[i].vector().array() for i in range(dim)])[0]
-    # Compute J2 - dt*dot(u_ab,grad(J2))
-    J2_back = J2.vector().array()-([u_CG1[i].vector().array()*gradJ2[i].vector().array() for i in range(dim)])[0]
-    J2_back[J2_back < 0] = 1E3
-    """
-    
-    J1_back = J1.vector().array()
-    J2_back = J2.vector().array()
+    J1_back = J1.vector()
+    J2_back = J2.vector()
 
-    # Update J1
-    J1.vector().set_local(eps*AijBij + (1-eps)*J1_back)
-    J1.vector().apply("insert")
-    # Update J2
-    J2.vector().set_local(eps*BijBij + (1-eps)*J2_back)
-    J2.vector().apply("insert")
-    
-    # Apply ramp function on J1 to remove negative values, but not set to 0.
+    # Update J1 and clip
+    J1.vector().axpy(1.0, -J1_back*dummy.vector() + dummy.vector()*AijBij)
     J1.vector().set_local(J1.vector().array().clip(min=1E-32))
     J1.vector().apply("insert")
-
+    # Update J2
+    J2.vector().axpy(1.0, -J2_back*dummy.vector() + dummy.vector()*BijBij)
+    
 def tophatfilter(G_matr, G_under, unfiltered=None, filtered=None, N=1,
         weight=1.0, **NS_namespace):
     """
@@ -233,14 +217,13 @@ def compute_Nij(Nij, G_matr, G_under, tensdim, Sijmats, Sijfcomps, delta_CG1_sq,
         Nij[i].vector().set_local(deltasq*(Nij[i].vector().array()-(alpha**2)*magSf*Sijf[i].vector().array()))
         Nij[i].vector().apply("insert")
 
-def compute_Hij(Hij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
+def compute_Hij(Hij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, CG1,
         u=None, uf=None, **NS_namespace):
     """
     Scale similarity tensor Hij for use with the mixed dynamic sgs-model
     DMM2 by Vreman et.al.
     """
 
-    dummy2 = Function(CG1)
     w = 0.75
     
     # Loop over tensor components
@@ -304,13 +287,14 @@ def compute_Hij(Hij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
         # Add to Hij
         Hij[i].vector().axpy(1.0, dummy.vector())
 
-def compute_Hij_DMM1(Hij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
+def compute_Hij_DMM1(Hij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, CG1,
         u=None, uf=None, **NS_namespace):
     """
     Tensor applied in the DMM1 model by Zang et.al.
     """
-    dummy2 = Function(CG1)
+    
     w = 0.75
+    
     for i in xrange(tensdim):
 
         Hij[i].vector().zero()
@@ -337,7 +321,7 @@ def compute_Hij_DMM1(Hij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
         # Axpy to Hij
         Hij[i].vector().axpy(-1.0, dummy.vector()*dummy2.vector())
 
-def compute_Leonard(Lij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
+def compute_Leonard(Lij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, CG1,
         u=None, **NS_namespace):
     """
     Leonard tensor for rhs of NS when mixed dynamic SGS-model applied.
@@ -355,12 +339,9 @@ def compute_Leonard(Lij, uiuj_pairs, dummy, tensdim, G_matr, G_under, CG1,
         tophatfilter(unfiltered=Lij[i], filtered=Lij[i], weight=w, **vars())
         # Filter u velocities once through grid filter
         tophatfilter(unfiltered=u[j], filtered=dummy, weight=w, **vars())
-        vec_ = dummy.vector().array()
-        tophatfilter(unfiltered=u[k], filtered=dummy, weight=w, **vars())
-        dummy.vector().set_local(vec_*dummy.vector().array())
-        dummy.vector().apply("insert")
-        # Axpy G(ui)G(uj) to Lij
-        Lij[i].vector().axpy(-1.0, dummy.vector())
+        tophatfilter(unfiltered=u[k], filtered=dummy2, weight=w, **vars())
+        # Axpy -G(ui)G(uj) to Lij
+        Lij[i].vector().axpy(-1.0, dummy.vector()*dummy2.vector())
 
     # Remove trace from Lij
     remove_trace(Lij)
@@ -383,24 +364,21 @@ def update_mixedLESSource(u_components, u_CG1, mixedmats, Lij, tensdim,
             mixedLESSource[ui] = Ax*Lij[i].vector() + Ay*Lij[i+k+1].vector() + Az*Lij[i+k+1].vector()
             k = 1
 
-def remove_trace(tensdim, Aij=None, **NS_namespace):
+def remove_trace(tensdim, dummy, Aij=None, **NS_namespace):
     """
     Remove trace from a symetric tensor Aij.
     """
+    trace = dummy
+    trace.vector().zero()
     if tensdim == 3:
-        trace = 0.5*(Aij[0].vector().array()+Aij[2].vector().array())
-        Aij[0].vector().set_local(Aij[0].vector().array()-trace)
-        Aij[0].vector().apply("insert")
-        Aij[2].vector().set_local(Aij[2].vector().array()-trace)
-        Aij[2].vector().apply("insert")
+        trace.axpy(0.5, (Aij[0].vector() + Aij[2].vector()))
+        Aij[0].vector().axpy(-1.0, trace)
+        Aij[2].vector().axpy(-1.0, trace)
     elif tensdim == 6:
-        trace = (1./3.)*(Aij[0].vector().array()+Aij[3].vector().array()+Aij[5].vector().array())
-        Aij[0].vector().set_local(Aij[0].vector().array()-trace)
-        Aij[0].vector().apply("insert")
-        Aij[3].vector().set_local(Aij[3].vector().array()-trace)
-        Aij[3].vector().apply("insert")
-        Aij[5].vector().set_local(Aij[5].vector().array()-trace)
-        Aij[5].vector().apply("insert")
+        trace.axpy((1./3.), (Aij[0].vector()+Aij[3].vector()+Aij[5].vector()))
+        Aij[0].vector().axpy(-1.0, trace)
+        Aij[3].vector().axpy(-1.0, trace)
+        Aij[5].vector().axpy(-1.0, trace)
 
 def tensor_inner(tensdim, A=None, B=None, **NS_namespace):
     """
@@ -408,16 +386,16 @@ def tensor_inner(tensdim, A=None, B=None, **NS_namespace):
     A numpy array is returned.
     """
     if tensdim == 3:
-        contraction = A[0].vector().array()*B[0].vector().array() +\
-                    2*A[1].vector().array()*B[1].vector().array() +\
-                      A[2].vector().array()*B[2].vector().array()
+        contraction = A[0].vector()*B[0].vector() +\
+                    2*A[1].vector()*B[1].vector() +\
+                      A[2].vector()*B[2].vector()
     else:
-        contraction = A[0].vector().array()*B[0].vector().array() +\
-                    2*A[1].vector().array()*B[1].vector().array() +\
-                    2*A[2].vector().array()*B[2].vector().array() +\
-                      A[3].vector().array()*B[3].vector().array() +\
-                    2*A[4].vector().array()*B[4].vector().array() +\
-                      A[5].vector().array()*B[5].vector().array()
+        contraction = A[0].vector()*B[0].vector() +\
+                    2*A[1].vector()*B[1].vector() +\
+                    2*A[2].vector()*B[2].vector() +\
+                      A[3].vector()*B[3].vector() +\
+                    2*A[4].vector()*B[4].vector() +\
+                      A[5].vector()*B[5].vector()
     return contraction
 
 def mag(Aij, tensdim, **NS_namespace):

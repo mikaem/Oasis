@@ -86,6 +86,10 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, tstep,
     tophatfilter(unfiltered=Cs, filtered=Cs, N=2, weight=1, **vars())
 
     # Update nut_
-    nut_.vector().set_local(Cs.vector().array() * delta_CG1_sq.vector().array() * magS)
-    nut_.vector().apply("insert")
+    # Update nut_
+    dummy.vector().zero()
+    dummy.vector().set_local(magS)
+    dummy.vector().apply("insert")
+    nut_.vector().zero()
+    nut_.vector().axpy(1.0, Cs.vector() * delta_CG1_sq.vector() * dummy.vector())
     [bc.apply(nut_.vector()) for bc in nut_.bcs]
