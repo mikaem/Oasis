@@ -9,12 +9,12 @@ parameters["mesh_partitioner"] = "SCOTCH"
 
 # Set up parameters
 NS_parameters.update(
-    nu = 2E-7,
+    nu = 2E-9,
     T  = 0.1,
-    dt = 5E-7,
+    dt = 2E-4,
     les_model="DynamicLagrangian",
     plot_interval = 20,
-    save_step=15,
+    save_step=1,
     print_intermediate_info = 100,
     use_krylov_solvers = True)
 
@@ -25,7 +25,7 @@ r2 = Rectangle(Point(0.001, 0.0048), Point(0.003, 0.0052))
 r3 = Rectangle(Point(0.003, 0.0046), Point(0.014, 0.0054))
 t1 = Polygon([Point(0.012, 0.0046), Point(0.014, 0.0040), Point(0.014,0.0046)])
 t2 = Polygon([Point(0.012, 0.0054), Point(0.014, 0.0054), Point(0.014,0.0060)])
-domain = r2 + r3 + r1 + t1 + t2
+domain = r2 + r3 + r1
 
 mesh = generate_mesh(domain, 1100)
 
@@ -36,11 +36,12 @@ outlet = "on_boundary && std::abs(0.014-x[0]) < DOLFIN_EPS"
 # Specify boundary conditions
 def create_bcs(V, Q, **NS_namespace):
     bc0  = DirichletBC(V, 0, noslip)
-    bc00 = DirichletBC(V, .4, inlet)
+    bc00 = DirichletBC(V, .001, inlet)
     bc01 = DirichletBC(V, 0, inlet)
     bcp = DirichletBC(Q, 0, outlet)
     return dict(u0 = [bc0, bc00],
                 u1 = [bc0, bc01],
+                u2 = [bc0, bc01],
                 p  = [bcp])
                 
 def initialize(x_1, x_2, bcs, **NS_namespace):

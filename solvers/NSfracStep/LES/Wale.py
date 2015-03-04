@@ -15,9 +15,11 @@ def les_setup(u_, mesh, Wale, bcs, CG1Function, nut_krylov_solver, **NS_namespac
     """
     DG = FunctionSpace(mesh, "DG", 0)
     CG1 = FunctionSpace(mesh, "CG", 1)
+
     delta = Function(DG)
     delta.vector().zero()
     delta.vector().axpy(1.0, assemble(TestFunction(DG)*dx))
+
     Gij = grad(u_)
     Sij = sym(Gij)
     Skk = tr(Sij)

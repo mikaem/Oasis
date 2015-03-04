@@ -25,8 +25,13 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
     p, q = TrialFunction(CG1), TestFunction(CG1)
     dim = mesh.geometry().dim()
     
+    DG = FunctionSpace(mesh, "DG", 0)
     # Define delta and project delta**2 to CG1
-    delta = pow(CellVolume(mesh), 1./dim)
+    delta = Function(DG)
+    delta.vector().zero()
+    delta.vector().axpy(1.0, assemble(TestFunction(DG)*dx))
+    delta.vector().set_local(delta.vector().array()**(1./dim))
+    delta.vector().apply('insert')
     delta_CG1_sq = project(delta, CG1)
     delta_CG1_sq.vector().set_local(delta_CG1_sq.vector().array()**2)
     delta_CG1_sq.vector().apply("insert")
@@ -40,7 +45,7 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
     # Create nut_ BCs and nut_
     bcs_nut = derived_bcs(CG1, bcs['u0'], u_)
     nut_ = CG1Function(nut_form, mesh, method=nut_krylov_solver, bcs=bcs_nut, bounded=True, name="nut")
-    
+
     # Create CG1 bcs for velocity components
     bcs_u_CG1 = dict()
     for ui in u_components:
@@ -113,7 +118,7 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep,
     
     # All velocity components must be interpolated to CG1 then filtered, also apply bcs
     dyn_u_ops(**vars())
-
+    
     # Compute Lij applying dynamic modules function
     compute_Lij(u=u_CG1, uf=u_filtered, **vars())
 
@@ -131,7 +136,7 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep,
     """
     Cs.vector().set_local((JLM.array()/JMM.array()).clip(max=0.09))
     Cs.vector().apply("insert")
-    tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), N=2, weight=1., **vars())
+    tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), N=2, **vars())
     
     # Update nut_
     nut_.vector().zero()

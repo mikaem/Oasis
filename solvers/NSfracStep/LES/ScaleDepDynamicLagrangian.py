@@ -82,7 +82,7 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, tstep,
     beta = (JQN.array()/JNN.array()).clip(min=0.125)
     Cs.vector().set_local(((JLM.array()/JMM.array())/beta).clip(max=0.09))
     Cs.vector().apply("insert")
-    tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), N=2, weight=1, **vars())
+    tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), N=2, **vars())
 
     # Update nut_
     nut_.vector().zero()

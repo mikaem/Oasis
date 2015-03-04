@@ -3,6 +3,7 @@ __date__ = '2015-02-04'
 __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
+from dolfin import plot, interactive, Function
 import numpy as np
 
 def dyn_u_ops(u_ab, u_components, u_CG1, u_filtered, ll, bcs_u_CG1,
@@ -81,7 +82,7 @@ def tophatfilter(G_matr, G_under, unfiltered=None, filtered=None, N=1,
     # Axpy vec_ to filtered
     filtered.axpy(1.0, vec_)
         
-def compute_Lij(Lij, uiuj_pairs, tensdim, G_matr, G_under, 
+def compute_Lij(Lij, uiuj_pairs, tensdim, G_matr, G_under, CG1,
         u=None, uf=None, Qij=None, **NS_namespace):
     """
     Manually compute the tensor Lij = F(uiuj)-F(ui)F(uj)
@@ -104,7 +105,7 @@ def compute_Lij(Lij, uiuj_pairs, tensdim, G_matr, G_under,
         Lij[i].axpy(-1.0, uf[j].vector()*uf[k].vector())
 
 def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq,
-        tensdim, Sij_sol, dummy, alphaval=None, u_nf=None, u_f=None, Nij=None, **NS_namespace):
+        tensdim, Sij_sol, dummy, CG1, alphaval=None, u_nf=None, u_f=None, Nij=None, **NS_namespace):
     """
     Manually compute the tensor Mij = 2*delta**2*(F(|S|Sij)-alpha**2*F(|S|)F(Sij)
     """
@@ -163,7 +164,13 @@ def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq
         # Compute 2*delta**2*(F(|S|Sij) - alpha**2*F(|S|)F(Sij)) and add to Mij[i]
         Mij[i].axpy(-1.0, (alpha**2)*magSf*Sijf[i])
         Mij[i] *= deltasq
-
+        """
+        x = Function(CG1)
+        x.vector().zero()
+        x.vector().axpy(1.0, Mij[i])
+        plot(x)
+        interactive()
+        """
     # Return magS for use when updating nut_
     return magS
 
