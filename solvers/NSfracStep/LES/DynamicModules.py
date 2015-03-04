@@ -3,7 +3,6 @@ __date__ = '2015-02-04'
 __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
-from dolfin import solve, Function
 import numpy as np
 
 def dyn_u_ops(u_ab, u_components, u_CG1, u_filtered, ll, bcs_u_CG1,
@@ -19,7 +18,7 @@ def dyn_u_ops(u_ab, u_components, u_CG1, u_filtered, ll, bcs_u_CG1,
         # Apply BCS
         [bc.apply(u_CG1[i].vector()) for bc in bcs_u_CG1[ui]]
         # Filter
-        tophatfilter(unfiltered=u_CG1[i], filtered=u_filtered[i], **vars())
+        tophatfilter(unfiltered=u_CG1[i].vector(), filtered=u_filtered[i].vector(), **vars())
         # Apply BCS
         [bc.apply(u_filtered[i].vector()) for bc in bcs_u_CG1[ui]]
 
@@ -40,26 +39,24 @@ def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
     - J1 is clipped at 1E-32 (not zero, will lead to problems).
     """
     
-    # Update eps
-    eps = dt*(J1.vector().array()*J2.vector().array())**(1./8.)/(1.5*np.sqrt(delta_CG1_sq.vector().array()))
-    eps = eps/(1.0+eps)
-    dummy.vector().zero()
-    dummy.vector().set_local(eps)
-    dummy.vector().apply("insert")
+    # Update eps and assign to dummy
+    eps = dt*(J1.array()*J2.array())**(1./8.)/(1.5*np.sqrt(delta_CG1_sq.array()))
+    dummy.set_local(eps/(1+eps))
+    dummy.apply("insert")
 
     # Compute tensor contractions
     AijBij = tensor_inner(A=Aij, B=Bij, **vars())
     BijBij = tensor_inner(A=Bij, B=Bij, **vars())
 
-    J1_back = J1.vector()
-    J2_back = J2.vector()
+    J1_back = J1
+    J2_back = J2
 
     # Update J1 and clip
-    J1.vector().axpy(1.0, -J1_back*dummy.vector() + dummy.vector()*AijBij)
-    J1.vector().set_local(J1.vector().array().clip(min=1E-32))
-    J1.vector().apply("insert")
+    J1.axpy(1.0, dummy*(AijBij-J1_back))
+    J1.set_local(J1.array().clip(min=1E-32))
+    J1.apply("insert")
     # Update J2
-    J2.vector().axpy(1.0, -J2_back*dummy.vector() + dummy.vector()*BijBij)
+    J2.axpy(1.0, dummy*(BijBij-J2_back))
     
 def tophatfilter(G_matr, G_under, unfiltered=None, filtered=None, N=1,
         weight=1.0, **NS_namespace):
@@ -68,19 +65,21 @@ def tophatfilter(G_matr, G_under, unfiltered=None, filtered=None, N=1,
     uf = int(G*u)/int(G).
 
     G = CG1-basis functions.
+
+    both unfiltered and filtered must be GenericVectors
     """
     
-    vec_ = unfiltered.vector()
+    vec_ = unfiltered
     # Apply filter N times
     for i in xrange(N):
         # Compute filtered quantity
         vec_ = (G_matr*vec_)*G_under.vector()
-        vec_ = weight*vec_ + (1-weight)*unfiltered.vector()
+        vec_ = weight*vec_ + (1-weight)*unfiltered
 
     # Zero filtered vector
-    filtered.vector().zero()
+    filtered.zero()
     # Axpy vec_ to filtered
-    filtered.vector().axpy(1.0, vec_)
+    filtered.axpy(1.0, vec_)
         
 def compute_Lij(Lij, uiuj_pairs, tensdim, G_matr, G_under, 
         u=None, uf=None, Qij=None, **NS_namespace):
@@ -90,22 +89,22 @@ def compute_Lij(Lij, uiuj_pairs, tensdim, G_matr, G_under,
     
     # Loop over each tensor component
     for i in xrange(tensdim):
-        Lij[i].vector().zero()
+        Lij[i].zero()
         # Extract velocity pair
         j, k = uiuj_pairs[i]
         # Add ujuk to Lij[i]
-        Lij[i].vector().axpy(1.0, u[j].vector()*u[k].vector())
+        Lij[i].axpy(1.0, u[j].vector()*u[k].vector())
         # Filter Lij[i] -> F(ujuk)
         tophatfilter(unfiltered=Lij[i], filtered=Lij[i], **vars())
         # Add to Qij if ScaleDep model
         if Qij != None:
-            Qij[i].vector().zero()
-            Qij[i].vector().axpy(1.0, Lij[i].vector())
+            Qij[i].zero()
+            Qij[i].axpy(1.0, Lij[i])
         # Axpy - F(uj)F(uk)
-        Lij[i].vector().axpy(-1.0, uf[j].vector()*uf[k].vector())
+        Lij[i].axpy(-1.0, uf[j].vector()*uf[k].vector())
 
 def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq,
-        tensdim, Sij_sol, alphaval=None, u_nf=None, u_f=None, Nij=None, **NS_namespace):
+        tensdim, Sij_sol, dummy, alphaval=None, u_nf=None, u_f=None, Nij=None, **NS_namespace):
     """
     Manually compute the tensor Mij = 2*delta**2*(F(|S|Sij)-alpha**2*F(|S|)F(Sij)
     """
@@ -113,7 +112,7 @@ def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq
     Sij = Sijcomps
     Sijf = Sijfcomps
     alpha = alphaval
-    deltasq = 2*delta_CG1_sq.vector().array()
+    deltasq = 2*delta_CG1_sq
 
     # Apply pre-assembled matrices and compute right hand sides
     if tensdim == 3:
@@ -139,30 +138,31 @@ def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq
 
     for i in xrange(tensdim):
         # Solve for the different components of Sij
-        Sij_sol.solve(G_matr, Sij[i].vector(), bu[i])
+        Sij_sol.solve(G_matr, Sij[i], bu[i])
         # Solve for the different components of F(Sij)
-        Sij_sol.solve(G_matr, Sijf[i].vector(), buf[i])
+        Sij_sol.solve(G_matr, Sijf[i], buf[i])
 
     # Compute magnitudes of Sij and Sijf
-    magS = mag(Sij, tensdim)
-    magSf = mag(Sijf, tensdim)
+    magS = mag(Aij=Sij, **vars())
+    magSf = mag(Aij=Sijf, **vars())
 
     # Loop over components and add to Mij
     for i in xrange(tensdim):
+        # Zero out Mij[i]
+        Mij[i].zero()
         # Compute |S|*Sij
-        Mij[i].vector().set_local(magS*Sij[i].vector().array())
-        Mij[i].vector().apply("insert")
+        Mij[i].axpy(1.0, magS*Sij[i])
         # Compute F(|S|*Sij)
         tophatfilter(unfiltered=Mij[i], filtered=Mij[i], **vars())
         
         # Check if Nij, assign F(|S|Sij) if not None
         if Nij != None:
-            Nij[i].vector().zero()
-            Nij[i].vector().axpy(1.0, Mij[i].vector())
+            Nij[i].zero()
+            Nij[i].axpy(1.0, Mij[i])
         
         # Compute 2*delta**2*(F(|S|Sij) - alpha**2*F(|S|)F(Sij)) and add to Mij[i]
-        Mij[i].vector().set_local(deltasq*(Mij[i].vector().array()-(alpha**2)*magSf*Sijf[i].vector().array()))
-        Mij[i].vector().apply("insert")
+        Mij[i].axpy(-1.0, (alpha**2)*magSf*Sijf[i])
+        Mij[i] *= deltasq
 
     # Return magS for use when updating nut_
     return magS
@@ -177,17 +177,17 @@ def compute_Qij(Qij, uiuj_pairs, tensdim, G_matr, G_under, uf=None, **NS_namespa
         # Filter component of Qij
         tophatfilter(unfiltered=Qij[i], filtered=Qij[i], **vars())
         # Axpy outer(uf,uf) to Qij
-        Qij[i].vector().axpy(-1.0, uf[j].vector()*uf[k].vector())
+        Qij[i].axpy(-1.0, uf[j].vector()*uf[k].vector())
 
 def compute_Nij(Nij, G_matr, G_under, tensdim, Sijmats, Sijfcomps, delta_CG1_sq,
-        Sij_sol, alphaval=None, u_f=None, **NS_namespace):
+        Sij_sol, dummy, alphaval=None, u_f=None, **NS_namespace):
     """
     Function for computing Nij in ScaleDepLagrangian
     """
     
     Sijf = Sijfcomps
     alpha = alphaval
-    deltasq = 2*delta_CG1_sq.vector().array()
+    deltasq = 2*delta_CG1_sq
     
     # Need to compute F(F(Sij)), set up right hand sides
     if tensdim == 3:
@@ -205,17 +205,17 @@ def compute_Nij(Nij, G_matr, G_under, tensdim, Sijmats, Sijfcomps, delta_CG1_sq,
     
     for i in xrange(tensdim):
         # Solve for the diff. components of F(F(Sij)))
-        Sij_sol.solve(G_matr, Sijf[i].vector(), buf[i])
+        Sij_sol.solve(G_matr, Sijf[i], buf[i])
     
     # Compute magSf
-    magSf = mag(Sijf, tensdim)
+    magSf = mag(Aij=Sijf, **vars())
     
     for i in xrange(tensdim):
         # Filter Nij = F(|S|Sij) --> F(F(|S|Sij))
         tophatfilter(unfiltered=Nij[i], filtered=Nij[i], **vars())
         # Compute 2*delta**2*(F(F(|S|Sij)) - alpha**2*F(F(|S))F(F(Sij)))
-        Nij[i].vector().set_local(deltasq*(Nij[i].vector().array()-(alpha**2)*magSf*Sijf[i].vector().array()))
-        Nij[i].vector().apply("insert")
+        Nij[i].axpy(-1.0, (alpha**2)*magSf*Sijf[i])
+        Nij[i] *= deltasq
 
 def compute_Hij(Hij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, CG1,
         u=None, uf=None, **NS_namespace):
@@ -232,60 +232,56 @@ def compute_Hij(Hij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, CG1,
         # Hij = F(G(F(ui)F(uj))) - F(G(F(ui)))F(G(F(uj))) - F(G(uiuj)) + F(G(ui)G(uj))
 
         # Zero Hij component
-        Hij[i].vector().zero()
+        Hij[i].zero()
         # Extract uiuj_pair
         j,k = uiuj_pairs[i]
         
         # Compute and add F(G(F(ui)F(uj)))
-        dummy.vector().zero()
-        dummy.vector().axpy(1.0, uf[j].vector()*uf[k].vector())
+        dummy.zero()
+        dummy.axpy(1.0, uf[j].vector()*uf[k].vector())
         # Filter grid filter
         tophatfilter(unfiltered=dummy, filtered=dummy, weight=w, **vars())
         # Filter test filter
         tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
         # Add to Hij
-        Hij[i].vector().axpy(1.0, dummy.vector())
+        Hij[i].axpy(1.0, dummy)
 
         # Compute and add F(G(F(ui)))F(G(F(uj)))
-        dummy.vector().zero()
-        dummy.vector().axpy(1.0, uf[j].vector())
+        dummy.zero()
+        dummy.axpy(1.0, uf[j].vector())
         # Filter uf[j] twice, first grid then test
         tophatfilter(unfiltered=dummy, filtered=dummy, weight=w, **vars())
         tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
-        dummy2.vector().zero()
-        dummy2.vector().axpy(1.0, uf[k].vector())
+        dummy2.zero()
+        dummy2.axpy(1.0, uf[k].vector())
         # Filter uf[k] twice, first grid then test
         tophatfilter(unfiltered=dummy2, filtered=dummy2, weight=w, **vars())
         tophatfilter(unfiltered=dummy2, filtered=dummy2, **vars())
         # Add to Hij
-        Hij[i].vector().axpy(-1.0, dummy.vector()*dummy2.vector())
+        Hij[i].axpy(-1.0, dummy*dummy2)
 
         # Compute and add F(G(uiuj))
-        dummy.vector().zero()
-        dummy.vector().axpy(1.0, u[j].vector()*u[k].vector())
+        dummy.zero()
+        dummy.axpy(1.0, u[j].vector()*u[k].vector())
         # Filter twice, grid then test
         tophatfilter(unfiltered=dummy, filtered=dummy, weight=w, **vars())
         tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
         # Add to Hij
-        Hij[i].vector().axpy(-1.0, dummy.vector())
+        Hij[i].axpy(-1.0, dummy)
 
         # Compute and add F(G(ui)G(uj))
-        dummy.vector().zero()
-        dummy.vector().axpy(1.0, u[j].vector())
+        dummy.zero()
+        dummy.axpy(1.0, u[j].vector())
         # Filter u[j]
         tophatfilter(unfiltered=dummy, filtered=dummy, weight=w, **vars())
-        dummy2.vector().zero()
-        dummy2.vector().axpy(1.0, u[k].vector())
+        dummy2.zero()
+        dummy2.axpy(1.0, u[k].vector())
         # Filter u[k]
         tophatfilter(unfiltered=dummy2, filtered=dummy2, weight=w, **vars())
-        # Axpy to dummy
-        vec_ = dummy.vector()*dummy2.vector()
-        dummy.vector().zero()
-        dummy.vector().axpy(1.0, vec_)
-        # Filter dummy
-        tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
+        # Filter dummy2*dummy and add to dummy
+        tophatfilter(unfiltered=dummy*dummy2, filtered=dummy, **vars())
         # Add to Hij
-        Hij[i].vector().axpy(1.0, dummy.vector())
+        Hij[i].axpy(1.0, dummy)
 
 def compute_Hij_DMM1(Hij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, CG1,
         u=None, uf=None, **NS_namespace):
@@ -297,21 +293,20 @@ def compute_Hij_DMM1(Hij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, C
     
     for i in xrange(tensdim):
 
-        Hij[i].vector().zero()
+        Hij[i].zero()
         j,k = uiuj_pairs[i]
 
         # Compute and add F(G(ui)G(uj))
-        dummy.vector().zero()
-        dummy.vector().axpy(1.0, u[j].vector())
+        dummy.zero()
+        dummy.axpy(1.0, u[j].vector())
         # Grid filter u[j]
         tophatfilter(unfiltered=dummy, filtered=dummy, weight=w, **vars())
-        dummy2.vector().zero()
-        dummy2.vector().axpy(1.0, u[k].vector())
+        dummy2.zero()
+        dummy2.axpy(1.0, u[k].vector())
         # Grid filter u[k]
         tophatfilter(unfiltered=dummy2, filtered=dummy2, weight=w, **vars())
         # Axpy to Hij
-        vec_ = dummy.vector()*dummy2.vector()
-        Hij[i].vector().axpy(1.0, vec_)
+        Hij[i].axpy(1.0, dummy*dummy2)
         # Filter dummy
         tophatfilter(unfiltered=Hij[i], filtered=Hij[i], **vars())
 
@@ -319,7 +314,7 @@ def compute_Hij_DMM1(Hij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, C
         tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
         tophatfilter(unfiltered=dummy2, filtered=dummy2, **vars())
         # Axpy to Hij
-        Hij[i].vector().axpy(-1.0, dummy.vector()*dummy2.vector())
+        Hij[i].axpy(-1.0, dummy*dummy2)
 
 def compute_Leonard(Lij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, CG1,
         u=None, **NS_namespace):
@@ -332,21 +327,21 @@ def compute_Leonard(Lij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, CG
     # Loop over components
     for i in range(tensdim):
         j,k = uiuj_pairs[i]
-        Lij[i].vector().zero()
+        Lij[i].zero()
         # Add uiuj
-        Lij[i].vector().axpy(1.0, u[j].vector()*u[k].vector())
+        Lij[i].axpy(1.0, u[j].vector()*u[k].vector())
         # Grid filter --> G(uiuj)
         tophatfilter(unfiltered=Lij[i], filtered=Lij[i], weight=w, **vars())
         # Filter u velocities once through grid filter
-        tophatfilter(unfiltered=u[j], filtered=dummy, weight=w, **vars())
-        tophatfilter(unfiltered=u[k], filtered=dummy2, weight=w, **vars())
+        tophatfilter(unfiltered=u[j].vector(), filtered=dummy, weight=w, **vars())
+        tophatfilter(unfiltered=u[k].vector(), filtered=dummy2, weight=w, **vars())
         # Axpy -G(ui)G(uj) to Lij
-        Lij[i].vector().axpy(-1.0, dummy.vector()*dummy2.vector())
+        Lij[i].axpy(-1.0, dummy*dummy2)
 
     # Remove trace from Lij
-    remove_trace(Lij)
+    remove_trace(Aij=Lij, **vars())
 
-def update_mixedLESSource(u_components, u_CG1, mixedmats, Lij, tensdim,
+def update_mixedLESSource(u_components, u_CG1, mixedmats, Lij, tensdim, dummy2,
         uiuj_pairs, G_matr, G_under, CG1, mixedLESSource, dummy, **NS_namespace):
 
     # Compute Leonard Tensor for velocity, added to Lij
@@ -355,13 +350,13 @@ def update_mixedLESSource(u_components, u_CG1, mixedmats, Lij, tensdim,
     if tensdim == 3:
         Ax, Ay = mixedmats
         for i, ui in enumerate(u_components):
-            mixedLESSource[ui] = Ax*Lij[i].vector() + Ay*Lij[i+1].vector()
+            mixedLESSource[ui] = Ax*Lij[i] + Ay*Lij[i+1]
 
     elif tensdim == 6:
         Ax, Ay, Az = mixedmats
         k = 0
         for i, ui in enumerate(u_components):
-            mixedLESSource[ui] = Ax*Lij[i].vector() + Ay*Lij[i+k+1].vector() + Az*Lij[i+k+1].vector()
+            mixedLESSource[ui] = Ax*Lij[i] + Ay*Lij[i+k+1] + Az*Lij[i+k+1]
             k = 1
 
 def remove_trace(tensdim, dummy, Aij=None, **NS_namespace):
@@ -369,56 +364,49 @@ def remove_trace(tensdim, dummy, Aij=None, **NS_namespace):
     Remove trace from a symetric tensor Aij.
     """
     trace = dummy
-    trace.vector().zero()
+    trace.zero()
     if tensdim == 3:
-        trace.axpy(0.5, (Aij[0].vector() + Aij[2].vector()))
-        Aij[0].vector().axpy(-1.0, trace)
-        Aij[2].vector().axpy(-1.0, trace)
+        trace.axpy(0.5, (Aij[0] + Aij[2]))
+        Aij[0].axpy(-1.0, trace)
+        Aij[2].axpy(-1.0, trace)
     elif tensdim == 6:
-        trace.axpy((1./3.), (Aij[0].vector()+Aij[3].vector()+Aij[5].vector()))
-        Aij[0].vector().axpy(-1.0, trace)
-        Aij[3].vector().axpy(-1.0, trace)
-        Aij[5].vector().axpy(-1.0, trace)
+        trace.axpy((1./3.), (Aij[0]+Aij[3]+Aij[5]))
+        Aij[0].axpy(-1.0, trace)
+        Aij[3].axpy(-1.0, trace)
+        Aij[5].axpy(-1.0, trace)
 
 def tensor_inner(tensdim, A=None, B=None, **NS_namespace):
     """
     Compute tensor contraction Aij:Bij of two symmetric tensors Aij and Bij.
-    A numpy array is returned.
+    A GenericVector is returned.
     """
     if tensdim == 3:
-        contraction = A[0].vector()*B[0].vector() +\
-                    2*A[1].vector()*B[1].vector() +\
-                      A[2].vector()*B[2].vector()
+        contraction = A[0]*B[0] +\
+                    2*A[1]*B[1] +\
+                      A[2]*B[2]
     else:
-        contraction = A[0].vector()*B[0].vector() +\
-                    2*A[1].vector()*B[1].vector() +\
-                    2*A[2].vector()*B[2].vector() +\
-                      A[3].vector()*B[3].vector() +\
-                    2*A[4].vector()*B[4].vector() +\
-                      A[5].vector()*B[5].vector()
+        contraction = A[0]*B[0] +\
+                    2*A[1]*B[1] +\
+                    2*A[2]*B[2] +\
+                      A[3]*B[3] +\
+                    2*A[4]*B[4] +\
+                      A[5]*B[5]
     return contraction
 
-def mag(Aij, tensdim, **NS_namespace):
+def mag(tensdim, dummy, Aij=None, **NS_namespace):
     """
     Compute |A| = magA = 2*sqrt(inner(Aij,Aij))
     """
     if tensdim == 3:
-        # Extract Sij vectors
-        A00 = Aij[0].vector().array()
-        A01 = Aij[1].vector().array()
-        A11 = Aij[2].vector().array()
         # Compute |S|
-        magA = np.sqrt(2*(A00*A00 + 2*A01*A01 + A11*A11))
+        magA = 2*(Aij[0]*Aij[0] + 2*Aij[1]*Aij[1] + Aij[2]*Aij[2])
     elif tensdim == 6:
-        # Extract Sij vectors
-        A00 = Aij[0].vector().array()
-        A01 = Aij[1].vector().array()
-        A02 = Aij[2].vector().array()
-        A11 = Aij[3].vector().array()
-        A12 = Aij[4].vector().array()
-        A22 = Aij[5].vector().array()
         # Compute |S|
-        magA = np.sqrt(2*(A00*A00 + 2*A01*A01 + 2*A02*A02 + A11*A11 +
-            2*A12*A12 + A22*A22))
+        magA = 2*(Aij[0]*Aij[0] + 2*Aij[1]*Aij[1] + 2*Aij[2]*Aij[2] + Aij[3]*Aij[3] +
+            2*Aij[4]*Aij[4] + Aij[5]*Aij[5])
+
+    dummy.set_local(np.sqrt(magA.array()))
+    dummy.apply("insert")
+    magA = dummy.copy()
 
     return magA

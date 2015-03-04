@@ -12,7 +12,7 @@ NS_parameters.update(
     nu = 2E-7,
     T  = 0.1,
     dt = 5E-7,
-    les_model="MixedDynamicLagrangian",
+    les_model="DynamicLagrangian",
     plot_interval = 20,
     save_step=15,
     print_intermediate_info = 100,

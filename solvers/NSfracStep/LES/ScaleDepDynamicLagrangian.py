@@ -3,8 +3,6 @@ __date__ = '2015-02-04'
 __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
-from dolfin import Function, assemble, TestFunction, dx, solve, Constant,\
-        FacetFunction, DirichletBC
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij, compute_Qij, compute_Nij, dyn_u_ops
 import DynamicLagrangian
@@ -13,7 +11,7 @@ import numpy as np
 __all__ = ['les_setup', 'les_update']
 
 def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut_krylov_solver, 
-        bcs, **NS_namespace):
+        bcs, u_components, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
     scale dependent Lagrangian Averaging.
@@ -23,15 +21,13 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut
     dyn_dict = DynamicLagrangian.les_setup(**vars())
     
     # Add scale dep specific parameters
-    JQN = Function(dyn_dict["CG1"])
-    JQN.vector()[:] += 1E-32
-    JNN = Function(dyn_dict["CG1"])
-    JNN.vector()[:] += 1.
+    JQN = dyn_dict["dummy"].copy()
+    JQN[:] += 1E-32
+    JNN = dyn_dict["dummy"].copy()
+    JNN[:] += 1.
     
-    dim = dyn_dict["dim"]
-    CG1 = dyn_dict["CG1"]
-    Qij = [Function(CG1) for i in range(dim*dim)]
-    Nij = [Function(CG1) for i in range(dim*dim)]
+    Qij = [dyn_dict["dummy"].copy() for i in range(dyn_dict["dim"]**2)]
+    Nij = [dyn_dict["dummy"].copy() for i in range(dyn_dict["dim"]**2)]
 
     # Update and return dict
     dyn_dict.update(JQN=JQN, JNN=JNN, Qij=Qij, Nij=Nij)
@@ -42,7 +38,7 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, tstep,
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll,
             dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
-            Qij, Nij, JNN, JQN, Sij_sol, **NS_namespace): 
+            Qij, Nij, JNN, JQN, Sij_sol, bcs_u_CG1, **NS_namespace): 
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
@@ -50,7 +46,7 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, tstep,
         nut_()
         # Break function
         return
-
+    
     # All velocity components must be interpolated to CG1 then filtered
     dyn_u_ops(**vars())
 
@@ -65,9 +61,12 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, tstep,
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
 
     # Now u needs to be filtered once more
-    for i in xrange(dim):
+    for i, ui in enumerate(u_components):
         # Filter
-        tophatfilter(unfiltered=u_filtered[i], filtered=u_filtered[i], **vars())
+        tophatfilter(unfiltered=u_filtered[i].vector(),
+                filtered=u_filtered[i].vector(), **vars())
+        # Apply bcs
+        [bc.apply(u_filtered[i].vector()) for bc in bcs_u_CG1[ui]]
 
     # Compute Qij from dynamic modules function
     compute_Qij(uf=u_filtered, **vars())
@@ -80,16 +79,12 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, tstep,
     lagrange_average(J1=JQN, J2=JNN, Aij=Qij, Bij=Nij, **vars())
 
     # UPDATE Cs**2 = (JLM*JMM)/beta, beta = JQN/JNN
-    beta = (JQN.vector().array()/JNN.vector().array()).clip(min=0.5)
-    Cs.vector().set_local(((JLM.vector().array()/JMM.vector().array())/beta).clip(max=0.09))
+    beta = (JQN.array()/JNN.array()).clip(min=0.125)
+    Cs.vector().set_local(((JLM.array()/JMM.array())/beta).clip(max=0.09))
     Cs.vector().apply("insert")
-    tophatfilter(unfiltered=Cs, filtered=Cs, N=2, weight=1, **vars())
+    tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), N=2, weight=1, **vars())
 
     # Update nut_
-    # Update nut_
-    dummy.vector().zero()
-    dummy.vector().set_local(magS)
-    dummy.vector().apply("insert")
     nut_.vector().zero()
-    nut_.vector().axpy(1.0, Cs.vector() * delta_CG1_sq.vector() * dummy.vector())
+    nut_.vector().axpy(1.0, Cs.vector() * delta_CG1_sq * magS)
     [bc.apply(nut_.vector()) for bc in nut_.bcs]

@@ -3,10 +3,9 @@ __date__ = '2015-02-04'
 __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
-from dolfin import Function, FunctionSpace, TestFunction, sym, grad, dx, inner,\
-        sqrt, TrialFunction, project, CellVolume, as_vector, solve, Constant,\
-        LagrangeInterpolator, assemble, FacetFunction, DirichletBC,\
-        KrylovSolver, plot, interactive
+from dolfin import FunctionSpace, TrialFunction, TestFunction, Function, sym,\
+        grad, dx, inner, sqrt, TrialFunction, project, assemble, CellVolume,\
+        LagrangeInterpolator, DirichletBC, KrylovSolver
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij, dyn_u_ops
 import numpy as np
@@ -31,6 +30,7 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
     delta_CG1_sq = project(delta, CG1)
     delta_CG1_sq.vector().set_local(delta_CG1_sq.vector().array()**2)
     delta_CG1_sq.vector().apply("insert")
+    delta_CG1_sq = delta_CG1_sq.vector()
 
     # Define nut_
     Sij = sym(grad(u_))
@@ -52,9 +52,9 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
         bcs_u_CG1[ui] = bcs_CG1
 
     # Create functions for holding the different velocities
-    u_CG1 = as_vector([Function(CG1) for i in range(dim)])
-    u_filtered = as_vector([Function(CG1) for i in range(dim)])
-    dummy = Function(CG1)
+    u_CG1 = [Function(CG1) for i in range(dim)]
+    u_filtered = [Function(CG1) for i in range(dim)]
+    dummy = Cs.vector().copy()
     ll = LagrangeInterpolator()
 
     # Assemble required filter matrices and functions
@@ -64,12 +64,12 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
     G_matr = assemble(inner(p,q)*dx)
 
     # Set up functions for Lij and Mij
-    Lij = [Function(CG1) for i in range(dim*dim)]
-    Mij = [Function(CG1) for i in range(dim*dim)]
+    Lij = [dummy.copy() for i in range(dim*dim)]
+    Mij = [dummy.copy() for i in range(dim*dim)]
     # Check if case is 2D or 3D and set up uiuj product pairs and 
     # Sij forms, assemble required matrices
-    Sijcomps = [Function(CG1) for i in range(dim*dim)]
-    Sijfcomps = [Function(CG1) for i in range(dim*dim)]
+    Sijcomps = [dummy.copy() for i in range(dim*dim)]
+    Sijfcomps = [dummy.copy() for i in range(dim*dim)]
     # Assemble some required matrices for solving for rate of strain terms
     Sijmats = [assemble_matrix(p.dx(i)*q*dx) for i in range(dim)]
     if dim == 3:
@@ -86,10 +86,10 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
     Sij_sol.parameters["report"] = False
 
     # Set up Lagrange functions
-    JLM = Function(CG1)
-    JLM.vector()[:] += 1E-32
-    JMM = Function(CG1)
-    JMM.vector()[:] += 1
+    JLM = dummy.copy()
+    JLM[:] += 1E-32
+    JMM = dummy.copy()
+    JMM[:] += 1
     
     return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta, bcs_nut=bcs_nut,
                 delta_CG1_sq=delta_CG1_sq, CG1=CG1, Cs=Cs, u_CG1=u_CG1, 
@@ -111,7 +111,7 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep,
         # Break function
         return
     
-    # All velocity components must be interpolated to CG1 then filtered, apply bcs
+    # All velocity components must be interpolated to CG1 then filtered, also apply bcs
     dyn_u_ops(**vars())
 
     # Compute Lij applying dynamic modules function
@@ -124,19 +124,16 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep,
     # Lagrange average Lij and Mij
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
 
-    # Update Cs = sqrt(JLM/JMM) and filter/smooth Cs, then clip at 0.3. 
+    # Update Cs = sqrt(JLM/JMM) and filter/smooth Cs
     """
     Important that the term in nut_form is Cs**2 and not Cs
     since Cs here is stored as sqrt(JLM/JMM).
     """
-    Cs.vector().set_local((JLM.vector().array()/JMM.vector().array()).clip(max=0.09))
+    Cs.vector().set_local((JLM.array()/JMM.array()).clip(max=0.09))
     Cs.vector().apply("insert")
-    tophatfilter(unfiltered=Cs, filtered=Cs, N=2, weight=1., **vars())
-
+    tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), N=2, weight=1., **vars())
+    
     # Update nut_
-    dummy.vector().zero()
-    dummy.vector().set_local(magS)
-    dummy.vector().apply("insert")
     nut_.vector().zero()
-    nut_.vector().axpy(1.0, Cs.vector() * delta_CG1_sq.vector() * dummy.vector())
+    nut_.vector().axpy(1.0, Cs.vector() * delta_CG1_sq * magS)
     [bc.apply(nut_.vector()) for bc in nut_.bcs]

@@ -3,9 +3,7 @@ __date__ = '2015-02-28'
 __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
-from dolfin import Function, assemble, TestFunction, dx, solve, Constant,\
-        FacetFunction, DirichletBC, TestFunction, as_vector, div,\
-        TrialFunction
+from dolfin import TrialFunction, TestFunction, dx 
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij, compute_Leonard, update_mixedLESSource, dyn_u_ops
 import DynamicLagrangian
@@ -49,9 +47,12 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut
     dyn_dict = DynamicLagrangian.les_setup(**vars())
     
     # Set up functions for scale similarity tensor Hij
-    Hij = [Function(dyn_dict["CG1"]) for i in range(dyn_dict["dim"]**2)]
+    Hij = [dyn_dict["dummy"].copy() for i in range(dyn_dict["dim"]**2)]
     mixedmats = [assemble_matrix(TrialFunction(dyn_dict["CG1"]).dx(i)*TestFunction(V)*dx)
         for i in range(dyn_dict["dim"])]
+    
+    dummy2 = dyn_dict["dummy"].copy()
+    dummy2.zero()
     
     if MixedDynamicLagrangian["model"] == "DMM2":
         from DynamicModules import compute_Hij
@@ -59,7 +60,7 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut
         from DynamicModules import compute_Hij_DMM1 as compute_Hij
     
     dyn_dict.update(Hij=Hij, mixedmats=mixedmats, compute_Hij=compute_Hij,
-            dummy2=Function(dyn_dict["CG1"])
+            dummy2=dummy2)
 
     return dyn_dict
 
@@ -90,26 +91,23 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, u_components, V,
     compute_Hij(u=u_CG1, uf=u_filtered, **vars())
     
     # Compute Aij = Lij-Hij and add to Lij
-    [Lij[i].vector().axpy(-1.0, Hij[i].vector().array()) for i in xrange(tensdim)]
+    [Lij[i].axpy(-1.0, Hij[i]) for i in xrange(tensdim)]
 
     # Lagrange average (Lij-Hij) and Mij
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
 
-    # Update Cs = JLM/JMM, clip at 0.09 then filter/smooth
+    # Update Cs = JLM/JMM and filter/smooth
     """
     Important that the term in nut_form is Cs and not Cs**2
     since Cs here is stored as JLM/JMM.
     """
-    Cs.vector().set_local((JLM.vector().array()/JMM.vector().array()).clip(max=0.09))
+    Cs.vector().set_local((JLM.array()/JMM.array()).clip(max=0.09))
     Cs.vector().apply("insert")
-    tophatfilter(unfiltered=Cs, filtered=Cs, N=2, weight=1., **vars())
+    tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), N=2, weight=1., **vars())
 
     # Update nut_
-    dummy.vector().zero()
-    dummy.vector().set_local(magS)
-    dummy.vector().apply("insert")
     nut_.vector().zero()
-    nut_.vector().axpy(1.0, Cs.vector() * delta_CG1_sq.vector() * dummy.vector())
+    nut_.vector().axpy(1.0, Cs.vector() * delta_CG1_sq * magS)
     [bc.apply(nut_.vector()) for bc in nut_.bcs]
 
     # Update MixedSources for rhs NS
