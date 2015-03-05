@@ -47,7 +47,7 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut
     dyn_dict = DynamicLagrangian.les_setup(**vars())
     
     # Set up functions for scale similarity tensor Hij
-    Hij = [dyn_dict["dummy"].copy() for i in range(dyn_dict["dim"]**2)]
+    Hij = [dyn_dict["dummy"].copy() for i in range(dyn_dict["tensdim"])]
     mixedmats = [assemble_matrix(TrialFunction(dyn_dict["CG1"]).dx(i)*TestFunction(V)*dx)
         for i in range(dyn_dict["dim"])]
     
@@ -103,7 +103,8 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, u_components, V,
     """
     Cs.vector().set_local((JLM.array()/JMM.array()).clip(max=0.09))
     Cs.vector().apply("insert")
-    tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), N=2, **vars())
+    # Filter Cs twice
+    [tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), **vars()) for i in xrange(2)]
 
     # Update nut_
     nut_.vector().zero()

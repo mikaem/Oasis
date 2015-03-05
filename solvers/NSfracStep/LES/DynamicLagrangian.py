@@ -134,6 +134,7 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep,
     # Update Cs = sqrt(JLM/JMM) and filter/smooth Cs
     Cs.vector().set_local((JLM.array()/JMM.array()).clip(max=0.09))
     Cs.vector().apply("insert")
+    # Filter Cs twice
     [tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), **vars()) for i in xrange(2)]
     
     # Update nut_

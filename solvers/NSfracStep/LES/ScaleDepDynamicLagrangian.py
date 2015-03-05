@@ -22,12 +22,12 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut
     
     # Add scale dep specific parameters
     JQN = dyn_dict["dummy"].copy()
-    JQN[:] += 1E-32
+    JQN[:] += 1E-15
     JNN = dyn_dict["dummy"].copy()
-    JNN[:] += 1.
+    JNN[:] += 1E-10
     
-    Qij = [dyn_dict["dummy"].copy() for i in range(dyn_dict["dim"]**2)]
-    Nij = [dyn_dict["dummy"].copy() for i in range(dyn_dict["dim"]**2)]
+    Qij = [dyn_dict["dummy"].copy() for i in range(dyn_dict["tensdim"])]
+    Nij = [dyn_dict["dummy"].copy() for i in range(dyn_dict["tensdim"])]
 
     # Update and return dict
     dyn_dict.update(JQN=JQN, JNN=JNN, Qij=Qij, Nij=Nij)
@@ -82,7 +82,8 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, tstep,
     beta = (JQN.array()/JNN.array()).clip(min=0.125)
     Cs.vector().set_local(((JLM.array()/JMM.array())/beta).clip(max=0.09))
     Cs.vector().apply("insert")
-    tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), N=2, **vars())
+    # Filter Cs twice
+    [tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), **vars()) for i in xrange(2)]
 
     # Update nut_
     nut_.vector().zero()
