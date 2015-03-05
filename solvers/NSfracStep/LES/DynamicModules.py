@@ -3,7 +3,6 @@ __date__ = '2015-02-04'
 __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
-from dolfin import plot, interactive, Function
 import numpy as np
 
 def dyn_u_ops(u_ab, u_components, u_CG1, u_filtered, ll, bcs_u_CG1,
@@ -42,13 +41,13 @@ def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
     
     # Update eps and assign to dummy
     eps = dt*(J1.array()*J2.array())**(1./8.)/(1.5*np.sqrt(delta_CG1_sq.array()))
-    dummy.set_local(eps/(1+eps))
+    dummy.set_local(eps/(1.0 + eps))
     dummy.apply("insert")
 
     # Compute tensor contractions
     AijBij = tensor_inner(A=Aij, B=Bij, **vars())
     BijBij = tensor_inner(A=Bij, B=Bij, **vars())
-
+    
     J1_back = J1
     J2_back = J2
 
@@ -59,7 +58,7 @@ def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
     # Update J2
     J2.axpy(1.0, dummy*(BijBij-J2_back))
     
-def tophatfilter(G_matr, G_under, unfiltered=None, filtered=None, N=1,
+def tophatfilter(G_matr, G_under, unfiltered=None, filtered=None,
         weight=1.0, **NS_namespace):
     """
     Filtering a CG1 function for applying a generalized top hat filter.
@@ -69,19 +68,14 @@ def tophatfilter(G_matr, G_under, unfiltered=None, filtered=None, N=1,
 
     both unfiltered and filtered must be GenericVectors
     """
-    
-    vec_ = unfiltered
-    # Apply filter N times
-    for i in xrange(N):
-        # Compute filtered quantity
-        vec_ = (G_matr*vec_)*G_under.vector()
-        vec_ = weight*vec_ + (1-weight)*unfiltered
 
+    # Filter to vec_
+    vec = weight*((G_matr*unfiltered)*G_under.vector()) + (1-weight)*unfiltered
     # Zero filtered vector
     filtered.zero()
-    # Axpy vec_ to filtered
-    filtered.axpy(1.0, vec_)
-        
+    # Axpy weighted filter operation to filtered
+    filtered.axpy(1.0, vec)
+
 def compute_Lij(Lij, uiuj_pairs, tensdim, G_matr, G_under, CG1,
         u=None, uf=None, Qij=None, **NS_namespace):
     """
@@ -113,7 +107,7 @@ def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq
     Sij = Sijcomps
     Sijf = Sijfcomps
     alpha = alphaval
-    deltasq = 2*delta_CG1_sq
+    deltasq = delta_CG1_sq
 
     # Apply pre-assembled matrices and compute right hand sides
     if tensdim == 3:
@@ -163,14 +157,8 @@ def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq
         
         # Compute 2*delta**2*(F(|S|Sij) - alpha**2*F(|S|)F(Sij)) and add to Mij[i]
         Mij[i].axpy(-1.0, (alpha**2)*magSf*Sijf[i])
-        Mij[i] *= deltasq
-        """
-        x = Function(CG1)
-        x.vector().zero()
-        x.vector().axpy(1.0, Mij[i])
-        plot(x)
-        interactive()
-        """
+        Mij[i] *= 2*deltasq
+    
     # Return magS for use when updating nut_
     return magS
 
@@ -412,8 +400,7 @@ def mag(tensdim, dummy, Aij=None, **NS_namespace):
         magA = 2*(Aij[0]*Aij[0] + 2*Aij[1]*Aij[1] + 2*Aij[2]*Aij[2] + Aij[3]*Aij[3] +
             2*Aij[4]*Aij[4] + Aij[5]*Aij[5])
 
-    dummy.set_local(np.sqrt(magA.array()))
-    dummy.apply("insert")
-    magA = dummy.copy()
+    magA.set_local(np.sqrt(magA.array()))
+    magA.apply("insert")
 
     return magA

@@ -68,21 +68,21 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
     G_under.vector().apply("insert")
     G_matr = assemble(inner(p,q)*dx)
 
-    # Set up functions for Lij and Mij
-    Lij = [dummy.copy() for i in range(dim*dim)]
-    Mij = [dummy.copy() for i in range(dim*dim)]
-    # Check if case is 2D or 3D and set up uiuj product pairs and 
-    # Sij forms, assemble required matrices
-    Sijcomps = [dummy.copy() for i in range(dim*dim)]
-    Sijfcomps = [dummy.copy() for i in range(dim*dim)]
-    # Assemble some required matrices for solving for rate of strain terms
-    Sijmats = [assemble_matrix(p.dx(i)*q*dx) for i in range(dim)]
     if dim == 3:
         tensdim = 6
         uiuj_pairs = ((0,0),(0,1),(0,2),(1,1),(1,2),(2,2))
     else:
         tensdim = 3
         uiuj_pairs = ((0,0),(0,1),(1,1))
+    # Set up functions for Lij and Mij
+    Lij = [dummy.copy() for i in range(tensdim)]
+    Mij = [dummy.copy() for i in range(tensdim)]
+    # Check if case is 2D or 3D and set up uiuj product pairs and 
+    # Sij forms, assemble required matrices
+    Sijcomps = [dummy.copy() for i in range(tensdim)]
+    Sijfcomps = [dummy.copy() for i in range(tensdim)]
+    # Assemble some required matrices for solving for rate of strain terms
+    Sijmats = [assemble_matrix(p.dx(i)*q*dx) for i in range(dim)]
     # Setip Sij krylov solver
     Sij_sol = KrylovSolver("cg", "default")
     Sij_sol.parameters["preconditioner"]["structure"] = "same_nonzero_pattern"
@@ -92,9 +92,11 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
 
     # Set up Lagrange functions
     JLM = dummy.copy()
-    JLM[:] += 1E-32
+    # Initialize to low number
+    JLM[:] += 1E-15
     JMM = dummy.copy()
-    JMM[:] += 1
+    # Initialize to higher number than JLM but still low
+    JMM[:] += 1E-10
     
     return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta, bcs_nut=bcs_nut,
                 delta_CG1_sq=delta_CG1_sq, CG1=CG1, Cs=Cs, u_CG1=u_CG1, 
@@ -121,22 +123,18 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep,
     
     # Compute Lij applying dynamic modules function
     compute_Lij(u=u_CG1, uf=u_filtered, **vars())
-
+    
     # Compute Mij applying dynamic modules function
     alpha = 2.0
     magS = compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
-    
+
     # Lagrange average Lij and Mij
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
 
     # Update Cs = sqrt(JLM/JMM) and filter/smooth Cs
-    """
-    Important that the term in nut_form is Cs**2 and not Cs
-    since Cs here is stored as sqrt(JLM/JMM).
-    """
     Cs.vector().set_local((JLM.array()/JMM.array()).clip(max=0.09))
     Cs.vector().apply("insert")
-    tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), N=2, **vars())
+    [tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), **vars()) for i in xrange(2)]
     
     # Update nut_
     nut_.vector().zero()

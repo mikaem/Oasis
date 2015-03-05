@@ -113,12 +113,8 @@ def pre_solve_hook(V, q_, q_1, q_2, u_components, mesh, **NS_namespace):
     facets = FacetFunction('size_t', mesh, 0)
     Inlet.mark(facets, 1)    
     normal = FacetNormal(mesh)
-    v_file = File("channel_results/U.pvd")
-    nutfile = File("chennel_results/nut.pvd")
-    csfile = File("channel_results/cs.pvd")
 
-    return dict(uv=uv, stats=stats, facets=facets, normal=normal, 
-            v_file=v_file, nutfile=nutfile, csfile=csfile)
+    return dict(uv=uv, stats=stats, facets=facets, normal=normal)
     
 def walls(x, on_bnd):
     return (near(x[1], -Ly/2.) or near(x[1], Ly/2.))
@@ -173,10 +169,9 @@ def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
         else:
             u_sol.parameters['preconditioner']['structure'] = "same"
 
-def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics, v_file,
+def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
                   newfolder, folder, check_flux, save_statistics, mesh,
-                  facets, normal, check_if_reset_statistics, nutfile, nut_,
-                  csfile, Cs, **NS_namespace):
+                  facets, normal, check_if_reset_statistics, **NS_namespace):
     # print timestep
     info_red("tstep = {}".format(tstep))         
     if check_if_reset_statistics(folder):
@@ -188,7 +183,7 @@ def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics, v_file,
 
     if tstep % save_statistics == 0:
         statsfolder = path.join(newfolder, "Stats")
-        #stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
+        stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
         
     if tstep % check_flux == 0:
         u1 = assemble(dot(u_, normal)*ds(1, domain=mesh, subdomain_data=facets))
@@ -197,12 +192,6 @@ def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics, v_file,
         normw = norm(q_['u2'].vector())
         if MPI.rank(mpi_comm_world()) == 0:
            print "Flux = ", u1, " tstep = ", tstep, " norm = ", normv, normw
-    assign(uv.sub(0), u_[0])
-    assign(uv.sub(1), u_[1])
-    assign(uv.sub(2), u_[2])
-    v_file << uv
-    nutfile << nut_
-    csfile << Cs
 
 def theend(newfolder, tstep, stats, **NS_namespace):
     """Store statistics before exiting"""
