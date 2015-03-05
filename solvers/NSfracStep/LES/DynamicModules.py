@@ -47,7 +47,7 @@ def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
     # Compute tensor contractions
     AijBij = tensor_inner(A=Aij, B=Bij, **vars())
     BijBij = tensor_inner(A=Bij, B=Bij, **vars())
-    
+
     J1_back = J1
     J2_back = J2
 

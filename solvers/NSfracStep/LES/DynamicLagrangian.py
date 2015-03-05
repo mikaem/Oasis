@@ -93,7 +93,7 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
     # Set up Lagrange functions
     JLM = dummy.copy()
     # Initialize to low number
-    JLM[:] += 1E-15
+    JLM[:] += 1E-32
     JMM = dummy.copy()
     # Initialize to higher number than JLM but still low
     JMM[:] += 1E-10
