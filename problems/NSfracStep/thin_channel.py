@@ -4,6 +4,7 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from ..NSfracStep import *
+import time
 
 parameters["mesh_partitioner"] = "SCOTCH"
 
@@ -12,11 +13,13 @@ NS_parameters.update(
     nu = 2E-7,
     T  = 0.1,
     dt = 5E-7,
-    les_model="DynamicLagrangian",
+    les_model="ScaleDepDynamicLagrangian",
     plot_interval = 20,
-    save_step=1,
+    save_step=20,
     print_intermediate_info = 100,
+    velocity_degree=2,
     use_krylov_solvers = True)
+NS_parameters["DynamicSmagorinsky"].update(JMM_init=1E3)
 
 from mshr import *
 
@@ -25,9 +28,9 @@ r2 = Rectangle(Point(0.001, 0.0048), Point(0.003, 0.0052))
 r3 = Rectangle(Point(0.003, 0.0046), Point(0.014, 0.0054))
 t1 = Polygon([Point(0.012, 0.0046), Point(0.014, 0.0040), Point(0.014,0.0046)])
 t2 = Polygon([Point(0.012, 0.0054), Point(0.014, 0.0054), Point(0.014,0.0060)])
-domain = r2 + r3 + r1 + t1 + t2
+domain = r2 + r3 + r1
 
-mesh = generate_mesh(domain, 1100)
+mesh = generate_mesh(domain,1200)
 
 noslip = "on_boundary && std::abs(0.014-x[0]) > DOLFIN_EPS"
 inlet = "on_boundary && x[0] < DOLFIN_EPS"
@@ -55,19 +58,24 @@ def pre_solve_hook(mesh, nut_, velocity_degree, CG1, **NS_namespace):
     nutfile = File("results/thinchannel/nut.pvd")
     CSGSFile = File("results/thinchannel/Cs.pvd")
     v_file = File("results/thinchannel/U.pvd")
-    Cs_list = []
+    JLMfile = File("results/thinchannel/JLM.pvd")
+    JMMfile = File("results/thinchannel/JMM.pvd")
     set_log_active(False)
-    return dict(uv=Function(Vv), nutfile=nutfile, 
-            CSGSFile=CSGSFile, v_file=v_file, Cs_list=Cs_list)
+    
+    return dict(uv=Function(Vv), nutfile=nutfile, JLMfile=JLMfile,
+            CSGSFile=CSGSFile, v_file=v_file, JMMfile=JMMfile)
 
 def start_timestep_hook(t, **NS_namespace):
-    print "t = ", t, "s"
+    info_red("t = {}s".format(t))
     
 def temporal_hook(tstep, save_step, nut_, u_, nutfile, v_file, uv, 
-        CSGSFile, Cs, Cs_list, **NS_namespace):
+        CSGSFile, Cs, JLMfile, JMMfile, JLM, JMM, **NS_namespace):
+
     if tstep%save_step == 0:
         nutfile << nut_
         assign(uv.sub(0), u_[0])
         assign(uv.sub(1), u_[1])
         v_file << uv
         CSGSFile << Cs
+        JLMfile << JLM
+        JMMfile << JMM

@@ -12,7 +12,7 @@ import numpy as np
 __all__ = ['les_setup', 'les_update']
 
 def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut_krylov_solver, 
-        bcs, u_components, MixedDynamicLagrangian, **NS_namespace):
+        bcs, u_components, MixedDynamicLagrangian, DynamicSmagorinsky, **NS_namespace):
     """
     Set up for solving the mixed scale similar Germano Dynamic LES model applying
     Lagrangian Averaging. The implementation is based on the work of
@@ -68,7 +68,8 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, u_components, V,
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, Hij,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll, mixedLESSource,
             dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
-            mixedmats, Sij_sol, compute_Hij, bcs_u_CG1, dummy2, **NS_namespace):
+            mixedmats, Sij_sol, compute_Hij, bcs_u_CG1, dummy2, vdegree,
+            **NS_namespace):
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
@@ -86,10 +87,10 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, u_components, V,
     # Compute Mij applying dynamic modules function
     alpha = 2.0
     magS = compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
-    
+
     # Compute Hij
     compute_Hij(u=u_CG1, uf=u_filtered, **vars())
-    
+
     # Compute Aij = Lij-Hij and add to Lij
     [Lij[i].axpy(-1.0, Hij[i]) for i in xrange(tensdim)]
 
@@ -101,7 +102,7 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, u_components, V,
     Important that the term in nut_form is Cs and not Cs**2
     since Cs here is stored as JLM/JMM.
     """
-    Cs.vector().set_local((JLM.array()/JMM.array()).clip(max=0.09))
+    Cs.vector().set_local((JLM.vector().array()/JMM.vector().array()).clip(max=0.09))
     Cs.vector().apply("insert")
     # Filter Cs twice
     [tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), **vars()) for i in xrange(2)]

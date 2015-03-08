@@ -12,7 +12,6 @@ import random
 
 #restart_folder = 'channel_results/data/21/Checkpoint'
 restart_folder = None
-parameters["mesh_partitioner"] = "SCOTCH"
 
 class ChannelGrid(StructuredGrid):
     """Grid for computing statistics"""
@@ -61,7 +60,7 @@ else:
         Re_tau = Re_tau,
         T = T,
         dt = dt,
-        les_model="DynamicLagrangian",
+        les_model="ScaleDepDynamicLagrangian",
         velocity_degree = 1,
         folder = "channel_results",
         use_krylov_solvers = True
@@ -113,8 +112,8 @@ def pre_solve_hook(V, q_, q_1, q_2, u_components, mesh, **NS_namespace):
     facets = FacetFunction('size_t', mesh, 0)
     Inlet.mark(facets, 1)    
     normal = FacetNormal(mesh)
-
-    return dict(uv=uv, stats=stats, facets=facets, normal=normal)
+    Csfile = File("channel_results/Cs.pvd")
+    return dict(uv=uv, stats=stats, facets=facets,Csfile=Csfile, normal=normal)
     
 def walls(x, on_bnd):
     return (near(x[1], -Ly/2.) or near(x[1], Ly/2.))
@@ -169,21 +168,22 @@ def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
         else:
             u_sol.parameters['preconditioner']['structure'] = "same"
 
-def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
+def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics, Csfile, Cs,
                   newfolder, folder, check_flux, save_statistics, mesh,
                   facets, normal, check_if_reset_statistics, **NS_namespace):
     # print timestep
-    info_red("tstep = {}".format(tstep))         
+    info_red("tstep = {}".format(tstep))
     if check_if_reset_statistics(folder):
         info_red("Resetting statistics")
         stats.probes.clear()
 
     if tstep % update_statistics == 0:
         stats(q_['u0'], q_['u1'], q_['u2'])
+        Csfile << Cs
 
     if tstep % save_statistics == 0:
         statsfolder = path.join(newfolder, "Stats")
-        stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
+        stats.toh5(0, tstep, filename="dump_mean_{}.h5".format(tstep))
         
     if tstep % check_flux == 0:
         u1 = assemble(dot(u_, normal)*ds(1, domain=mesh, subdomain_data=facets))

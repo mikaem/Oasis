@@ -14,7 +14,7 @@ from common import derived_bcs
 __all__ = ['les_setup', 'les_update']
 
 def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
-        u_components, bcs, **NS_namespace):
+        u_components, bcs, DynamicSmagorinsky, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
     Lagrangian Averaging.
@@ -58,16 +58,19 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
 
     # Create functions for holding the different velocities
     u_CG1 = [Function(CG1) for i in range(dim)]
+    vdegree = 1 if len(u_[0].vector().array()) == len(u_CG1[0].vector().array()) else None
     u_filtered = [Function(CG1) for i in range(dim)]
     dummy = Cs.vector().copy()
     ll = LagrangeInterpolator()
 
     # Assemble required filter matrices and functions
-    G_under = Function(CG1, assemble(TestFunction(CG1)*dx))
-    G_under.vector().set_local(1./G_under.vector().array())
-    G_under.vector().apply("insert")
+    G_under = assemble(TestFunction(CG1)*dx)
+    G_under.set_local(1./G_under.array())
+    G_under.apply("insert")
     G_matr = assemble(inner(p,q)*dx)
-
+    
+    # Check if case is 2D or 3D and set up uiuj product pairs and 
+    # Sij forms, assemble required matrices
     if dim == 3:
         tensdim = 6
         uiuj_pairs = ((0,0),(0,1),(0,2),(1,1),(1,2),(2,2))
@@ -77,36 +80,35 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
     # Set up functions for Lij and Mij
     Lij = [dummy.copy() for i in range(tensdim)]
     Mij = [dummy.copy() for i in range(tensdim)]
-    # Check if case is 2D or 3D and set up uiuj product pairs and 
-    # Sij forms, assemble required matrices
     Sijcomps = [dummy.copy() for i in range(tensdim)]
     Sijfcomps = [dummy.copy() for i in range(tensdim)]
     # Assemble some required matrices for solving for rate of strain terms
     Sijmats = [assemble_matrix(p.dx(i)*q*dx) for i in range(dim)]
-    # Setip Sij krylov solver
-    Sij_sol = KrylovSolver("cg", "default")
+    # Setup Sij krylov solver
+    Sij_sol = KrylovSolver("bicgstab", "jacobi")
     Sij_sol.parameters["preconditioner"]["structure"] = "same_nonzero_pattern"
     Sij_sol.parameters["error_on_nonconvergence"] = False
     Sij_sol.parameters["monitor_convergence"] = False
     Sij_sol.parameters["report"] = False
 
     # Set up Lagrange functions
-    JLM = dummy.copy()
-    # Initialize to low number
-    JLM[:] += 1E-32
-    JMM = dummy.copy()
-    # Initialize to higher number than JLM but still low
-    JMM[:] += 1E-10
+    JLM = Function(CG1)
+    # Initialize to given number
+    JLM.vector()[:] += DynamicSmagorinsky["JLM_init"]
+    JMM = Function(CG1)
+    # Initialize to given number
+    JMM.vector()[:] += DynamicSmagorinsky["JMM_init"]
     
     return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta, bcs_nut=bcs_nut,
-                delta_CG1_sq=delta_CG1_sq, CG1=CG1, Cs=Cs, u_CG1=u_CG1, 
+                delta_CG1_sq=delta_CG1_sq, CG1=CG1, DG=DG, Cs=Cs, u_CG1=u_CG1, 
                 u_filtered=u_filtered, ll=ll, Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, 
                 Sijfcomps=Sijfcomps, Sijmats=Sijmats, JLM=JLM, JMM=JMM, dim=dim, 
                 tensdim=tensdim, G_matr=G_matr, G_under=G_under, dummy=dummy, 
-                uiuj_pairs=uiuj_pairs, Sij_sol=Sij_sol, bcs_u_CG1=bcs_u_CG1) 
+                uiuj_pairs=uiuj_pairs, Sij_sol=Sij_sol, bcs_u_CG1=bcs_u_CG1,
+                vdegree=vdegree) 
     
 def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep, 
-            DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij,
+            DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, vdegree,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll, dummy, uiuj_pairs, 
             Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, Sij_sol, bcs_u_CG1,
             **NS_namespace):
@@ -117,13 +119,13 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep,
         nut_()
         # Break function
         return
-    
+
     # All velocity components must be interpolated to CG1 then filtered, also apply bcs
     dyn_u_ops(**vars())
-    
+
     # Compute Lij applying dynamic modules function
     compute_Lij(u=u_CG1, uf=u_filtered, **vars())
-    
+
     # Compute Mij applying dynamic modules function
     alpha = 2.0
     magS = compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
@@ -131,12 +133,12 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep,
     # Lagrange average Lij and Mij
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
 
-    # Update Cs = sqrt(JLM/JMM) and filter/smooth Cs
-    Cs.vector().set_local((JLM.array()/JMM.array()).clip(max=0.09))
+    # Update Cs = JLM/JMM and filter/smooth Cs
+    Cs.vector().set_local((JLM.vector().array()/JMM.vector().array()).clip(max=0.09))
     Cs.vector().apply("insert")
     # Filter Cs twice
     [tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), **vars()) for i in xrange(2)]
-    
+
     # Update nut_
     nut_.vector().zero()
     nut_.vector().axpy(1.0, Cs.vector() * delta_CG1_sq * magS)
