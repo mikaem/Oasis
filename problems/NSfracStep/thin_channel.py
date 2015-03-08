@@ -16,7 +16,6 @@ NS_parameters.update(
     les_model="ScaleDepDynamicLagrangian",
     plot_interval = 20,
     save_step=20,
-    print_intermediate_info = 100,
     velocity_degree=2,
     use_krylov_solvers = True)
 NS_parameters["DynamicSmagorinsky"].update(JMM_init=1E3)

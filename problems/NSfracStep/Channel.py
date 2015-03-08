@@ -60,7 +60,7 @@ else:
         Re_tau = Re_tau,
         T = T,
         dt = dt,
-        les_model="ScaleDepDynamicLagrangian",
+        les_model="MixedDynamicLagrangian",
         velocity_degree = 1,
         folder = "channel_results",
         use_krylov_solvers = True
