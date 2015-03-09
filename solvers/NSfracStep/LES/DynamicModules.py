@@ -35,7 +35,7 @@ def dyn_u_ops(u_ab, u_components, u_CG1, u_filtered, ll, bcs_u_CG1,
             [bc.apply(u_filtered[i].vector()) for bc in bcs_u_CG1[ui]]
 
 def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
-        Sijmats, G_matr, dummy, J1=None, J2=None, Aij=None, Bij=None, **NS_namespace):
+        Sijmats, G_matr, dummy, lag_dt, J1=None, J2=None, Aij=None, Bij=None, **NS_namespace):
     """
     Function for Lagrange Averaging two tensors
     AijBij and BijBij, PDE's are solved implicitly.
@@ -52,7 +52,7 @@ def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
     """
     
     # Update eps and assign to dummy
-    eps = dt*(J1.vector().array()*J2.vector().array())**(1./8.)/(1.5*np.sqrt(delta_CG1_sq.array()))
+    eps = lag_dt*(J1.vector().array()*J2.vector().array())**(1./8.)/(1.5*np.sqrt(delta_CG1_sq.array()))
     dummy.set_local(eps/(1.0 + eps))
     dummy.apply("insert")
 

@@ -60,12 +60,12 @@ else:
         Re_tau = Re_tau,
         T = T,
         dt = dt,
-        les_model="MixedDynamicLagrangian",
+        les_model="DynamicLagrangian",
         velocity_degree = 1,
         folder = "channel_results",
         use_krylov_solvers = True
     )
-
+    NS_parameters["DynamicSmagorinsky"].update(Cs_comp_step=10)
 ##############################################################
 class PeriodicDomain(SubDomain):
 
@@ -88,7 +88,7 @@ class PeriodicDomain(SubDomain):
             y[1] = x[1]
             y[2] = x[2] - Lz
             
-#constrained_domain = PeriodicDomain()
+constrained_domain = PeriodicDomain()
 
 def inlet(x, on_bnd):
     return on_bnd and near(x[0], 0)

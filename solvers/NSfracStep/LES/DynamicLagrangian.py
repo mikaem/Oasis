@@ -13,7 +13,7 @@ from common import derived_bcs
 
 __all__ = ['les_setup', 'les_update']
 
-def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
+def les_setup(u_, dt, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
         u_components, bcs, DynamicSmagorinsky, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
@@ -99,20 +99,21 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
     JMM = Function(CG1)
     # Initialize to given number
     JMM.vector()[:] += DynamicSmagorinsky["JMM_init"]
-    
+    lag_dt = DynamicSmagorinsky["Cs_comp_step"]*dt
+
     return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta, bcs_nut=bcs_nut,
                 delta_CG1_sq=delta_CG1_sq, CG1=CG1, DG=DG, Cs=Cs, u_CG1=u_CG1, 
                 u_filtered=u_filtered, ll=ll, Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, 
                 Sijfcomps=Sijfcomps, Sijmats=Sijmats, JLM=JLM, JMM=JMM, dim=dim, 
                 tensdim=tensdim, G_matr=G_matr, G_under=G_under, dummy=dummy, 
                 uiuj_pairs=uiuj_pairs, Sij_sol=Sij_sol, bcs_u_CG1=bcs_u_CG1,
-                vdegree=vdegree) 
+                vdegree=vdegree, lag_dt=lag_dt) 
     
 def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, vdegree,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll, dummy, uiuj_pairs, 
             Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, Sij_sol, bcs_u_CG1,
-            **NS_namespace):
+            lag_dt, **NS_namespace):
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:

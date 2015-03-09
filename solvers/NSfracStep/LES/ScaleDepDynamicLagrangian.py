@@ -41,7 +41,7 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, tstep,
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll, vdegree,
             dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
-            Qij, Nij, JNN, JQN, Sij_sol, bcs_u_CG1, **NS_namespace): 
+            Qij, Nij, JNN, JQN, Sij_sol, bcs_u_CG1, lag_dt, **NS_namespace): 
 
     # Check if Cs is to be computed, if not update nut_ and break
     if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:

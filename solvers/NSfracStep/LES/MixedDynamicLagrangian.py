@@ -68,7 +68,7 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut
     return dyn_dict
 
 def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, u_components, V,
-            DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, Hij,
+            DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, Hij, lag_dt,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll, mixedLESSource,
             dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
             mixedmats, Sij_sol, compute_Hij, bcs_u_CG1, dummy2, vdegree,
