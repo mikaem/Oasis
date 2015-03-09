@@ -88,7 +88,7 @@ class PeriodicDomain(SubDomain):
             y[1] = x[1]
             y[2] = x[2] - Lz
             
-constrained_domain = PeriodicDomain()
+#constrained_domain = PeriodicDomain()
 
 def inlet(x, on_bnd):
     return on_bnd and near(x[0], 0)

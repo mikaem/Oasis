@@ -58,6 +58,7 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
 
     # Create functions for holding the different velocities
     u_CG1 = [Function(CG1) for i in range(dim)]
+    # Check vdegree; will become True only if the FunctionSpaces are 100% equal
     vdegree = 1 if len(u_[0].vector().array()) == len(u_CG1[0].vector().array()) else None
     u_filtered = [Function(CG1) for i in range(dim)]
     dummy = Cs.vector().copy()

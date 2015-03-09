@@ -231,18 +231,14 @@ def compute_Hij(Hij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, CG1,
         # Compute 
         # Hij = F(G(F(ui)F(uj))) - F(G(F(ui)))F(G(F(uj))) - F(G(uiuj)) + F(G(ui)G(uj))
 
-        # Zero Hij component
-        Hij[i].zero()
         # Extract uiuj_pair
         j,k = uiuj_pairs[i]
         
         # Compute and add F(G(F(ui)F(uj)))
         # Filter grid filter
-        tophatfilter(unfiltered=uf[j].vector()*uf[k].vector(), filtered=dummy, weight=w, **vars())
+        tophatfilter(unfiltered=uf[j].vector()*uf[k].vector(), filtered=Hij[i], weight=w, **vars())
         # Filter test filter
-        tophatfilter(unfiltered=dummy, filtered=dummy, **vars())
-        # Add to Hij
-        Hij[i].axpy(1.0, dummy)
+        tophatfilter(unfiltered=Hij[i], filtered=Hij[i], **vars())
 
         # Compute and add F(G(F(ui)))F(G(F(uj)))
         # Filter uf[j] twice, first grid then test
@@ -285,14 +281,10 @@ def compute_Hij_DMM1(Hij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, C
         j,k = uiuj_pairs[i]
 
         # Compute and add F(G(ui)G(uj))
-        dummy.zero()
-        dummy.axpy(1.0, u[j].vector())
         # Grid filter u[j]
-        tophatfilter(unfiltered=dummy, filtered=dummy, weight=w, **vars())
-        dummy2.zero()
-        dummy2.axpy(1.0, u[k].vector())
+        tophatfilter(unfiltered=u[j].vector(), filtered=dummy, weight=w, **vars())
         # Grid filter u[k]
-        tophatfilter(unfiltered=dummy2, filtered=dummy2, weight=w, **vars())
+        tophatfilter(unfiltered=u[k].vector(), filtered=dummy2, weight=w, **vars())
         # Axpy to Hij
         Hij[i].axpy(1.0, dummy*dummy2)
         # Filter dummy
@@ -315,11 +307,8 @@ def compute_Leonard(Lij, uiuj_pairs, dummy, dummy2, tensdim, G_matr, G_under, CG
     # Loop over components
     for i in range(tensdim):
         j,k = uiuj_pairs[i]
-        Lij[i].zero()
-        # Add uiuj
-        Lij[i].axpy(1.0, u[j].vector()*u[k].vector())
-        # Grid filter --> G(uiuj)
-        tophatfilter(unfiltered=Lij[i], filtered=Lij[i], weight=w, **vars())
+        # Grid filter --> G(uiuj) and add to Lij
+        tophatfilter(unfiltered=u[j].vector()*u[k].vector(), filtered=Lij[i], weight=w, **vars())
         # Filter u velocities once through grid filter
         tophatfilter(unfiltered=u[j].vector(), filtered=dummy, weight=w, **vars())
         tophatfilter(unfiltered=u[k].vector(), filtered=dummy2, weight=w, **vars())

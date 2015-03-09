@@ -59,8 +59,11 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut
     elif MixedDynamicLagrangian["model"] == "DMM1":
         from DynamicModules import compute_Hij_DMM1 as compute_Hij
     
+    # For check if Cs has been computed once
+    Cs_bool = [False]
+
     dyn_dict.update(Hij=Hij, mixedmats=mixedmats, compute_Hij=compute_Hij,
-            dummy2=dummy2)
+            dummy2=dummy2, Cs_bool=Cs_bool)
 
     return dyn_dict
 
@@ -69,13 +72,29 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, u_components, V,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll, mixedLESSource,
             dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
             mixedmats, Sij_sol, compute_Hij, bcs_u_CG1, dummy2, vdegree,
-            **NS_namespace):
+            Cs_bool, **NS_namespace):
 
-    # Check if Cs is to be computed, if not update nut_ and break
-    if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
+    # Check if Cs is to be computed, if not update nut_, mixedLESSource and break
+    if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0 and Cs:
         # Update nut_
         nut_()
-        # Break function
+        
+        # Only update mixed source if Cs has been computed once; if not
+        # the Leonard term may cause instabilities
+        if Cs_bool[0] == True:
+            # Update CG1-velocity
+            if vdegree == 1:
+                for i in range(dim):
+                    u_CG1[i].vector().zero()
+                    # Assign vector
+                    u_CG1[i].vector().axpy(1.0, u_ab[i].vector())
+            else:
+                for i in range(dim):
+                    ll.interpolate(u_CG1[i], u_ab[i])
+            # Update mixedLESSource
+            update_mixedLESSource(**vars())
+
+        # Break les_update function
         return
 
     # All velocity components must be interpolated to CG1 then filtered
@@ -114,3 +133,5 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, u_components, V,
 
     # Update MixedSources for rhs NS
     update_mixedLESSource(**vars())
+
+    Cs_bool[0] = True
