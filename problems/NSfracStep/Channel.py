@@ -10,8 +10,8 @@ from os import getcwd
 import cPickle
 import random
 
-#restart_folder = 'channel_results/data/21/Checkpoint'
-restart_folder = None
+restart_folder = 'channel_results/data/1/Checkpoint'
+#restart_folder = None
 
 class ChannelGrid(StructuredGrid):
     """Grid for computing statistics"""
@@ -22,7 +22,7 @@ class ChannelGrid(StructuredGrid):
 
 def mesh(Nx, Ny, Nz, Lx, Ly, Lz, **params):
     # Function for creating stretched mesh in y-direction
-    m = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
+    m = BoxMesh(0., -L2/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
     x = m.coordinates() 
     x[:, 1] = arctan(1.*pi*(x[:, 1])) / arctan(1.*pi) 
     return m
@@ -32,7 +32,7 @@ if restart_folder:
     restart_folder = path.join(getcwd(), restart_folder)
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
-    NS_parameters['T'] = NS_parameters['T'] + 200 * NS_parameters['dt'] 
+    NS_parameters['T'] = NS_parameters['T'] + 200
     NS_parameters['restart_folder'] = restart_folder
     globals().update(NS_parameters)
     
@@ -46,7 +46,7 @@ else:
     NS_parameters.update(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz)
     
     # Override some problem specific parameters
-    T = 100.
+    T = 200.
     dt = 0.2
     nu = 2.e-5
     Re_tau = 178.12
@@ -60,12 +60,11 @@ else:
         Re_tau = Re_tau,
         T = T,
         dt = dt,
-        les_model="DynamicLagrangian",
         velocity_degree = 1,
         folder = "channel_results",
         use_krylov_solvers = True
     )
-    NS_parameters["DynamicSmagorinsky"].update(Cs_comp_step=10)
+
 ##############################################################
 class PeriodicDomain(SubDomain):
 
@@ -112,8 +111,8 @@ def pre_solve_hook(V, q_, q_1, q_2, u_components, mesh, **NS_namespace):
     facets = FacetFunction('size_t', mesh, 0)
     Inlet.mark(facets, 1)    
     normal = FacetNormal(mesh)
-    Csfile = File("channel_results/Cs.pvd")
-    return dict(uv=uv, stats=stats, facets=facets,Csfile=Csfile, normal=normal)
+
+    return dict(uv=uv, stats=stats, facets=facets, normal=normal)
     
 def walls(x, on_bnd):
     return (near(x[1], -Ly/2.) or near(x[1], Ly/2.))
@@ -168,18 +167,17 @@ def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
         else:
             u_sol.parameters['preconditioner']['structure'] = "same"
 
-def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics, Csfile, Cs,
+def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
                   newfolder, folder, check_flux, save_statistics, mesh,
                   facets, normal, check_if_reset_statistics, **NS_namespace):
     # print timestep
-    info_red("tstep = {}".format(tstep))
+    info_red("tstep = {}".format(tstep))         
     if check_if_reset_statistics(folder):
         info_red("Resetting statistics")
         stats.probes.clear()
 
     if tstep % update_statistics == 0:
         stats(q_['u0'], q_['u1'], q_['u2'])
-        Csfile << Cs
 
     if tstep % save_statistics == 0:
         statsfolder = path.join(newfolder, "Stats")
@@ -192,8 +190,8 @@ def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics, Csfile, Cs,
         normw = norm(q_['u2'].vector())
         if MPI.rank(mpi_comm_world()) == 0:
            print "Flux = ", u1, " tstep = ", tstep, " norm = ", normv, normw
-
+        
 def theend(newfolder, tstep, stats, **NS_namespace):
     """Store statistics before exiting"""
     statsfolder = path.join(newfolder, "Stats")
-    stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
+    stats.toh5(0, tstep, filename="dump_mean_{}.h5".format(tstep))

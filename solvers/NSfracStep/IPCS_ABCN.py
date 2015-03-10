@@ -72,7 +72,7 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     a_scalar = a_conv
 
     LT = None if les_model is None else LESsource(nut_, u_ab, V, name='LTd')
-    mixedLESSource = {ui: assemble(Constant(0)*v*dx) for i,ui in enumerate(u_components)}
+    mixedLESSource = None if les_model is None else {ui: assemble(Constant(0)*v*dx) for i,ui in enumerate(u_components)}
 
     d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT,
             mixedLESSource=mixedLESSource, KT=KT)
