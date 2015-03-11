@@ -9,7 +9,7 @@ from os import getpid, path
 from collections import defaultdict
 from numpy import array, maximum, zeros
 
-UnitSquareMesh(20, 20) # Just due to MPI bug on Scinet
+#UnitSquareMesh(20, 20) # Just due to MPI bug on Scinet
 
 try:
     from fenicstools import getMemoryUsage
