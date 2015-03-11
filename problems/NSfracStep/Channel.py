@@ -36,7 +36,7 @@ if restart_folder:
     NS_parameters['T'] = NS_parameters['T'] + 100000*NS_parameters["dt"]
     NS_parameters['restart_folder'] = restart_folder
     machine_name = subprocess.check_output("hostname", shell=True).split(".")[0]
-    channel_path = path.sep + path.join("mn", machine_name, "storage", "joakibo", "channel_results")
+    channel_path = path.sep + path.join("mn", machine_name, "storage", "joakibo", "Master", "Oasis", "channel_results")
     NS_parameters["folder"] = channel_path
     NS_parameters["les_model"] = "Smagorinsky"
     globals().update(NS_parameters)
@@ -116,7 +116,7 @@ def pre_solve_hook(V, q_, q_1, q_2, u_components, mesh, **NS_namespace):
     facets = FacetFunction('size_t', mesh, 0)
     Inlet.mark(facets, 1)    
     normal = FacetNormal(mesh)
-
+    
     return dict(uv=uv, stats=stats, facets=facets, normal=normal)
     
 def walls(x, on_bnd):
@@ -172,7 +172,7 @@ def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
         else:
             u_sol.parameters['preconditioner']['structure'] = "same"
 
-def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
+def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics, 
                   newfolder, folder, check_flux, save_statistics, mesh,
                   facets, normal, check_if_reset_statistics, **NS_namespace):
     # print timestep
@@ -186,7 +186,7 @@ def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
 
     if tstep % save_statistics == 0:
         statsfolder = path.join(newfolder, "Stats")
-        stats.toh5(0, tstep, filename="dump_mean_{}.h5".format(tstep))
+        stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
         
     if tstep % check_flux == 0:
         u1 = assemble(dot(u_, normal)*ds(1, domain=mesh, subdomain_data=facets))
@@ -195,8 +195,8 @@ def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
         normw = norm(q_['u2'].vector())
         if MPI.rank(mpi_comm_world()) == 0:
            print "Flux = ", u1, " tstep = ", tstep, " norm = ", normv, normw
-        
+
 def theend(newfolder, tstep, stats, **NS_namespace):
     """Store statistics before exiting"""
     statsfolder = path.join(newfolder, "Stats")
-    stats.toh5(0, tstep, filename="dump_mean_{}.h5".format(tstep))
+    stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
