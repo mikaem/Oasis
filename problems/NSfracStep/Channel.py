@@ -6,11 +6,12 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from ..NSfracStep import *
 from fenicstools import StructuredGrid, Probes
 from numpy import arctan, array, cos, pi
-from os import getcwd
+from os import getcwd, path
 import cPickle
 import random
+import subprocess
 
-restart_folder = 'channel_results/data/1/Checkpoint'
+restart_folder = 'channel_results/data/conv/Checkpoint'
 #restart_folder = None
 
 class ChannelGrid(StructuredGrid):
@@ -22,7 +23,7 @@ class ChannelGrid(StructuredGrid):
 
 def mesh(Nx, Ny, Nz, Lx, Ly, Lz, **params):
     # Function for creating stretched mesh in y-direction
-    m = BoxMesh(0., -L2/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
+    m = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
     x = m.coordinates() 
     x[:, 1] = arctan(1.*pi*(x[:, 1])) / arctan(1.*pi) 
     return m
@@ -32,8 +33,12 @@ if restart_folder:
     restart_folder = path.join(getcwd(), restart_folder)
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
-    NS_parameters['T'] = NS_parameters['T'] + 200
+    NS_parameters['T'] = NS_parameters['T'] + 100000*NS_parameters["dt"]
     NS_parameters['restart_folder'] = restart_folder
+    machine_name = subprocess.check_output("hostname", shell=True).split(".")[0]
+    channel_path = path.sep + path.join("mn", machine_name, "storage", "joakibo", "channel_results")
+    NS_parameters["folder"] = channel_path
+    NS_parameters["les_model"] = "Smagorinsky"
     globals().update(NS_parameters)
     
 else:
