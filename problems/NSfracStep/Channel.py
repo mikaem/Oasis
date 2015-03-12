@@ -6,23 +6,13 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from ..NSfracStep import *
 from fenicstools import StructuredGrid, Probes
 from numpy import arctan, array, cos, pi
-<<<<<<< HEAD
-from os import getcwd, path
-=======
 from os import getcwd, makedirs
->>>>>>> master
 import cPickle
 import random
 import subprocess
 
-<<<<<<< HEAD
-restart_folder = 'channel_results/data/conv/Checkpoint'
-#restart_folder = None
-=======
 #restart_folder = '/home/mikael/Dropbox/ChannelDNS/64/Checkpoint'
 #restart_folder = 'channel_results/data/20/Checkpoint'
-restart_folder = None
->>>>>>> master
 
 class ChannelGrid(StructuredGrid):
     """Grid for computing statistics"""
@@ -43,12 +33,8 @@ if restart_folder:
     restart_folder = path.join(getcwd(), restart_folder)
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
-<<<<<<< HEAD
-    NS_parameters['T'] = NS_parameters['T'] + 100000*NS_parameters["dt"]
-=======
     #NS_parameters['T'] = NS_parameters['T'] + 200 * NS_parameters['dt'] 
     NS_parameters['T'] = 10
->>>>>>> master
     NS_parameters['restart_folder'] = restart_folder
     machine_name = subprocess.check_output("hostname", shell=True).split(".")[0]
     channel_path = path.sep + path.join("mn", machine_name, "storage", "joakibo", "Master", "Oasis", "channel_results")
@@ -66,11 +52,7 @@ else:
     NS_parameters.update(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz)
     
     # Override some problem specific parameters
-<<<<<<< HEAD
-    T = 200.
-=======
     T = 1.
->>>>>>> master
     dt = 0.2
     nu = 2.e-5
     Re_tau = 178.12
