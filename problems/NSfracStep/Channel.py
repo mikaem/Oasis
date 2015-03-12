@@ -6,13 +6,23 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from ..NSfracStep import *
 from fenicstools import StructuredGrid, Probes
 from numpy import arctan, array, cos, pi
+<<<<<<< HEAD
 from os import getcwd, path
+=======
+from os import getcwd, makedirs
+>>>>>>> master
 import cPickle
 import random
 import subprocess
 
+<<<<<<< HEAD
 restart_folder = 'channel_results/data/conv/Checkpoint'
 #restart_folder = None
+=======
+#restart_folder = '/home/mikael/Dropbox/ChannelDNS/64/Checkpoint'
+#restart_folder = 'channel_results/data/20/Checkpoint'
+restart_folder = None
+>>>>>>> master
 
 class ChannelGrid(StructuredGrid):
     """Grid for computing statistics"""
@@ -33,7 +43,12 @@ if restart_folder:
     restart_folder = path.join(getcwd(), restart_folder)
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
+<<<<<<< HEAD
     NS_parameters['T'] = NS_parameters['T'] + 100000*NS_parameters["dt"]
+=======
+    #NS_parameters['T'] = NS_parameters['T'] + 200 * NS_parameters['dt'] 
+    NS_parameters['T'] = 10
+>>>>>>> master
     NS_parameters['restart_folder'] = restart_folder
     machine_name = subprocess.check_output("hostname", shell=True).split(".")[0]
     channel_path = path.sep + path.join("mn", machine_name, "storage", "joakibo", "Master", "Oasis", "channel_results")
@@ -51,7 +66,11 @@ else:
     NS_parameters.update(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz)
     
     # Override some problem specific parameters
+<<<<<<< HEAD
     T = 200.
+=======
+    T = 1.
+>>>>>>> master
     dt = 0.2
     nu = 2.e-5
     Re_tau = 178.12
@@ -102,10 +121,13 @@ utau = nu * Re_tau
 def body_force(**NS_namespace):
     return Constant((utau**2, 0., 0.))
 
-def pre_solve_hook(V, q_, q_1, q_2, u_components, mesh, **NS_namespace):    
+def pre_solve_hook(V, u_, mesh, AssignedVectorFunction, newfolder, MPI, 
+                   mpi_comm_world, **NS_namespace):    
     """Called prior to time loop"""
-    Vv = VectorFunctionSpace(V.mesh(), 'CG', 1, constrained_domain=constrained_domain)
-    uv = Function(Vv) 
+    if MPI.rank(mpi_comm_world()) == 0:
+        makedirs(path.join(newfolder, "Stats"))
+        
+    uv = AssignedVectorFunction(u_) 
     tol = 5e-8
     
     # It's periodic so don't pick the same location twice for sampling statistics:
@@ -166,7 +188,6 @@ def initialize(V, q_, q_1, q_2, bcs, restart_folder, **NS_namespace):
     
 def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     if use_krylov_solvers:
-        # Make tolerance stricter in x-direction (direction of flow)
         if ui == "u0":            
             u_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
         else:
