@@ -151,9 +151,6 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         
         t0 = OasisTimer("Tentative velocity")
         if inner_iter == 1:
-            tles = OasisTimer("LES computations")
-            les_update(**vars())
-            tles.stop()
             assemble_first_inner_iter(**vars())
         udiff[0] = 0.0
         for i, ui in enumerate(u_components):
@@ -187,6 +184,11 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         
     temporal_hook(**vars())
     
+    # Compute LES and and nut_
+    tles = OasisTimer("LES computations")
+    les_update(**vars())
+    tles.stop()
+
     # Save solution if required and check for killoasis file
     stop = save_solution(**vars())
 

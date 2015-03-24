@@ -6,7 +6,7 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 import numpy as np
 
 def dyn_u_ops(u_ab, u_components, u_CG1, u_filtered, ll, bcs_u_CG1,
-        G_matr, G_under, vdegree, **NS_namespace):
+        G_matr, G_under, vdegree, u_filtered_CG2, **NS_namespace):
     """
     Function for interpolating u to CG1, apply BCS, then filter,
     then apply BCS to filtered.
@@ -22,6 +22,8 @@ def dyn_u_ops(u_ab, u_components, u_CG1, u_filtered, ll, bcs_u_CG1,
             tophatfilter(unfiltered=u_CG1[i].vector(), filtered=u_filtered[i].vector(), **vars())
             # Apply BCS
             [bc.apply(u_filtered[i].vector()) for bc in bcs_u_CG1[ui]]
+            # Interpolate to CG2
+            ll.interpolate(u_filtered_CG2[i], u_filtered[i])
     else:
         # Loop over u_components
         for i, ui in enumerate(u_components):
@@ -33,9 +35,12 @@ def dyn_u_ops(u_ab, u_components, u_CG1, u_filtered, ll, bcs_u_CG1,
             tophatfilter(unfiltered=u_CG1[i].vector(), filtered=u_filtered[i].vector(), **vars())
             # Apply BCS
             [bc.apply(u_filtered[i].vector()) for bc in bcs_u_CG1[ui]]
+            # Interpolate to CG2
+            ll.interpolate(u_filtered_CG2[i], u_filtered[i])
 
-def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
-        Sijmats, G_matr, dummy, lag_dt, J1=None, J2=None, Aij=None, Bij=None, **NS_namespace):
+def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim, u_ab,
+        Sijmats, G_matr, dummy, lag_dt, tstep, DynamicSmagorinsky, first_lag_step,
+        J1=None, J2=None, Aij=None, Bij=None, **NS_namespace):
     """
     Function for Lagrange Averaging two tensors
     AijBij and BijBij, PDE's are solved implicitly.
@@ -52,26 +57,32 @@ def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
     """
     
     # Update eps and assign to dummy
-    eps = lag_dt*(J1.vector().array()*J2.vector().array())**(1./8.)/(1.5*np.sqrt(delta_CG1_sq.array()))
-    dummy.set_local(eps/(1.0 + eps))
-    dummy.apply("insert")
+    eps = ((J1.vector().array()*J2.vector().array())**(1./8.))/(1.5*np.sqrt(delta_CG1_sq.array()))
+    eps = eps/(1.0 + eps)
 
     # Compute tensor contractions
     AijBij = tensor_inner(A=Aij, B=Bij, **vars())
     BijBij = tensor_inner(A=Bij, B=Bij, **vars())
-
+    
+    # Backward terms, should be J1(x-dt*u) and J2(x-dt*u)
     J1_back = J1.vector()
     J2_back = J2.vector()
 
-    # Update J1 and clip
-    J1.vector().axpy(1.0, dummy*(AijBij-J1_back))
-    J1.vector().set_local(J1.vector().array().clip(min=1E-32))
-    J1.vector().apply("insert")
-    # Update J2
-    J2.vector().axpy(1.0, dummy*(BijBij-J2_back))
-    
+    # Set initial conditions if tstep == 1
+    if first_lag_step[0]:
+        J1.vector().set_local(DynamicSmagorinsky["Cs"]**2*BijBij.array())
+        J1.vector().apply("insert")
+        J2.vector().set_local(BijBij.array())
+        J2.vector().apply("insert")
+        first_lag_step[0] = False
+    else:
+        J1.vector().set_local((eps*AijBij.array() + (1-eps)*J1_back.array()).clip(min=1E-32))
+        J1.vector().apply("insert")
+        J2.vector().set_local(eps*BijBij.array() + (1-eps)*J2_back.array())
+        J2.vector().apply("insert")
+
 def tophatfilter(G_matr, G_under, unfiltered=None, filtered=None,
-        weight=1.0, **NS_namespace):
+        weight=1.0, N=1, **NS_namespace):
     """
     Filtering a CG1 function for applying a generalized top hat filter.
     uf = int(G*u)/int(G).
@@ -82,13 +93,15 @@ def tophatfilter(G_matr, G_under, unfiltered=None, filtered=None,
     """
 
     # Filter to vec_
-    vec = weight*((G_matr*unfiltered)*G_under) + (1-weight)*unfiltered
+    for i in range(N):
+        vec = weight*((G_matr*unfiltered)*G_under) + (1-weight)*unfiltered
+        unfiltered = vec
     # Zero filtered vector
     filtered.zero()
     # Axpy weighted filter operation to filtered
     filtered.axpy(1.0, vec)
 
-def compute_Lij(Lij, uiuj_pairs, tensdim, G_matr, G_under, CG1,
+def compute_Lij(Lij, uiuj_pairs, tensdim, dummy, G_matr, G_under, CG1,
         u=None, uf=None, Qij=None, **NS_namespace):
     """
     Manually compute the tensor Lij = F(uiuj)-F(ui)F(uj)
@@ -106,16 +119,18 @@ def compute_Lij(Lij, uiuj_pairs, tensdim, G_matr, G_under, CG1,
             Qij[i].axpy(1.0, Lij[i])
         # Axpy - F(uj)F(uk)
         Lij[i].axpy(-1.0, uf[j].vector()*uf[k].vector())
+    # Remove trace from Lij
+    remove_trace(Aij=Lij, **vars())
 
 def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq,
-        tensdim, Sij_sol, dummy, CG1, alphaval=None, u_nf=None, u_f=None, Nij=None, **NS_namespace):
+        tensdim, Sij_sol, dummy, CG1, alphaval=None, u_nf=None, u_f=None, 
+        Nij=None, **NS_namespace):
     """
     Manually compute the tensor Mij = 2*delta**2*(F(|S|Sij)-alpha**2*F(|S|)F(Sij)
     """
 
     Sij = Sijcomps
     Sijf = Sijfcomps
-    alpha = alphaval**2
     deltasq = 2*delta_CG1_sq
     
     # Apply pre-assembled matrices and compute right hand sides
@@ -145,7 +160,10 @@ def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq
         Sij_sol.solve(G_matr, Sij[i], bu[i])
         # Solve for the different components of F(Sij)
         Sij_sol.solve(G_matr, Sijf[i], buf[i])
-
+    
+    # Remove traces from Sij and Sijf
+    remove_trace(Aij=Sij, **vars())
+    remove_trace(Aij=Sijf, **vars())
     # Compute magnitudes of Sij and Sijf
     magS = mag(Aij=Sij, **vars())
     magSf = mag(Aij=Sijf, **vars())
@@ -154,14 +172,14 @@ def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq
     for i in xrange(tensdim):
         # Compute F(|S|*Sij)
         tophatfilter(unfiltered=magS*Sij[i], filtered=Mij[i], **vars())
-        
+
         # Check if Nij, assign F(|S|Sij) if not None
         if Nij != None:
             Nij[i].zero()
             Nij[i].axpy(1.0, Mij[i])
         
         # Compute 2*delta**2*(F(|S|Sij) - alpha**2*F(|S|)F(Sij)) and add to Mij[i]
-        Mij[i].axpy(-1.0, alpha*magSf*Sijf[i])
+        Mij[i].axpy(-1.0, (alphaval**2)*magSf*Sijf[i])
         Mij[i] *= deltasq
 
     # Return magS for use when updating nut_
@@ -374,13 +392,13 @@ def mag(tensdim, dummy, Aij=None, **NS_namespace):
     """
     Compute |A| = magA = 2*sqrt(inner(Aij,Aij))
     """
+    
     if tensdim == 3:
         # Compute |S|
-        magA = 2*(Aij[0]*Aij[0] + 2*Aij[1]*Aij[1] + Aij[2]*Aij[2])
+        magA = 2*tensor_inner(A=Aij, B=Aij, **vars())
     elif tensdim == 6:
         # Compute |S|
-        magA = 2*(Aij[0]*Aij[0] + 2*Aij[1]*Aij[1] + 2*Aij[2]*Aij[2] + Aij[3]*Aij[3] +
-            2*Aij[4]*Aij[4] + Aij[5]*Aij[5])
+        magA = 2*tensor_inner(A=Aij, B=Aij, **vars())
 
     magA.set_local(np.sqrt(magA.array()))
     magA.apply("insert")

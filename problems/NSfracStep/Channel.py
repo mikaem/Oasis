@@ -6,7 +6,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from ..NSfracStep import *
 from fenicstools import StructuredGrid, Probes
 from numpy import arctan, array, cos, pi
-from os import getcwd, path
+from os import getcwd, path, makedirs
 import cPickle
 import random
 import subprocess
@@ -33,12 +33,12 @@ if restart_folder:
     restart_folder = path.join(getcwd(), restart_folder)
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
-    NS_parameters['T'] = NS_parameters['T'] + 100000*NS_parameters["dt"]
+    NS_parameters['T'] = NS_parameters['T'] + 1E6*NS_parameters["dt"]
     NS_parameters['restart_folder'] = restart_folder
-    machine_name = subprocess.check_output("hostname", shell=True).split(".")[0]
-    channel_path = path.sep + path.join("mn", machine_name, "storage", "joakibo", "Master", "Oasis", "channel_results")
-    NS_parameters["folder"] = channel_path
-    NS_parameters["les_model"] = "Smagorinsky"
+    NS_parameters["folder"] = "channel_results"
+    NS_parameters["les_model"] = "DynamicLagrangian"
+    NS_parameters["print_intermediate_info"] = 1E6
+    NS_parameters["DynamicSmagorinsky"].update(Cs=0.1, Cs_comp_step=1)
     globals().update(NS_parameters)
     
 else:
@@ -51,22 +51,24 @@ else:
     NS_parameters.update(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz)
     
     # Override some problem specific parameters
-    T = 200.
+    T = 1E6
     dt = 0.2
     nu = 2.e-5
     Re_tau = 178.12
     NS_parameters.update(
         update_statistics = 10,
-        save_statistics = 100,
+        save_statistics = 1000,
         check_flux = 10,
-        checkpoint = 100,
-        save_step = 100,
+        checkpoint = 200,
+        save_step = 1E6,
         nu = nu,
         Re_tau = Re_tau,
         T = T,
         dt = dt,
         velocity_degree = 1,
-        folder = "channel_results",
+        les_model="Wale",
+        print_intermediate_info=1E6,
+        folder = "channel_results_32DynLag",
         use_krylov_solvers = True
     )
 
@@ -102,12 +104,17 @@ utau = nu * Re_tau
 def body_force(**NS_namespace):
     return Constant((utau**2, 0., 0.))
 
-def pre_solve_hook(V, q_, q_1, q_2, u_components, mesh, **NS_namespace):    
+def pre_solve_hook(V, q_, q_1, q_2, u_components, mesh,
+        newfolder, MPI, mpi_comm_world, **NS_namespace):    
     """Called prior to time loop"""
     Vv = VectorFunctionSpace(V.mesh(), 'CG', 1, constrained_domain=constrained_domain)
     uv = Function(Vv) 
     tol = 5e-8
-    
+    if MPI.rank(mpi_comm_world()) == 0:
+	try:
+        	makedirs(path.join(newfolder, "Stats"))
+	except:
+		pass
     # It's periodic so don't pick the same location twice for sampling statistics:
     stats = ChannelGrid(V, [Nx, Ny+1, Nz], [tol, -Ly/2., -Lz/2.+tol], [[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]], [Lx-Lx/Nx, Ly, Lz-Lz/Nz], statistics=True)
     
@@ -172,11 +179,10 @@ def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
         else:
             u_sol.parameters['preconditioner']['structure'] = "same"
 
-def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics, 
-                  newfolder, folder, check_flux, save_statistics, mesh,
+def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
+                  newfolder, folder, check_flux, save_statistics, mesh, vfile,
                   facets, normal, check_if_reset_statistics, **NS_namespace):
-    # print timestep
-    info_red("tstep = {}".format(tstep))         
+    # print timestep       
     if check_if_reset_statistics(folder):
         info_red("Resetting statistics")
         stats.probes.clear()
@@ -187,7 +193,7 @@ def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
     if tstep % save_statistics == 0:
         statsfolder = path.join(newfolder, "Stats")
         stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
-        
+    
     if tstep % check_flux == 0:
         u1 = assemble(dot(u_, normal)*ds(1, domain=mesh, subdomain_data=facets))
         u1 = assemble(dot(u_, normal)*ds(1, domain=mesh, subdomain_data=facets))
@@ -200,3 +206,21 @@ def theend(newfolder, tstep, stats, **NS_namespace):
     """Store statistics before exiting"""
     statsfolder = path.join(newfolder, "Stats")
     stats.toh5(0, tstep, filename=statsfolder+"/dump_mean_{}.h5".format(tstep))
+
+def init_from_restart(restart_folder, sys_comp, uc_comp, u_components, 
+                      q_, q_1, q_2, **NS_namespace):
+    """Initialize solution from checkpoint files """
+    if restart_folder:
+        for ui in sys_comp:
+            filename = path.join(restart_folder, ui + '_func.h5')
+            hdf5_file = HDF5File(mpi_comm_world(), filename, "r")
+            hdf5_file.read(q_[ui], "/current")      
+            q_[ui].vector().apply('insert')
+            # Check for the solution at a previous timestep as well
+            if ui in uc_comp:
+                q_1[ui].vector().zero()
+                q_1[ui].vector().axpy(1., q_[ui].vector())
+                q_1[ui].vector().apply('insert')
+                if ui in u_components:
+                    hdf5_file.read(q_2[ui], "/previous")
+                    q_2[ui].vector().apply('insert')
