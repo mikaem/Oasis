@@ -24,7 +24,6 @@ def les_setup(u_, mesh, KineticEnergySGS, assemble_matrix, CG1Function, nut_kryl
     delta.vector().apply('insert')
     
     Ck = KineticEnergySGS["Ck"]
-    Ce = KineticEnergySGS["Ce"]
     ksgs = interpolate(Constant(1E-7), CG1)
     bc_ksgs = DirichletBC(CG1, 0, "on_boundary")
     A_mass = assemble_matrix(TrialFunction(CG1)*TestFunction(CG1)*dx)

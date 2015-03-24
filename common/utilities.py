@@ -5,7 +5,9 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import assemble, KrylovSolver, LUSolver,  Function, TrialFunction, \
     TestFunction, dx, Vector, Matrix, GenericMatrix, FunctionSpace, Timer, div, \
-    Form, Coefficient, inner, grad, as_backend_type
+    Form, Coefficient, inner, grad, as_backend_type, VectorFunctionSpace, FunctionAssigner
+
+from ufl.tensors import ListTensor
 
 # Create some dictionaries to hold work matrices
 class Mat_cache_dict(dict):
@@ -293,6 +295,29 @@ class CG1Function(OasisFunction):
     def bound(self):
         self.vector().set_local(self.vector().array().clip(min=0))
         self.vector().apply("insert")
+
+class AssignedVectorFunction(Function):
+    """Vector function used for postprocessing.
+    
+    Assign data from ListTensor components using FunctionAssigner.
+    """
+    def __init__(self, u, name="Assigned Vector Function"):
+        
+        self.u = u
+        assert isinstance(u, ListTensor)
+        V = u[0].function_space()
+        mesh = V.mesh()
+        family = V.ufl_element().family()
+        degree = V.ufl_element().degree()
+        constrained_domain = V.dofmap().constrained_domain            
+        Vv = VectorFunctionSpace(mesh, family, degree, constrained_domain=constrained_domain)
+        
+        Function.__init__(self, Vv, name=name)
+        self.fa = [FunctionAssigner(Vv.sub(i), V) for i, _u in enumerate(u)]
+        
+    def __call__(self):
+        for i, _u in enumerate(self.u):
+            self.fa[i].assign(self.sub(i), _u)
 
 class LESsource(Function):
     """Function used for computing the transposed source to the LES equation.

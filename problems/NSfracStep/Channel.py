@@ -11,8 +11,8 @@ import cPickle
 import random
 import subprocess
 
-restart_folder = 'channel_results/data/conv/Checkpoint'
-#restart_folder = None
+#restart_folder = '/home/mikael/Dropbox/ChannelDNS/64/Checkpoint'
+#restart_folder = 'channel_results/data/20/Checkpoint'
 
 class ChannelGrid(StructuredGrid):
     """Grid for computing statistics"""
@@ -104,11 +104,13 @@ utau = nu * Re_tau
 def body_force(**NS_namespace):
     return Constant((utau**2, 0., 0.))
 
-def pre_solve_hook(V, q_, q_1, q_2, u_components, mesh,
-        newfolder, MPI, mpi_comm_world, **NS_namespace):    
+def pre_solve_hook(V, u_, mesh, AssignedVectorFunction, newfolder, MPI, 
+                   mpi_comm_world, **NS_namespace):    
     """Called prior to time loop"""
-    Vv = VectorFunctionSpace(V.mesh(), 'CG', 1, constrained_domain=constrained_domain)
-    uv = Function(Vv) 
+    if MPI.rank(mpi_comm_world()) == 0:
+        makedirs(path.join(newfolder, "Stats"))
+        
+    uv = AssignedVectorFunction(u_) 
     tol = 5e-8
     if MPI.rank(mpi_comm_world()) == 0:
 	try:
@@ -173,7 +175,6 @@ def initialize(V, q_, q_1, q_2, bcs, restart_folder, **NS_namespace):
     
 def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
     if use_krylov_solvers:
-        # Make tolerance stricter in x-direction (direction of flow)
         if ui == "u0":            
             u_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
         else:
