@@ -6,7 +6,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from ..NSfracStep import *
 
 def mesh(Nx, Ny, Nz, **params):
-    return BoxMesh(-pi, -pi, -pi, pi, pi, pi, Nx, Ny, Nz)
+    return BoxMesh(Point(-pi, -pi, -pi), Point(pi, pi, pi), Nx, Ny, Nz)
 
 def near(x, y, tol=1e-12):
     return bool(abs(x-y) < tol)

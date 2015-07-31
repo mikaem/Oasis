@@ -17,7 +17,7 @@ NS_parameters.update(
     checkpoint = 10000,
     print_intermediate_info = 1000,
     compute_error = 1,
-    use_krylov_solvers = False,
+    use_krylov_solvers = True,
     velocity_degree = 1,
     pressure_degree = 1,
     krylov_report = False
@@ -28,7 +28,7 @@ NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
                                    'absolute_tolerance': 1e-10}
 
 def mesh(Nx, Ny, **params):
-    return RectangleMesh(0, 0, 2, 2, Nx, Ny)
+    return RectangleMesh(Point(0, 0), Point(2, 2), Nx, Ny)
 
 class PeriodicDomain(SubDomain):
     

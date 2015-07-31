@@ -11,7 +11,7 @@ set_log_active(False)
 L = 10.
 H = 1.
 def mesh(Nx, Ny, **params):
-    m = RectangleMesh(0., -H, L, H, Nx, Ny)
+    m = RectangleMesh(Point(0., -H), Point(L, H), Nx, Ny)
     # Squeeze towards walls
     x = m.coordinates()        
     x[:, 1] = arctan(1.*pi*(x[:, 1]))/arctan(1.*pi) 

@@ -57,9 +57,9 @@ def initialize(x_1, x_2, bcs, **NS_namespace):
     for ui in x_2:    
         [bc.apply(x_2[ui]) for bc in bcs[ui]]
 
-def pre_solve_hook(mesh, velocity_degree, V,
-                   newfolder, tstepfiles, tstep, ds, **NS_namespace):
-    Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree)
+def pre_solve_hook(mesh, V, newfolder, tstepfiles, tstep, ds, u_,
+                   AssignedVectorFunction, **NS_namespace):
+    uv = AssignedVectorFunction(u_, name='Velocity')
     omega = Function(V, name='omega')
     # Store omega each save_step
     add_function_to_tstepfiles(omega, newfolder, tstepfiles, tstep)
@@ -68,13 +68,12 @@ def pre_solve_hook(mesh, velocity_degree, V,
     n = FacetNormal(mesh)
     ds = ds[ff]
 
-    return dict(Vv=Vv, uv=Function(Vv), omega=omega, ds=ds, ff=ff, n=n)
+    return dict(uv=uv, omega=omega, ds=ds, ff=ff, n=n)
 
-def temporal_hook(q_, tstep, u_, V, uv, p_, plot_interval, omega, ds, 
+def temporal_hook(q_, u_, tstep, V, uv, p_, plot_interval, omega, ds, 
                   save_step, mesh, nu, Umean, D, n, **NS_namespace):
     if tstep % plot_interval == 0:
-        assign(uv.sub(0), u_[0])
-        assign(uv.sub(1), u_[1])
+        uv()
         plot(uv, title='Velocity')
         plot(p_, title='Pressure')
         plot(q_['alfa'], title='alfa')
@@ -95,8 +94,7 @@ def temporal_hook(q_, tstep, u_, V, uv, p_, plot_interval, omega, ds,
                          bcs=[DirichletBC(V, 0, DomainBoundary())]))
 
 def theend_hook(q_, u_, p_, uv, mesh, ds, V, nu, Umean, D, **NS_namespace):
-    assign(uv.sub(0), u_[0])
-    assign(uv.sub(1), u_[1])
+    uv()
     plot(uv, title='Velocity')
     plot(p_, title='Pressure')
     plot(q_['alfa'], title='alfa')

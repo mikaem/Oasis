@@ -3,13 +3,13 @@ __date__ = "2014-04-10"
 __copyright__ = "Copyright (C) 2014 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
-from dolfin import BoxMesh
+from dolfin import BoxMesh, Point
 
 # Create a mesh
 h = 0.5
 L = 1.
 def mesh(N=20, **params):
-    m = BoxMesh(0, 0, 0, L, 1, 1, N, N, N)
+    m = BoxMesh(Point(0, 0, 0), Point(L, 1, 1), N, N, N)
     return m
 
 tol = 1e-8

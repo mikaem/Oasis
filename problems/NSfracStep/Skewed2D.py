@@ -15,7 +15,6 @@ NS_parameters.update(
     print_velocity_pressure_convergence = True)
 
 def create_bcs(V, Q, mesh, **NS_namespace):
-    # Create inlet profile by solving Poisson equation on boundary
     u_inlet = Expression("10*x[1]*(0.2-x[1])")
     bc0 = DirichletBC(V, 0, walls)
     bc1 = DirichletBC(V, u_inlet, inlet)
@@ -24,9 +23,8 @@ def create_bcs(V, Q, mesh, **NS_namespace):
                 u1 = [bc2, bc0],
                 p  = [DirichletBC(Q, 0, outlet)])
 
-def pre_solve_hook(mesh, V, **NS_namespace):
-    Vv = VectorFunctionSpace(mesh, "CG", V.ufl_element().degree())    
-    return dict(uv=Function(Vv), Vv=Vv, n=FacetNormal(mesh))
+def pre_solve_hook(mesh, u_, AssignedVectorFunction, **NS_namespace):
+    return dict(uv=AssignedVectorFunction(u_, "Velocity"), n=FacetNormal(mesh))
     
 def temporal_hook(u_, p_, mesh, tstep, print_intermediate_info, 
                   uv, n, plot_interval, **NS_namespace):
@@ -34,11 +32,11 @@ def temporal_hook(u_, p_, mesh, tstep, print_intermediate_info,
         print "Continuity ", assemble(dot(u_, n)*ds())
     
     if tstep % plot_interval == 0:
-        assign(uv.sub(0), u_[0])
-        assign(uv.sub(1), u_[1])
+        uv()
         plot(uv, title='Velocity')
         plot(p_, title='Pressure')
 
-def theend_hook(u_, p_, **NS_namespace):
-    plot(u_, title='Velocity')
+def theend_hook(uv, p_, **NS_namespace):
+    uv()
+    plot(uv, title='Velocity')
     plot(p_, title='Pressure')

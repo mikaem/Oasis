@@ -15,7 +15,6 @@ NS_parameters.update(
     max_error = 1e-12)
 
 def create_bcs(V, VQ, mesh, **NS_namespace):
-    # Create inlet profile by solving Poisson equation on boundary
     u_inlet = Expression(("10*x[1]*(0.2-x[1])", "0"))
     bc0 = DirichletBC(VQ.sub(0), (0,0), walls)
     bc1 = DirichletBC(VQ.sub(0), u_inlet, inlet)

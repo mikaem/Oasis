@@ -5,7 +5,8 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import assemble, KrylovSolver, LUSolver,  Function, TrialFunction, \
     TestFunction, dx, Vector, Matrix, GenericMatrix, FunctionSpace, Timer, div, \
-    Form, Coefficient, inner, grad, as_backend_type, VectorFunctionSpace, FunctionAssigner
+    Form, Coefficient, inner, grad, as_backend_type, VectorFunctionSpace,  \
+    FunctionAssigner, PETScKrylovSolver, PETScPreconditioner
 
 from ufl.tensors import ListTensor
 
@@ -29,7 +30,11 @@ class Solver_cache_dict(dict):
     def __missing__(self, key):
         assert len(key) == 4
         form, bcs, solver_type, preconditioner_type = key
-        sol = KrylovSolver(solver_type, preconditioner_type)
+        prec = PETScPreconditioner(preconditioner_type)
+        sol = PETScKrylovSolver(solver_type, prec)
+        sol.prec = prec
+        #sol = KrylovSolver(solver_type, preconditioner_type)
+        
         sol.parameters["preconditioner"]["structure"] = "same"
         sol.parameters["error_on_nonconvergence"] = False
         sol.parameters["monitor_convergence"] = False

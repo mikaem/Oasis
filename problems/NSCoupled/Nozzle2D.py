@@ -15,7 +15,8 @@ NS_parameters.update(
     folder = "nozzle_results",
     max_error = 1e-13,
     max_iter = 25,
-    re_high = re_high)
+    re_high = re_high,
+    solver = 'cylindrical')
 
 def create_bcs(VQ, mesh, sys_comp, re_high, **NS_namespce):
     #Q = 5.21E-6 if not re_high else 6.77E-5  # From FDA
