@@ -38,7 +38,7 @@ NS_parameters.update(
   # LES model parameters
   Smagorinsky = dict(Cs=0.1677),             # Standard Cs, same as OpenFOAM
   Wale = dict(Cw=0.325),
-  DynamicSmagorinsky = dict(Cs_comp_step=1, JLM_init=1E-32, JMM_init=1E-8), # Time step interval for Cs to be recomputed
+  DynamicSmagorinsky = dict(Cs=1E-5,Cs_comp_step=1),
   KineticEnergySGS = dict(Ck=0.08, Ce=1.05),
   MixedDynamicLagrangian = dict(model="DMM2"), # DMM1 (Zang) or DMM2 (Vreman)
 
