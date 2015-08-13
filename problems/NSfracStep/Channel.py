@@ -11,8 +11,7 @@ import cPickle
 import random
 import subprocess
 
-#restart_folder = '/home/mikael/Dropbox/ChannelDNS/64/Checkpoint'
-#restart_folder = 'channel_results/data/20/Checkpoint'
+restart_folder = 'DNS_checkpoint'
 
 class ChannelGrid(StructuredGrid):
     """Grid for computing statistics"""
@@ -33,13 +32,12 @@ if restart_folder:
     restart_folder = path.join(getcwd(), restart_folder)
     f = open(path.join(restart_folder, 'params.dat'), 'r')
     NS_parameters.update(cPickle.load(f))
-    #NS_parameters['T'] = NS_parameters['T'] + 200 * NS_parameters['dt'] 
-    NS_parameters['T'] = 10
+    NS_parameters['T'] = NS_parameters['T'] + 1E5 * NS_parameters['dt'] 
     NS_parameters['restart_folder'] = restart_folder
     machine_name = subprocess.check_output("hostname", shell=True).split(".")[0]
     channel_path = path.sep + path.join("mn", machine_name, "storage", "joakibo", "Master", "Oasis", "channel_results")
-    NS_parameters["folder"] = channel_path
-    NS_parameters["les_model"] = "Smagorinsky"
+    NS_parameters["folder"] = "channel_results"
+    NS_parameters["les_model"] = "DynamicLagrangian"
     globals().update(NS_parameters)
     
 else:
@@ -179,7 +177,7 @@ def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
                   newfolder, folder, check_flux, save_statistics, mesh,
                   facets, normal, check_if_reset_statistics, **NS_namespace):
     # print timestep
-    info_red("tstep = {}".format(tstep))         
+    #info_red("tstep = {}".format(tstep))         
     if check_if_reset_statistics(folder):
         info_red("Resetting statistics")
         stats.probes.clear()
