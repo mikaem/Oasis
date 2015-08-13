@@ -174,8 +174,8 @@ if __name__ == "__main__":
         iterate_scalar()
         scalar_timer.stop()
 
-    list_timings()
-    info_red('Total computing time = {0:f}'.format(timer.value()))
+    list_timings(TimingClear_clear, [TimingType_wall])
+    info_red('Total computing time = {0:f}'.format(timer.elapsed()[0]))
     oasis_memory('Final memory use ')
     total_initial_dolfin_memory = MPI.sum(mpi_comm_world(), initial_memory_use)
     info_red('Memory use for importing dolfin = {} MB (RSS)'.format(total_initial_dolfin_memory))

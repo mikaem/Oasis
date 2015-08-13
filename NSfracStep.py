@@ -204,7 +204,7 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
     if tstep % print_intermediate_info == 0:
         info_green('Time = {0:2.4e}, timestep = {1:6d}, End time = {2:2.4e}'.format(t, tstep, T)) 
         info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(print_intermediate_info, toc()))
-        list_timings(True)
+        list_timings(TimingClear_clear, [TimingType_wall])
         tic()
           
     # AB projection for pressure on next timestep
@@ -212,8 +212,8 @@ while t < (T - tstep*DOLFIN_EPS) and not stop:
         x_['p'].axpy(0.5, dp_.vector())
                                     
 total_timer.stop()
-list_timings()
-info_red('Total computing time = {0:f}'.format(total_timer.value()))
+list_timings(TimingClear_keep, [TimingType_wall])
+info_red('Total computing time = {0:f}'.format(total_timer.elapsed()[0]))
 oasis_memory('Final memory use ')
 total_initial_dolfin_memory = MPI.sum(mpi_comm_world(), initial_memory_use)
 info_red('Memory use for importing dolfin = {} MB (RSS)'.format(total_initial_dolfin_memory))

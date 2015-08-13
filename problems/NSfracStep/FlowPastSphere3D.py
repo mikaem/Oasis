@@ -66,8 +66,8 @@ def create_bcs(V, Q, mesh, **NS_namespace):
     lp = LagrangeInterpolator()
     sv = Function(V)
     lp.interpolate(sv, su)
-    plot(su, interactive=True)
-    plot(sv, interactive=True)
+    #plot(su, interactive=True)
+    #plot(sv, interactive=True)
     bc0  = DirichletBC(V, 0, walls)
     bc1  = DirichletBC(V, 0, inners)
     bcp1 = DirichletBC(Q, 0, outlet)
@@ -84,21 +84,17 @@ def initialize(x_1, x_2, bcs, **NS_namespace):
         #[bc.apply(x_1[ui]) for bc in bcs[ui]]
         #[bc.apply(x_2[ui]) for bc in bcs[ui]]
 
-def pre_solve_hook(mesh, velocity_degree, **NS_namespace):
-    Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree)
-    return dict(Vv=Vv, uv=Function(Vv))
+def pre_solve_hook(mesh, velocity_degree, u_,
+                   AssignedVectorFunction, **NS_namespace):
+    return dict(uv=AssignedVectorFunction(u_))
 
-def temporal_hook(tstep, u_, Vv, uv, p_, plot_interval, **NS_namespace):
+def temporal_hook(tstep, uv, p_, plot_interval, **NS_namespace):
     if tstep % plot_interval == 0:
-        assign(uv.sub(0), u_[0])
-        assign(uv.sub(1), u_[1])
-        assign(uv.sub(2), u_[2])
+        uv()
         plot(uv, title='Velocity')
         plot(p_, title='Pressure')
 
-def theend_hook(u_, p_, uv, Vv, **NS_namespace):
-    assign(uv.sub(0), u_[0])
-    assign(uv.sub(1), u_[1])
-    assign(uv.sub(2), u_[2])
+def theend_hook(p_, uv, **NS_namespace):
+    uv()
     plot(uv, title='Velocity')
     plot(p_, title='Pressure')

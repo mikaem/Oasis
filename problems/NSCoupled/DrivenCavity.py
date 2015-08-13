@@ -8,7 +8,7 @@ from ..DrivenCavity import *
 
 # Override some problem specific parameters
 NS_parameters.update(
-    nu = 0.001,
+    nu = 0.002,
     max_iter = 100)
 
 # Specify boundary conditions

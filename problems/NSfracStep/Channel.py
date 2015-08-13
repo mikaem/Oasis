@@ -22,7 +22,7 @@ class ChannelGrid(StructuredGrid):
 
 def mesh(Nx, Ny, Nz, Lx, Ly, Lz, **params):
     # Function for creating stretched mesh in y-direction
-    m = BoxMesh(0., -Ly/2., -Lz/2., Lx, Ly/2., Lz/2., Nx, Ny, Nz)
+    m = BoxMesh(Point(0., -Ly/2., -Lz/2.), Point(Lx, Ly/2., Lz/2.), Nx, Ny, Nz)
     x = m.coordinates() 
     x[:, 1] = arctan(1.*pi*(x[:, 1])) / arctan(1.*pi) 
     return m

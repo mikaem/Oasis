@@ -6,7 +6,6 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from ..NSfracStep import *
 from ..SkewedFlow import *
 from numpy import cos, pi, cosh
-from fenicstools import interpolate_nonmatching_mesh
 
 warning("""
 This problem does not work well with IPCS since the outflow
