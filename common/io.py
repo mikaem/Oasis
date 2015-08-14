@@ -143,9 +143,9 @@ def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, u_components,
         ###
         newfile = HDF5File(mpi_comm_world(), h5file, 'w')
         newfile.flush()
-        newfile.write(q_[ui].vector(), '/current')
+        newfile.write(q_[ui], '/current')
         if ui in u_components:
-            newfile.write(q_1[ui].vector(), '/previous')
+            newfile.write(q_1[ui], '/previous')
         if path.exists(oldfile):
             if MPI.rank(mpi_comm_world()) == 0:
                 system('rm {0}'.format(oldfile))
@@ -188,13 +188,10 @@ def init_from_restart(restart_folder, sys_comp, uc_comp, u_components,
         for ui in sys_comp:
             filename = path.join(restart_folder, ui + '.h5')
             hdf5_file = HDF5File(mpi_comm_world(), filename, "r")
-            hdf5_file.read(q_[ui].vector(), "/current", False)      
-            q_[ui].vector().apply('insert')
+            hdf5_file.read(q_[ui], "/current")      
             # Check for the solution at a previous timestep as well
             if ui in uc_comp:
                 q_1[ui].vector().zero()
                 q_1[ui].vector().axpy(1., q_[ui].vector())
-                q_1[ui].vector().apply('insert')
                 if ui in u_components:
-                    hdf5_file.read(q_2[ui].vector(), "/previous", False)
-                    q_2[ui].vector().apply('insert')
+                    hdf5_file.read(q_2[ui], "/previous")
