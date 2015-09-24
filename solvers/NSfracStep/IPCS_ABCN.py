@@ -72,6 +72,9 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     a_scalar = a_conv
     LT = None if les_model is None else LESsource(nut_, u_ab, V, name='LTd')
 
+    if bcs['p'] == []:
+        attach_pressure_nullspace(Ap, x_, Q)
+
     d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT, KT=KT)
     return d
 
@@ -110,8 +113,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         p_sol.parameters['preconditioner']['structure'] = 'same'
         #p_sol.parameters['profile'] = True
         p_sol.parameters.update(krylov_solvers)
-        if bcs['p'] == []:
-            attach_pressure_nullspace(p_sol, x_, Q)
+
         sols = [u_sol, p_sol]
         ## scalar solver ##
         if len(scalar_components) > 0:
@@ -191,14 +193,15 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
     A.axpy(2./dt, M, True)
     [bc.apply(A) for bc in bcs['u0']]
             
-def attach_pressure_nullspace(p_sol, x_, Q):
+def attach_pressure_nullspace(Ap, x_, Q):
     """Create null space basis object and attach to Krylov solver."""
     null_vec = Vector(x_['p'])
     Q.dofmap().set(null_vec, 1.0)
     null_vec *= 1.0/null_vec.norm('l2')
+    Aa = as_backend_type(Ap)
     null_space = VectorSpaceBasis([null_vec])
-    p_sol.set_nullspace(null_space)
-    p_sol.null_space = null_space
+    Aa.set_nullspace(null_space)
+    Aa.null_space = null_space
 
 def velocity_tentative_assemble(ui, b, b_tmp, p_, gradp, **NS_namespace):
     """Add pressure gradient to rhs of tentative velocity system."""
@@ -237,7 +240,7 @@ def pressure_solve(dp_, x_, Ap, b, p_sol, bcs, **NS_namespace):
     dp_.vector().zero()
     dp_.vector().axpy(1., x_['p'])
     # KrylovSolvers use nullspace for normalization of pressure
-    if hasattr(p_sol, 'null_space'):
+    if hasattr(Ap, 'null_space'):
         p_sol.null_space.orthogonalize(b['p'])
 
     t1 = Timer("Pressure Linear Algebra Solve")
