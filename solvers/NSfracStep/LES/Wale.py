@@ -15,9 +15,13 @@ def les_setup(u_, mesh, Wale, bcs, CG1Function, nut_krylov_solver, **NS_namespac
     """
     DG = FunctionSpace(mesh, "DG", 0)
     CG1 = FunctionSpace(mesh, "CG", 1)
+    
+    # Compute cell size and put in delta
     delta = Function(DG)
     delta.vector().zero()
     delta.vector().axpy(1.0, assemble(TestFunction(DG)*dx))
+    
+    # Set up Wale form
     Gij = grad(u_)
     Sij = sym(Gij)
     Skk = tr(Sij)

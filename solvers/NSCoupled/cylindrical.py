@@ -17,8 +17,8 @@ def setup(u_, p_, up_, up, u, p, v, q, nu, mesh, c, ct, q_,
     F_linear    = nu*inner(grad(u_), grad(v))*r*dx() + nu*u_[1]*v[1]/r*dx() \
                   - inner(p_, (r*v [1]).dx(1) + r*v [0].dx(0))*dx() \
                   - inner(q , (r*u_[1]).dx(1) + r*u_[0].dx(0))*dx() \
-                  + nu*inner(grad(u_).T, grad(v))*r*dx() \
-                  - nu*inner(dot(grad(u_).T, n), v)*ds()
+                  + nu*inner(grad(u_).T, grad(v))*r*dx() 
+              #   - nu*inner(dot(grad(u_).T, n), v)*ds()
 
     F = F_linear + F_nonlinear
     J_linear    = derivative(F_linear, up_, up)

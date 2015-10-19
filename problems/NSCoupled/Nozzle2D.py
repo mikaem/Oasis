@@ -5,7 +5,6 @@ from math import sqrt, pi
 from fenicstools import StructuredGrid, StatisticsProbes
 import sys
 from numpy import array, linspace
-from scitools.std import plot as sciplot
 
 # Override some problem specific parameters
 re_high = False

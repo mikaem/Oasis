@@ -9,7 +9,7 @@ from ..NSfracStep import __all__
 
 def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
           scalar_components, V, Q, x_, p_, u_, A_cache,
-          velocity_update_solver, assemble_matrix,
+          velocity_update_solver, assemble_matrix, homogenize,
           GradFunction, DivFunction, LESsource, **NS_namespace):
     """Preassemble mass and diffusion matrices. 
     

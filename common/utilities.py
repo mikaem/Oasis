@@ -6,7 +6,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from dolfin import assemble, KrylovSolver, LUSolver,  Function, TrialFunction, \
     TestFunction, dx, Vector, Matrix, GenericMatrix, FunctionSpace, Timer, div, \
     Form, Coefficient, inner, grad, as_backend_type, VectorFunctionSpace,  \
-    FunctionAssigner, PETScKrylovSolver, PETScPreconditioner
+    FunctionAssigner, PETScKrylovSolver, PETScPreconditioner, DirichletBC
 
 from ufl.tensors import ListTensor
 
@@ -137,7 +137,7 @@ class GradFunction(OasisFunction):
     """
     def __init__(self, p_, Space, i=0, bcs=[], name="grad", method={}):
         
-        assert p_.rank() == 0
+        assert len(p_.ufl_shape) == 0
         assert i >= 0 and i < Space.mesh().geometry().dim()
         
         solver_type = method.get('solver_type', 'cg')
@@ -339,3 +339,13 @@ class LESsource(Function):
         """Assemble right hand side        
         """
         assemble(self.bf[i], tensor=self.vector())
+        
+def homogenize(bcs):
+    b = []
+    for bc in bcs:
+        b0 = DirichletBC(bc)
+        b0.homogenize()
+        b.append(b0)
+    return b
+
+    
