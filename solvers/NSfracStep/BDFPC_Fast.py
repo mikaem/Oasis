@@ -149,9 +149,10 @@ def pressure_solve(dp_, x_, Ap, b, p_sol, bcs, nu, divu, Q, beta, **NS_namespace
     [bc.apply(b['p']) for bc in bcs['p']]
     dp_.vector().zero()
     dp_.vector().axpy(1., x_['p'])
+
     # KrylovSolvers use nullspace for normalization of pressure
-    if hasattr(p_sol, 'null_space'):
-        p_sol.null_space.orthogonalize(b['p'])
+    if hasattr(Ap, 'null_space'):
+        Ap.null_space.orthogonalize(b['p'])
 
     t1 = Timer("Pressure Linear Algebra Solve")
     p_sol.solve(Ap, x_['p'], b['p'])

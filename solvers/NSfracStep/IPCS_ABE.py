@@ -56,6 +56,9 @@ def setup(u_components, u, v, p, q, nu, nut_, les_model, LESsource,
     # Create dictionary to be returned into global NS namespace
     d = dict(A=A, M=M, K=K, Ap=Ap, divu=divu, gradp=gradp)
 
+    if bcs['p'] == []:
+        attach_pressure_nullspace(Ap, x_, Q)
+
     # Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
     if len(scalar_components) > 0:
         d.update(Ta=Matrix(M))
@@ -114,8 +117,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         p_sol.parameters['preconditioner']['structure'] = 'same'
         #p_sol.parameters['profile'] = True
         p_sol.parameters.update(krylov_solvers)
-        if bcs['p'] == []:
-            attach_pressure_nullspace(p_sol, x_, Q)
+
         sols = [u_sol, p_sol]
         ## scalar solver ##
         if len(scalar_components) > 0:
