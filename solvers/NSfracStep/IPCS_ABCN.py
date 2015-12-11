@@ -72,10 +72,8 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     a_scalar = a_conv
 
     LT = None if les_model is None else LESsource(nut_, u_ab, V, name='LTd')
-    mixedLESSource = None if les_model is None else {ui: assemble(Constant(0)*v*dx) for i,ui in enumerate(u_components)}
 
-    d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT,
-            mixedLESSource=mixedLESSource, KT=KT)
+    d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT, KT=KT)
     return d
 
 def get_solvers(use_krylov_solvers, krylov_solvers, bcs, 
@@ -150,7 +148,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
 
 def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
                               a_scalar, K, nu, nut_, u_components, LT, KT,
-                              b_tmp, b0, x_1, x_2, u_ab, bcs, mixedLESSource,
+                              b_tmp, b0, x_1, x_2, u_ab, bcs,
                               **NS_namespace):
     """Called on first inner iteration of velocity/pressure system.
     
@@ -189,8 +187,6 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
         if not les_model is None:
             LT.assemble_rhs(i)
             b_tmp[ui].axpy(1., LT.vector())
-            # Add mixed source if mixed LES model
-            b_tmp[ui].axpy(-1., mixedLESSource[ui])
 
     # Reset matrix for lhs
     A._scale(-1.)

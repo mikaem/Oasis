@@ -5,28 +5,28 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import FunctionSpace, TrialFunction, TestFunction, Function, sym,\
         grad, dx, inner, sqrt, TrialFunction, project, assemble, CellVolume,\
-        LagrangeInterpolator, DirichletBC, KrylovSolver
+        LagrangeInterpolator, DirichletBC, KrylovSolver, Matrix
 from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij, dyn_u_ops
 import numpy as np
 from common import derived_bcs
-from fenicstools import compiled_gradient_module
+from fenicstools import SetMatrixValue
 
 __all__ = ['les_setup', 'les_update']
 
 def les_setup(u_, dt, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
-        u_components, bcs, DynamicSmagorinsky, V, **NS_namespace):
+        u_components, bcs, DynamicSmagorinsky, V, constrained_domain, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
     Lagrangian Averaging.
     """
-    
+
     # Create function spaces
-    CG1 = FunctionSpace(mesh, "CG", 1)
+    CG1 = FunctionSpace(mesh, "CG", 1, constrained_domain=constrained_domain)
     p, q = TrialFunction(CG1), TestFunction(CG1)
     p2 = TrialFunction(V)
     dim = mesh.geometry().dim()
-    
+
     DG = FunctionSpace(mesh, "DG", 0)
     # Define delta and project delta**2 to CG1
     delta = Function(DG)
@@ -46,7 +46,8 @@ def les_setup(u_, dt, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
     nut_form = Cs * delta**2 * magS
     # Create nut_ BCs and nut_
     bcs_nut = derived_bcs(CG1, bcs['u0'], u_)
-    nut_ = CG1Function(nut_form, mesh, method=nut_krylov_solver, bcs=bcs_nut, bounded=True, name="nut")
+    nut_ = CG1Function(nut_form, mesh, method=nut_krylov_solver, bcs=bcs_nut,
+            bounded=False, name="nut")
 
     # Create CG1 bcs for velocity components
     bcs_u_CG1 = dict()
@@ -67,13 +68,13 @@ def les_setup(u_, dt, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
     dummy = Cs.vector().copy()
     ll = LagrangeInterpolator()
 
-    # Assemble required filter matrices and functions
-    G_under = assemble(TestFunction(CG1)*dx)
-    G_under.set_local(1./G_under.array())
-    G_under.apply("insert")
+    # Assemble required filter matrix
     G_matr = assemble(inner(p,q)*dx)
-    
-    # Check if case is 2D or 3D and set up uiuj product pairs and 
+    row_mean = assemble(q*dx)
+    row_mean.set_local(1./row_mean.array())
+    row_mean.apply("insert")
+
+    # Check if case is 2D or 3D and set up uiuj product pairs and
     # Sij forms, assemble required matrices
     if dim == 3:
         tensdim = 6
@@ -88,6 +89,7 @@ def les_setup(u_, dt, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
     Sijfcomps = [dummy.copy() for i in range(tensdim)]
     # Assemble some required matrices for solving for rate of strain terms
     Sijmats = [assemble_matrix(p2.dx(i)*q*dx) for i in range(dim)]
+    Sijmats = Sijmats + [assemble_matrix(p*q*dx)]
     # Setup Sij krylov solver
     Sij_sol = KrylovSolver("bicgstab", "jacobi")
     Sij_sol.parameters["preconditioner"]["structure"] = "same_nonzero_pattern"
@@ -97,36 +99,32 @@ def les_setup(u_, dt, mesh, assemble_matrix, CG1Function, nut_krylov_solver,
 
     # Set up Lagrange functions
     JLM = Function(CG1)
-    # Initialize to given number
-    JLM.vector()[:] += DynamicSmagorinsky["JLM_init"]
     JMM = Function(CG1)
-    # Initialize to given number
-    JMM.vector()[:] += DynamicSmagorinsky["JMM_init"]
     lag_dt = DynamicSmagorinsky["Cs_comp_step"]*dt
     first_lag_step = [True]
 
     return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta, bcs_nut=bcs_nut,
-                delta_CG1_sq=delta_CG1_sq, CG1=CG1, DG=DG, Cs=Cs, u_CG1=u_CG1, 
-                u_filtered=u_filtered, ll=ll, Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, 
-                Sijfcomps=Sijfcomps, Sijmats=Sijmats, JLM=JLM, JMM=JMM, dim=dim, 
-                tensdim=tensdim, G_matr=G_matr, G_under=G_under, dummy=dummy, 
+                delta_CG1_sq=delta_CG1_sq, CG1=CG1, DG=DG, Cs=Cs, u_CG1=u_CG1,
+                u_filtered=u_filtered, ll=ll, Lij=Lij, Mij=Mij, Sijcomps=Sijcomps,
+                Sijfcomps=Sijfcomps, Sijmats=Sijmats, JLM=JLM, JMM=JMM, dim=dim,
+                tensdim=tensdim, G_matr=G_matr, row_mean=row_mean, dummy=dummy,
                 uiuj_pairs=uiuj_pairs, Sij_sol=Sij_sol, bcs_u_CG1=bcs_u_CG1,
                 vdegree=vdegree, lag_dt=lag_dt, first_lag_step=first_lag_step,
-                u_filtered_CG2=u_filtered_CG2) 
-    
-def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep, 
+                u_filtered_CG2=u_filtered_CG2)
+
+def les_update(u_, u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep,
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij, vdegree,
-            JLM, JMM, dim, tensdim, G_matr, G_under, ll, dummy, uiuj_pairs, 
+            JLM, JMM, dim, tensdim, G_matr, row_mean, ll, dummy, uiuj_pairs,
             Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, Sij_sol, bcs_u_CG1,
             lag_dt, Smagorinsky, first_lag_step, u_filtered_CG2, **NS_namespace):
 
     # Check if Cs is to be computed, if not update nut_ and break
-    if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
+    if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0 or tstep < 3:
         # Update nut_
         nut_()
         # Break function
         return
-    
+
     # All velocity components must be interpolated to CG1 then filtered, also apply bcs
     dyn_u_ops(**vars())
 
@@ -134,15 +132,16 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep,
     compute_Lij(u=u_CG1, uf=u_filtered, **vars())
 
     # Compute Mij applying dynamic modules function
-    alpha = 2.5
-    magS = compute_Mij(alphaval=alpha, u_nf=u_ab, u_f=u_filtered_CG2, **vars())
+    alpha = 2.0
+    magS = compute_Mij(alphaval=alpha, u_nf=u_, u_f=u_filtered_CG2, **vars())
 
     # Lagrange average Lij and Mij
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
 
-    # Update Cs = JLM/JMM and filter/smooth Cs
-    Cs.vector().set_local((JLM.vector().array()/JMM.vector().array()).clip(max=0.1))
+    # Update Cs = JLM/JMM and smooth field
+    Cs.vector().set_local(JLM.vector().array()/JMM.vector().array())
     Cs.vector().apply("insert")
 
     # Update nut_
     nut_()
+    first_lag_step[0] = False

@@ -12,7 +12,7 @@ import numpy as np
 __all__ = ['les_setup', 'les_update']
 
 def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut_krylov_solver, 
-        bcs, u_components, DynamicSmagorinsky, **NS_namespace):
+        bcs, u_components, DynamicSmagorinsky, constrained_domain, **NS_namespace):
     """
     Set up for solving the Germano Dynamic LES model applying
     scale dependent Lagrangian Averaging.
@@ -23,28 +23,25 @@ def les_setup(u_, mesh, dt, krylov_solvers, V, assemble_matrix, CG1Function, nut
     
     # Set up Lagrange functions
     JQN = Function(dyn_dict["CG1"])
-    # Initialize to given number (JLM)
-    JQN.vector()[:] += DynamicSmagorinsky["JLM_init"]
     JNN = Function(dyn_dict["CG1"])
-    # Initialize to given number (JMM)
-    JNN.vector()[:] += DynamicSmagorinsky["JMM_init"]
 
     Qij = [dyn_dict["dummy"].copy() for i in range(dyn_dict["tensdim"])]
     Nij = [dyn_dict["dummy"].copy() for i in range(dyn_dict["tensdim"])]
-
+    
     # Update and return dict
     dyn_dict.update(JQN=JQN, JNN=JNN, Qij=Qij, Nij=Nij)
 
     return dyn_dict
 
-def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, tstep, 
+def les_update(u_, u_ab, u_components, nut_, nut_form, dt, CG1, delta, tstep, 
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij,
-            JLM, JMM, dim, tensdim, G_matr, G_under, ll, vdegree,
+            JLM, JMM, dim, tensdim, G_matr, row_mean, ll, vdegree,
             dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
-            Qij, Nij, JNN, JQN, Sij_sol, bcs_u_CG1, lag_dt, **NS_namespace): 
+            Qij, Nij, JNN, JQN, Sij_sol, bcs_u_CG1, lag_dt, Smagorinsky, 
+	    first_lag_step, u_filtered_CG2, **NS_namespace): 
 
     # Check if Cs is to be computed, if not update nut_ and break
-    if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0:
+    if tstep%DynamicSmagorinsky["Cs_comp_step"] != 0 or tstep < 3:
         # Update nut_
         nut_()
         # Break function
@@ -55,11 +52,9 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, tstep,
 
     # Compute Lij from dynamic modules function
     compute_Lij(u=u_CG1, uf=u_filtered, **vars())
-
     # Compute Mij from dynamic modules function
     alpha = 2.
     magS = compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
-
     # Lagrange average Lij and Mij
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
 
@@ -73,22 +68,16 @@ def les_update(u_ab, u_components, nut_, nut_form, dt, CG1, tstep,
 
     # Compute Qij from dynamic modules function
     compute_Qij(uf=u_filtered, **vars())
-
     # Compute Nij from dynamic modules function
-    alpha = 4.
     compute_Nij(alphaval=alpha, u_f=u_filtered, **vars())
-
     # Lagrange average Qij and Nij
     lagrange_average(J1=JQN, J2=JNN, Aij=Qij, Bij=Nij, **vars())
 
-    # UPDATE Cs**2 = (JLM*JMM)/beta, beta = JQN/JNN
-    beta = (JQN.vector().array()/JNN.vector().array()).clip(min=0.125)
-    Cs.vector().set_local(((JLM.vector().array()/JMM.vector().array())/beta).clip(max=0.09))
+    # UPDATE Cs**2 = (JLM/JMM)/beta, beta = (JQN/JNN)/(JLM/JMM)
+    Cs.vector().set_local((JLM.vector().array()/JMM.vector().array())/\
+		(((JQN.vector().array()*JMM.vector().array())/(JNN.vector().array()*JLM.vector().array())).clip(min=0.125)))
     Cs.vector().apply("insert")
-    # Filter Cs twice
-    [tophatfilter(unfiltered=Cs.vector(), filtered=Cs.vector(), **vars()) for i in xrange(2)]
 
     # Update nut_
-    nut_.vector().zero()
-    nut_.vector().axpy(1.0, Cs.vector() * delta_CG1_sq * magS)
-    [bc.apply(nut_.vector()) for bc in nut_.bcs]
+    nut_()
+    first_lag_step[0] = False
