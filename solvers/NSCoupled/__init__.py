@@ -43,7 +43,7 @@ def get_solvers(**NS_namespace):
        - scalars
             
     """    
-    up_sol, c_sol = LUSolver("mumps"), LUSolver("mumps")
+    up_sol, c_sol = LUSolver(), LUSolver()
     up_sol.parameters["same_nonzero_pattern"] = True
     c_sol .parameters["same_nonzero_pattern"] = True    
     return up_sol, c_sol
