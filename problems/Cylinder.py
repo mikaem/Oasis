@@ -7,7 +7,7 @@ from dolfin import Mesh, AutoSubDomain, near
 import os
 
 if not os.path.isfile("mesh/cylinder.xml"):
-    os.system("wget -O cylinder.xml https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=0")
+    os.system("wget -O mesh/cylinder.xml https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=0")
     #try:
         #os.system("gmsh mesh/cylinder.geo -2 -o mesh/cylinder.msh")
         #os.system("dolfin-convert mesh/cylinder.msh mesh/cylinder.xml")
