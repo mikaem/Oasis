@@ -12,7 +12,8 @@ if not os.path.isfile("mesh/cylinder.xml"):
         os.system("dolfin-convert mesh/cylinder.msh mesh/cylinder.xml")
         os.system("rm mesh/cylinder.msh")
     except RuntimeError:
-        raise "Gmsh is required to run this demo"
+        os.system("wget https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=0")
+        #raise "Gmsh is required to run this demo"
       
 mesh = Mesh("mesh/cylinder.xml")
 

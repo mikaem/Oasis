@@ -12,7 +12,7 @@ install:
     - unset PYTHONPATH
     - conda config --set always_yes yes 
     - conda config --add channels mikaem/label/test
-    - conda install fenics=1.7.0 pyvtk h5py=2.6.0 pytest gmsh
+    - conda install fenics=1.7.0 pyvtk h5py=2.6.0 pytest
 
 script:
     - cd $PWD/tests; py.test
