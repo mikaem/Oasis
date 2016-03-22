@@ -1,0 +1,18 @@
+language: python
+
+python:
+    - "2.7"
+
+sudo: false
+
+install:
+    - wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh;
+    - bash miniconda.sh -b -p $HOME/miniconda
+    - export PATH="$HOME/miniconda/bin:$PATH"
+    - unset PYTHONPATH
+    - conda config --set always_yes yes 
+    - conda config --add channels mikaem/label/test
+    - conda install fenics=1.7.0 pyvtk h5py=2.6.0 pytest
+
+script:
+    - cd $PWD/tests; py.test

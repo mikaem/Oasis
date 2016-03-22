@@ -32,14 +32,15 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
     beta = Constant(2.0) if abs(initial_u1_norm - initial_u2_norm) > DOLFIN_EPS_LARGE else Constant(3.0)
     for i, ui in enumerate(u_components):
         # Tentative velocity step
-        F[ui] = ((1./(beta*dt))*inner(3*u - 4*q_1[ui] + q_2[ui], v)*dx
-                  + inner(inner(grad(u), 2*u_1-u_2), v)*dx
-                  + (nu+nut_)*inner(grad(u), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx
-                  + (nu+nut_)*inner(grad(v), U_AB.dx(i))*dx)
-        
-        #F[ui] = ((1./(beta*dt))*inner(3*u - 4*q_1[ui] + q_2[ui], v)*dx
-                  #+ inner(2*inner(grad(q_1[ui]), u_1) - inner(grad(q_2[ui]), u_2), v)*dx 
-                  #+ nu*inner(grad(u), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx)
+        if not les_model is None:
+            F[ui] = ((1./(beta*dt))*inner(3*u - 4*q_1[ui] + q_2[ui], v)*dx
+                    + inner(inner(grad(u), 2*u_1-u_2), v)*dx
+                    + (nu+nut_)*inner(grad(u), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx
+                    + (nu+nut_)*inner(grad(v), U_AB.dx(i))*dx)
+        else:
+            F[ui] = ((1./(beta*dt))*inner(3*u - 4*q_1[ui] + q_2[ui], v)*dx
+                    + inner(inner(grad(u), 2*u_1-u_2), v)*dx
+                    + nu*inner(grad(u), grad(v))*dx + inner(p_.dx(i), v)*dx - inner(f[i], v)*dx)
             
         # Velocity update
         Fu[ui] = inner(u, v)*dx - inner(q_[ui], v)*dx + beta*dt/3.0*inner(dp_.dx(i), v)*dx

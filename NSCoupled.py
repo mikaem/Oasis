@@ -47,16 +47,18 @@ if element == 'TaylorHood':
     degree['p'] = commandline_kwargs.get('pressure_degree', degree['p'])
     # Should assert that degree['p'] = degree['u']-1 ??
     
-# Declare FunctionSpaces and arguments
-V = VectorFunctionSpace(mesh, family['u'], degree['u'], constrained_domain=constrained_domain)
-Q = FunctionSpace(mesh, family['p'], degree['p'], constrained_domain=constrained_domain)
-
-# MINI element has bubble, add to V
-if bubble:
-    V = V + VectorFunctionSpace(mesh, 'Bubble', mesh.geometry().dim()+1)
+# Declare Elements
+V = VectorElement(family['u'], mesh.ufl_cell(), degree['u'])
+Q = FiniteElement(family['p'], mesh.ufl_cell(), degree['p'])
 
 # Create Mixed space
-VQ = V * Q
+# MINI element has bubble, add to V
+if bubble:
+    B = VectorElement("Bubble", mesh.ufl_cell(), mesh.geometry().dim()+1)
+    VQ = FunctionSpace(mesh, (V + B) * Q, constrained_domain=constrained_domain)
+
+else:
+    VQ = FunctionSpace(mesh, V * Q, constrained_domain=constrained_domain)
 
 # Create trial and test functions
 up = TrialFunction(VQ)
@@ -147,7 +149,8 @@ def iterate_scalar(iters=max_iter, errors=max_error):
                 scalar_hook (**globals())
                 scalar_solve(**globals())
                 err[ci] = b[ci].norm('l2')
-                print 'Iter {}, Error {} = {}'.format(citer, ci, err[ci])
+                if MPI.rank(mpi_comm_world()) == 0:
+                    print 'Iter {}, Error {} = {}'.format(citer, ci, err[ci])
                 citer += 1
 
 if __name__ == "__main__":

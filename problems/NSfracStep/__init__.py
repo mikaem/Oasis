@@ -40,6 +40,9 @@ NS_parameters.update(
   Wale = dict(Cw=0.325),
   DynamicSmagorinsky = dict(Cs_comp_step=1), # Time step interval for Cs to be recomputed
   KineticEnergySGS = dict(Ck=0.08, Ce=1.05),
+  
+  # Parameter set when enabling test mode
+  testing = False,
 
   # Solver parameters that will be transferred to dolfins parameters['krylov_solver']
   krylov_solvers = dict(

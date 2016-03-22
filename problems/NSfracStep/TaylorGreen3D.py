@@ -103,3 +103,7 @@ def temporal_hook(u_, p_, tstep, plot_interval, print_dkdt_info, nu,
         plot(p_, title='pressure')
         plot(u_[0], title='velocity-x')
         plot(u_[1], title='velocity-y')
+        
+def theend_hook(u_, p_ ,**kw):
+    pass
+

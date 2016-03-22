@@ -12,12 +12,12 @@ the implementations of the more complex optimized solvers.
 """
 from dolfin import *
 from IPCS_ABCN import * # reuse code from IPCS_ABCN
-from IPCS_ABCN import __all__
+from IPCS_ABCN import __all__, attach_pressure_nullspace
 
 def setup(u_components, u, v, p, q, nu, nut_, LESsource,
           bcs, scalar_components, V, Q, x_, u_, p_, q_1, q_2,
           velocity_update_solver, assemble_matrix, les_model,
-          DivFunction, GradFunction, **NS_namespace):
+          DivFunction, GradFunction, homogenize, **NS_namespace):
     """Set up all equations to be solved."""
 
     # Mass matrix
@@ -60,6 +60,9 @@ def setup(u_components, u, v, p, q, nu, nut_, LESsource,
     
     # Create dictionary to be returned into global NS namespace
     d = dict(A=A, M=M, K=K, Ap=Ap, divu=divu, gradp=gradp, beta=beta)
+    
+    if bcs['p'] == []:
+        attach_pressure_nullspace(Ap, x_, Q)
 
     # Allocate coefficient matrix and work vectors for scalars. Matrix differs from velocity in boundary conditions only
     if len(scalar_components) > 0:

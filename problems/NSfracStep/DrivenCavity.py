@@ -11,14 +11,22 @@ NS_parameters.update(
     nu = 0.001,
     T  = 1.0,
     dt = 0.001,
+    folder = "drivencavity_results",
     plot_interval = 20,
+    save_step = 10000,
+    checkpoint = 10000,
     print_intermediate_info = 100,
     use_krylov_solvers = True)
+
+#NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
+                                   #'report': False,
+                                   #'relative_tolerance': 1e-10,
+                                   #'absolute_tolerance': 1e-10}
 
 scalar_components = ["alfa", "beta"]
 Schmidt["alfa"] = 1.
 Schmidt["beta"] = 10.
-set_log_active(False)
+#set_log_active(False)
 
 # Specify boundary conditions
 def create_bcs(V, **NS_namespace):
@@ -41,8 +49,8 @@ def pre_solve_hook(mesh, velocity_degree, **NS_namespace):
     Vv = VectorFunctionSpace(mesh, 'CG', velocity_degree)
     return dict(uv=Function(Vv))
 
-def temporal_hook(q_, tstep, u_, uv, p_, plot_interval, **NS_namespace):
-    if tstep % plot_interval == 0:
+def temporal_hook(q_, tstep, u_, uv, p_, plot_interval, testing, **NS_namespace):
+    if tstep % plot_interval == 0 and not testing:
         assign(uv.sub(0), u_[0])
         assign(uv.sub(1), u_[1])
         plot(uv, title='Velocity')
@@ -50,15 +58,21 @@ def temporal_hook(q_, tstep, u_, uv, p_, plot_interval, **NS_namespace):
         plot(q_['alfa'], title='alfa')
         plot(q_['beta'], title='beta')
 
-def theend_hook(u_, p_, uv, mesh, **NS_namespace):
-    assign(uv.sub(0), u_[0])
-    assign(uv.sub(1), u_[1])
-    plot(uv, title='Velocity')
-    plot(p_, title='Pressure')
+def theend_hook(u_, p_, uv, mesh, testing, **NS_namespace):
+    if not testing:
+        assign(uv.sub(0), u_[0])
+        assign(uv.sub(1), u_[1])
+        plot(uv, title='Velocity')
+        plot(p_, title='Pressure')
+    
+    if MPI.rank(mpi_comm_world()) == 0 and testing:
+        from numpy.linalg import norm as np_norm
+        print "Velocity norm = {0:2.6e}".format(np_norm(u_[0].vector().array()))
 
-    try:
-        from fenicstools import StreamFunction
-        psi = StreamFunction(uv, [], mesh, use_strong_bc=True)
-        plot(psi, title='Streamfunction', interactive=True)
-    except:
-        pass
+    if not testing:
+        try:
+            from fenicstools import StreamFunction
+            psi = StreamFunction(uv, [], mesh, use_strong_bc=True)
+            plot(psi, title='Streamfunction', interactive=True)
+        except:
+            pass

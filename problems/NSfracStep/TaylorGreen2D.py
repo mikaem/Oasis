@@ -67,12 +67,12 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
     """
     for ui in q_:
         deltat = dt/2. if ui is 'p' else 0.
-        vv = interpolate(Expression((initial_fields[ui]), t=t+deltat, nu=nu), VV[ui])
+        vv = interpolate(Expression((initial_fields[ui]), element=VV[ui].ufl_element(), t=t+deltat, nu=nu), VV[ui])
         q_[ui].vector()[:] = vv.vector()[:]
         if not ui == 'p':
             q_1[ui].vector()[:] = vv.vector()[:]
             deltat = -dt
-            vv = interpolate(Expression((initial_fields[ui]), t=t+deltat, nu=nu), VV[ui])
+            vv = interpolate(Expression((initial_fields[ui]), element=VV[ui].ufl_element(), t=t+deltat, nu=nu), VV[ui])
             q_2[ui].vector()[:] = vv.vector()[:]
     q_1['p'].vector()[:] = q_['p'].vector()[:]
 
@@ -95,7 +95,7 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
         err = {}
         for i, ui in enumerate(sys_comp):
             deltat_ = dt/2. if ui is 'p' else 0.
-            ue = Expression((initial_fields[ui]), t=t-deltat_, nu=nu)
+            ue = Expression((initial_fields[ui]), element=VV[ui].ufl_element(), t=t-deltat_, nu=nu)
             ue = interpolate(ue, VV[ui])
             uen = norm(ue.vector())
             ue.vector().axpy(-1, q_[ui].vector())
@@ -109,7 +109,7 @@ def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespac
     final_error = zeros(len(sys_comp))
     for i, ui in enumerate(sys_comp):
         deltat = dt/2. if ui is 'p' else 0.
-        ue = Expression((initial_fields[ui]), t=t-deltat, nu=nu)
+        ue = Expression((initial_fields[ui]), element=VV[ui].ufl_element(), t=t-deltat, nu=nu)
         ue = interpolate(ue, VV[ui])
         uen = norm(ue.vector())
         ue.vector().axpy(-1, q_[ui].vector())
@@ -123,7 +123,7 @@ def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespac
     for i, ui in enumerate(sys_comp):
         s0 += " {0:}={1:2.6e}".format(ui, total_error[i])
         s1 += " {0:}={1:2.6e}".format(ui, final_error[i])
+    
     if MPI.rank(mpi_comm_world()) == 0:
         print s0
         print s1
-    

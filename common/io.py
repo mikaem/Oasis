@@ -94,13 +94,13 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
                 tstepfile.uv()
                     
                 # Store solution vector
-                tstepfile << (tstepfile.uv, float(tstep))
+                tstepfile.write(tstepfile.uv, float(tstep))
             
             elif comp in q_:                
-                tstepfile << (q_[comp], float(tstep))
+                tstepfile.write(q_[comp], float(tstep))
             
             else:
-                tstepfile << (tstepfile.function, float(tstep))
+                tstepfile.write(tstepfile.function, float(tstep))
             
     else:
         for comp, tstepfile in tstepfiles.iteritems():

@@ -18,6 +18,9 @@ NS_parameters.update(
   max_error = 1e-8,      # Tolerance for absolute error
   print_velocity_pressure_convergence = False,
   
+  # Parameter set when enabling test mode
+  testing = False,
+  
   # Parameters used to tweek output  
   plot_interval = 10,    
   output_timeseries_as_vector = True, # Store velocity as vector in Timeseries 

@@ -11,17 +11,17 @@ from numpy import array, maximum, zeros
 
 #UnitSquareMesh(20, 20) # Just due to MPI bug on Scinet
 
-try:
-    from fenicstools import getMemoryUsage
+#try:
+    #from fenicstools import getMemoryUsage
 
-except:    
-    def getMemoryUsage(rss=True):
-        mypid = getpid()
-        if rss:
-            mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
-        else:
-            mymemory = getoutput("ps -o vsz %s" % mypid).split()[1]
-        return eval(mymemory) / 1024
+#except:    
+def getMemoryUsage(rss=True):
+    mypid = getpid()
+    if rss:
+        mymemory = getoutput("ps -o rss %s" % mypid).split()[1]
+    else:
+        mymemory = getoutput("ps -o vsz %s" % mypid).split()[1]
+    return eval(mymemory) / 1024
 
 parameters["linear_algebra_backend"] = "PETSc"
 parameters["form_compiler"]["optimize"] = True
