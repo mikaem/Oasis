@@ -11,8 +11,13 @@ install:
     - export PATH="$HOME/miniconda/bin:$PATH"
     - unset PYTHONPATH
     - conda config --set always_yes yes 
-    - conda config --add channels mikaem/label/test
+    - conda config --add channels mikaem/label/travis
+    - conda config --add channels mikaem    
     - conda install fenics=1.7.0 pyvtk h5py=2.6.0 pytest
+
+after_failure:
+    - cd $HOME/.instant/error
+    - bash /home/travis/build/mikaem/Oasis/tests/print_compilelog.sh
 
 script:
     - cd $PWD/tests; py.test
