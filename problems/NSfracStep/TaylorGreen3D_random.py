@@ -4,12 +4,20 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSfracStep import *
-
-def mesh(Nx, Ny, Nz, **params):
-    return BoxMesh(Point(-pi, -pi, -pi), Point(pi, pi, pi), Nx, Ny, Nz)
+from numpy import random
 
 def near(x, y, tol=1e-12):
     return bool(abs(x-y) < tol)
+
+def mesh(Nx, Ny, Nz, random_factor, **params):
+    m = BoxMesh(Point(-pi, -pi, -pi), Point(pi, pi, pi), Nx, Ny, Nz)
+    x = m.coordinates()    
+    for v in vertices(m):
+        x0, y0, z0 = x[v.index()]
+        if not (v.is_shared() or near(abs(x0), pi) or near(abs(y0), pi) or near(abs(z0), pi)):
+            x[v.index()] = x[v.index()] + random.randn(3)*random_factor
+        
+    return m
 
 class PeriodicDomain(SubDomain):
     
@@ -64,6 +72,8 @@ recursive_update(NS_parameters, dict(
     checkpoint = 10000, 
     plot_interval = 10,
     print_dkdt_info = 10000,
+    print_intermediate_info = 10000,
+    random_factor = 0.01,
     use_krylov_solvers = True,
     krylov_solvers = dict(monitor_convergence=False)
   )
@@ -87,7 +97,6 @@ def initialize(q_, q_1, q_2, VV, initial_fields, OasisFunction, **NS_namespace):
 kin = zeros(1)
 def temporal_hook(u_, p_, tstep, plot_interval, print_dkdt_info, nu, 
                   dt, t, oasis_memory, **NS_namespace):
-    #oasis_memory("tmp", True)
     if (tstep % print_dkdt_info == 0 or
         tstep % print_dkdt_info == 1):
         kinetic = assemble(0.5*dot(u_, u_)*dx) / (2*pi)**3
