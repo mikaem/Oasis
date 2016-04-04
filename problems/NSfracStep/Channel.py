@@ -163,13 +163,6 @@ def initialize(V, q_, q_1, q_2, bcs, restart_folder, **NS_namespace):
         q_2['u0'].vector()[:] = q_1['u0'].vector()[:]
         q_2['u1'].vector()[:] = q_1['u1'].vector()[:]
         q_2['u2'].vector()[:] = q_1['u2'].vector()[:]
-    
-def tentative_velocity_hook(ui, use_krylov_solvers, u_sol, **NS_namespace):
-    if use_krylov_solvers:
-        if ui == "u0":            
-            u_sol.parameters['preconditioner']['structure'] = "same_nonzero_pattern"
-        else:
-            u_sol.parameters['preconditioner']['structure'] = "same"
 
 def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
                   newfolder, folder, check_flux, save_statistics, mesh,

@@ -98,7 +98,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         u_sol.prec = u_prec # Keep from going out of scope
         #u_sol = KrylovSolver(velocity_krylov_solver['solver_type'],
         #                     velocity_krylov_solver['preconditioner_type'])
-        u_sol.parameters['preconditioner']['structure'] = 'same_nonzero_pattern'
+        #u_sol.parameters['preconditioner']['structure'] = 'same_nonzero_pattern'
         u_sol.parameters.update(krylov_solvers)
             
         ## pressure solver ##
@@ -110,7 +110,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         #PETScOptions.set('pc_hypre_boomeramg_agg_num_paths', 1)
         p_sol = KrylovSolver(pressure_krylov_solver['solver_type'],
                              pressure_krylov_solver['preconditioner_type'])
-        p_sol.parameters['preconditioner']['structure'] = 'same'
+        #p_sol.parameters['preconditioner']['structure'] = 'same'
         #p_sol.parameters['profile'] = True
         p_sol.parameters.update(krylov_solvers)
 
@@ -124,7 +124,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
                                  #scalar_krylov_solver['preconditioner_type'])
             
             c_sol.parameters.update(krylov_solvers)            
-            c_sol.parameters['preconditioner']['structure'] = 'same_nonzero_pattern'
+            #c_sol.parameters['preconditioner']['structure'] = 'same_nonzero_pattern'
             sols.append(c_sol)
         else:
             sols.append(None)
@@ -213,11 +213,11 @@ def velocity_tentative_assemble(ui, b, b_tmp, p_, gradp, **NS_namespace):
 def velocity_tentative_solve(ui, A, bcs, x_, x_2, u_sol, b, udiff, 
                              use_krylov_solvers, **NS_namespace):    
     """Linear algebra solve of tentative velocity component."""    
-    if use_krylov_solvers:
-        if ui == 'u0':
-            u_sol.parameters['preconditioner']['structure'] = 'same_nonzero_pattern'
-        else:
-            u_sol.parameters['preconditioner']['structure'] = 'same'
+    #if use_krylov_solvers:
+        #if ui == 'u0':
+            #u_sol.parameters['preconditioner']['structure'] = 'same_nonzero_pattern'
+        #else:
+            #u_sol.parameters['preconditioner']['structure'] = 'same'
 
     [bc.apply(b[ui]) for bc in bcs[ui]]
     x_2[ui].zero()                 # x_2 only used on inner_iter 1, so use here as work vector

@@ -33,7 +33,7 @@ def les_setup(u_, mesh, KineticEnergySGS, assemble_matrix, CG1Function, nut_kryl
     At = Matrix()
     bt = Vector(nut_.vector())
     ksgs_sol = KrylovSolver("bicgstab", "additive_schwarz")
-    ksgs_sol.parameters["preconditioner"]["structure"] = "same_nonzero_pattern"
+    #ksgs_sol.parameters["preconditioner"]["structure"] = "same_nonzero_pattern"
     ksgs_sol.parameters["error_on_nonconvergence"] = False
     ksgs_sol.parameters["monitor_convergence"] = False
     ksgs_sol.parameters["report"] = False

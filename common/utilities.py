@@ -35,7 +35,7 @@ class Solver_cache_dict(dict):
         sol.prec = prec
         #sol = KrylovSolver(solver_type, preconditioner_type)
         
-        sol.parameters["preconditioner"]["structure"] = "same"
+        #sol.parameters["preconditioner"]["structure"] = "same"
         sol.parameters["error_on_nonconvergence"] = False
         sol.parameters["monitor_convergence"] = False
         sol.parameters["report"] = False
