@@ -65,9 +65,9 @@ def theend_hook(u_, p_, uv, mesh, testing, **NS_namespace):
         plot(uv, title='Velocity')
         plot(p_, title='Pressure')
     
+    u_norm = norm(u_[0].vector())
     if MPI.rank(mpi_comm_world()) == 0 and testing:
-        from numpy.linalg import norm as np_norm
-        print "Velocity norm = {0:2.6e}".format(np_norm(u_[0].vector().array()))
+        print "Velocity norm = {0:2.6e}".format(u_norm)
 
     if not testing:
         try:
