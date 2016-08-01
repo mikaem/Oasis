@@ -13,7 +13,7 @@ install:
     - conda config --set always_yes yes 
     - conda config --add channels mikaem/label/travis
     - conda config --add channels mikaem    
-    - conda install fenics=1.7.0 pyvtk h5py=2.6.0 pytest
+    - conda install fenics=2016.2.dev pyvtk h5py=2.6.0 pytest
 
 after_failure:
     - cd $HOME/.instant/error
