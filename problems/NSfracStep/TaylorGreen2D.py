@@ -24,8 +24,8 @@ NS_parameters.update(
 )
 NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
                                    'report': False,
-                                   'relative_tolerance': 1e-10,
-                                   'absolute_tolerance': 1e-10}
+                                   'relative_tolerance': 1e-12,
+                                   'absolute_tolerance': 1e-12}
 
 def mesh(Nx, Ny, **params):
     return RectangleMesh(Point(0, 0), Point(2, 2), Nx, Ny)
