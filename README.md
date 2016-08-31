@@ -45,6 +45,8 @@ See [wiki](https://github.com/mikaem/oasis/wiki) or [User Manual](https://github
 
 If you wish to use Oasis for journal publications, please cite the following [paper](http://www.sciencedirect.com/science/article/pii/S0010465514003786).
 
+Oasis is specifically designed with complex biomedical flows in mind. One example using Oasis for cerebrospinal fluid flow is featured [here](https://fenicsproject.org/featured/2015/csf-lpt.html).
+
 Installation
 ------------
 
