@@ -11,9 +11,9 @@ install:
     - export PATH="$HOME/miniconda/bin:$PATH"
     - unset PYTHONPATH
     - conda config --set always_yes yes 
-    - conda config --add channels mikaem/label/travis
+    - conda config --add channels mikaem/label/docker-conda-gcc
     - conda config --add channels mikaem    
-    - conda install fenics=2016.2.dev pyvtk h5py=2.6.0 pytest
+    - conda install fenics=2016.2.dev pyvtk h5py-parallel pytest
 
 after_failure:
     - cd $HOME/.instant/error
