@@ -21,7 +21,7 @@ NS_parameters.update(
   max_iter = 1,          # Number of inner pressure velocity iterations on timestep
   max_error = 1e-6,      # Tolerance for inner iterations (pressure velocity iterations)
   iters_on_first_timestep = 2, # Number of iterations on first timestep
-  use_krylov_solvers = False,  # Otherwise use LU-solver
+  use_krylov_solvers = True,  # Otherwise use LU-solver
   print_intermediate_info = 10,
   print_velocity_pressure_convergence = False,
   
