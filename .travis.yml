@@ -10,10 +10,12 @@ install:
     - bash miniconda.sh -b -p $HOME/miniconda
     - export PATH="$HOME/miniconda/bin:$PATH"
     - unset PYTHONPATH
-    - conda config --set always_yes yes 
+    - conda config --set always_yes yes
+    - conda config --add channels mikaem
+    - conda config --add channels mpi4py
+    - conda config --add channels conda-forge
     - conda config --add channels mikaem/label/docker-conda-gcc
-    - conda config --add channels mikaem    
-    - conda install fenics=2016.2.dev pyvtk h5py-parallel pytest
+    - conda install fenics=2017.1.dev pyvtk h5py-parallel pytest
 
 after_failure:
     - cd $HOME/.instant/error
