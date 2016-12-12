@@ -12,7 +12,6 @@ install:
     - unset PYTHONPATH
     - conda config --set always_yes yes
     - conda config --add channels mikaem
-    - conda config --add channels mpi4py
     - conda config --add channels conda-forge
     - conda config --add channels mikaem/label/docker-conda-gcc
     - conda update -q conda
