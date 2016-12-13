@@ -35,11 +35,13 @@ install:
     - conda config --set show_channel_urls true
     - conda config --add channels conda-forge
     - conda config --add channels mikaem/label/OSX-10.11-clang
+    - conda update -q conda
     - conda install --yes fenics=${FENICS_VERSION} pyvtk h5py-parallel pytest
+    - export INSTANT_CACHE_DIR="${HOME}/instant"
 
 after_failure:
     - find ${INSTANT_CACHE_DIR}/error -name '*.log' -print -exec cat '{}' \;
 
 script:
-    - export INSTANT_CACHE_DIR="${SRC_DIR}/instant"
+    - export INSTANT_CACHE_DIR="${HOME}/instant"
     - cd ${PWD}/tests; py.test
