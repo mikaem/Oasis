@@ -18,9 +18,10 @@ def les_setup(u_, mesh, Smagorinsky, CG1Function, nut_krylov_solver, bcs, **NS_n
     CG1 = FunctionSpace(mesh, "CG", 1)
     
     # Compute cell size and put in delta
+    dim = mesh.geometry().dim()
     delta = Function(DG)
     delta.vector().zero()
-    delta.vector().axpy(1.0, assemble(TestFunction(DG)*dx))
+    delta.vector().set_local(assemble(TestFunction(DG)*dx).array()**(1./dim))
     delta.vector().apply('insert')
     
     # Set up Smagorinsky form
