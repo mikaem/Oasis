@@ -36,9 +36,9 @@ scalar_components = ["alfa"]
 Schmidt["alfa"] = 0.1
 
 def create_bcs(V, Q, Um, H, **NS_namespace):
-    inlet = Expression("4.*{0}*x[1]*({1}-x[1])/pow({1}, 2)".format(Um, H))
-    ux = Expression("0.00*x[1]")
-    uy = Expression("-0.00*(x[0]-{})".format(center))
+    inlet = Expression("4.*{0}*x[1]*({1}-x[1])/pow({1}, 2)".format(Um, H), degree=2)
+    ux = Expression("0.00*x[1]", degree=1)
+    uy = Expression("-0.00*(x[0]-{})".format(center), degree=1)
     bc00 = DirichletBC(V, inlet, Inlet)
     bc01 = DirichletBC(V, 0, Inlet)    
     bc10 = DirichletBC(V, ux, Cyl)
@@ -119,3 +119,4 @@ def theend_hook(q_, u_, p_, uv, mesh, ds, V, nu, Umean, D, **NS_namespace):
     nmax = where(probes.array() < 0)[0][-1]
     print "L = ", x[nmax, 0]-0.25
     print "dP = ", p_(Point(0.15, 0.2)) - p_(Point(0.25, 0.2))
+

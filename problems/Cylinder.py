@@ -5,9 +5,16 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import Mesh, AutoSubDomain, near
 import os
+import platform
 
-if not os.path.isfile("mesh/cylinder.xml"):
-    os.system("wget -O mesh/cylinder.xml https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=0")
+if not os.path.isfile("cylinder.xml"):
+    if platform.system() == "Linus":
+        os.system("wget -O cylinder.xml https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=0")
+    elif platform.system() == "Darwin":
+        os.system("curl -L https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=0 -o cylinder.xml")
+    else:
+        raise ImportError("Could not determine platform")
+
     #try:
         #os.system("gmsh mesh/cylinder.geo -2 -o mesh/cylinder.msh")
         #os.system("dolfin-convert mesh/cylinder.msh mesh/cylinder.xml")
@@ -16,7 +23,7 @@ if not os.path.isfile("mesh/cylinder.xml"):
         #os.system("wget -O cylinder.xml https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=0")
         ##raise "Gmsh is required to run this demo"
       
-mesh = Mesh("mesh/cylinder.xml")
+mesh = Mesh("cylinder.xml")
 
 H = 0.41
 L = 2.2
