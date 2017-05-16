@@ -130,10 +130,6 @@ vars().update(setup(**vars()))
 # Anything problem specific
 vars().update(pre_solve_hook(**vars()))
 
-# At this point only convection is left to be assembled. Enable ferari
-if parameters["form_compiler"].has_key("no_ferari") and not solver in ("IPCS", "Chorin"):
-    parameters["form_compiler"].remove("no_ferari")
-
 tic()
 stop = False
 total_timer = OasisTimer("Start simulations", True)
