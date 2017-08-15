@@ -8,7 +8,7 @@ sudo: false
 env:
 
   matrix:
-    - CONDA_PY=27
+    - CONDA_PY=36
 
   global:
     - FENICS_VERSION="2017.2.dev"
@@ -31,7 +31,7 @@ install:
       echo ""
       echo "Installing a fresh version of Miniconda."
       MINICONDA_URL="https://repo.continuum.io/miniconda"
-      MINICONDA_FILE="Miniconda2-latest-MacOSX-x86_64.sh"
+      MINICONDA_FILE="Miniconda3-latest-MacOSX-x86_64.sh"
       curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
       bash $MINICONDA_FILE -b
 
