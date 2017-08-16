@@ -4,7 +4,7 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from os import makedirs, getcwd, listdir, remove, system, path
-import cPickle
+import pickle
 from dolfin import MPI, Function, XDMFFile, HDF5File, info_red, \
     VectorFunctionSpace, mpi_comm_world, FunctionAssigner
 
@@ -109,7 +109,7 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
     if MPI.rank(mpi_comm_world()) == 0:
         if not path.exists(path.join(timefolder, "params.dat")):
             f = open(path.join(timefolder, 'params.dat'), 'w')
-            cPickle.dump(NS_parameters,  f)
+            pickle.dump(NS_parameters,  f)
 
 def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, u_components, 
                                 NS_parameters):
@@ -129,7 +129,7 @@ def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, u_components,
             system('cp {0} {1}'.format(path.join(checkpointfolder, "params.dat"),
                                         path.join(checkpointfolder, "params_old.dat")))
         f = open(path.join(checkpointfolder, "params.dat"), 'w')
-        cPickle.dump(NS_parameters,  f)
+        pickle.dump(NS_parameters,  f)
         
     MPI.barrier(mpi_comm_world())
     for ui in q_:

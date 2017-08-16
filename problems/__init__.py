@@ -4,10 +4,11 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import *
-from commands import getoutput
+from subprocess import getoutput
 from os import getpid, path
 from collections import defaultdict
 from numpy import array, maximum, zeros
+import six
 
 #UnitSquareMesh(20, 20) # Just due to MPI bug on Scinet
 
@@ -64,15 +65,15 @@ GREEN = "\033[1;37;32m%s\033[0m"
 
 def info_blue(s, check=True):
     if MPI.rank(mpi_comm_world())==0 and check:
-        print BLUE % s
+        print(BLUE % s)
 
 def info_green(s, check=True):
     if MPI.rank(mpi_comm_world())==0 and check:
-        print GREEN % s
+        print(GREEN % s)
 
 def info_red(s, check=True):
     if MPI.rank(mpi_comm_world())==0 and check:
-        print RED % s
+        print(RED % s)
 
 class OasisTimer(Timer):
     def __init__(self, task, verbose=False):
@@ -165,7 +166,7 @@ def post_import_problem(NS_parameters, mesh, commandline_kwargs,
     """Called after importing from problem."""
 
     # Update NS_parameters with all parameters modified through command line
-    for key, val in commandline_kwargs.iteritems():
+    for key, val in six.iteritems(commandline_kwargs):
         if isinstance(val, dict):
             NS_parameters[key].update(val)
         else:

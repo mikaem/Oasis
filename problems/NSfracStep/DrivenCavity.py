@@ -67,7 +67,7 @@ def theend_hook(u_, p_, uv, mesh, testing, **NS_namespace):
     
     u_norm = norm(u_[0].vector())
     if MPI.rank(mpi_comm_world()) == 0 and testing:
-        print "Velocity norm = {0:2.6e}".format(u_norm)
+        print("Velocity norm = {0:2.6e}".format(u_norm))
 
     if not testing:
         try:

@@ -6,7 +6,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 from ..NSfracStep import *
 from ..Cylinder import *
 from os import getcwd
-import cPickle
+import pickle
 
 #restart_folder = "results/data/8/Checkpoint"
 restart_folder = None
@@ -14,7 +14,7 @@ restart_folder = None
 if restart_folder:
     restart_folder = path.join(getcwd(), restart_folder)
     f = open(path.join(restart_folder, 'params.dat'), 'r')
-    NS_parameters.update(cPickle.load(f))
+    NS_parameters.update(pickle.load(f))
     NS_parameters['restart_folder'] = restart_folder
     globals().update(NS_parameters)
     

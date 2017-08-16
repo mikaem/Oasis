@@ -24,12 +24,12 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     K = assemble_matrix(inner(grad(u), grad(v))*dx)
     
     # Allocate stiffness matrix for LES that changes with time
-    KT = None if les_model is None else (Matrix(M), inner(grad(u), grad(v)))
+    KT = None if les_model is "NoModel" else (Matrix(M), inner(grad(u), grad(v)))
     
     # Pressure Laplacian. 
     Ap = assemble_matrix(inner(grad(q), grad(p))*dx, bcs['p'])
 
-    #if les_model is None:
+    #if les_model is "NoModel":
         #if not Ap.id() == K.id():
             ## Compress matrix (creates new matrix)
             #Bp = Matrix()
@@ -70,7 +70,7 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     u_ab = as_vector([Function(V) for i in range(len(u_components))])
     a_conv = inner(v, dot(u_ab, nabla_grad(u)))*dx
     a_scalar = a_conv
-    LT = None if les_model is None else LESsource(nut_, u_ab, V, name='LTd')
+    LT = None if les_model is "NoModel" else LESsource(nut_, u_ab, V, name='LTd')
 
     if bcs['p'] == []:
         attach_pressure_nullspace(Ap, x_, Q)
@@ -176,7 +176,7 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
             
     # Add diffusion and compute rhs for all velocity components 
     A.axpy(-0.5*nu, K, True) 
-    if les_model:
+    if not les_model is "NoModel":
         assemble(nut_*KT[1]*dx, tensor=KT[0])
         A.axpy(-0.5, KT[0], True)
         
@@ -184,7 +184,7 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
         b_tmp[ui].zero()              # start with body force
         b_tmp[ui].axpy(1., b0[ui])
         b_tmp[ui].axpy(1., A*x_1[ui]) # Add transient, convection and diffusion
-        if not les_model is None:
+        if not les_model is "NoModel":
             LT.assemble_rhs(i)
             b_tmp[ui].axpy(1., LT.vector())
         
@@ -273,7 +273,7 @@ def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components, Schmidt_T, 
     for ci in scalar_components:
         # Add diffusion
         Ta.axpy(-0.5*nu/Schmidt[ci], K, True)
-        if les_model:
+        if not les_model is "NoModel":
             Ta.axpy(-0.5/Schmidt_T[ci], KT[0], True)
             
         # Compute rhs
@@ -283,7 +283,7 @@ def scalar_assemble(a_scalar, a_conv, Ta , dt, M, scalar_components, Schmidt_T, 
         
         # Subtract diffusion
         Ta.axpy(0.5*nu/Schmidt[ci], K, True)
-        if les_model:
+        if not les_model is "NoModel":
             Ta.axpy(0.5/Schmidt_T[ci], KT[0], True)
             
     # Reset matrix for lhs - Note scalar matrix does not contain diffusion

@@ -2,17 +2,13 @@ __author__ = "Mikael Mortensen <mikaem@math.uio.no>"
 __date__ = "2013-11-07"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
-"""This is a simplest possible naive implementation of a backwards
+"""This is an optimized implementation of a backwards
 differencing solver with pressure correction in rotational form.
-
-The idea is that this solver can be quickly modified and tested for 
-alternative implementations. In the end it can be used to validate
-the implementations of the more complex optimized solvers.
 
 """
 from dolfin import *
-from IPCS_ABCN import * # reuse code from IPCS_ABCN
-from IPCS_ABCN import __all__, attach_pressure_nullspace
+from .IPCS_ABCN import * # reuse code from IPCS_ABCN
+from .IPCS_ABCN import __all__, attach_pressure_nullspace
 
 def setup(u_components, u, v, p, q, nu, nut_, LESsource,
           bcs, scalar_components, V, Q, x_, u_, p_, q_1, q_2,
@@ -27,12 +23,12 @@ def setup(u_components, u, v, p, q, nu, nut_, LESsource,
     K = assemble_matrix(inner(grad(u), grad(v))*dx)        
 
     # Allocate stiffness matrix for LES that changes with time
-    KT = None if les_model is None else (Matrix(M), inner(grad(u), grad(v)))
+    KT = None if les_model is "NoModel" else (Matrix(M), inner(grad(u), grad(v)))
     
     # Pressure Laplacian. Either reuse K or assemble new
     Ap = assemble_matrix(inner(grad(q), grad(p))*dx, bcs['p'])
 
-    if les_model is None:
+    if les_model is "NoModel":
         if not Ap.id() == K.id():
             Bp = Matrix()
             Ap.compressed(Bp)
@@ -80,7 +76,7 @@ def setup(u_components, u, v, p, q, nu, nut_, LESsource,
     u_convecting = as_vector([Function(V) for i in range(len(u_components))])
     a_conv = inner(v, dot(u_convecting, nabla_grad(u)))*dx  # Faster version
     a_scalar = inner(v, dot(u_, nabla_grad(u)))*dx
-    LT = None if les_model is None else LESsource((nu+nut_), u_convecting, V, name='LTd')
+    LT = None if les_model is "NoModel" else LESsource((nu+nut_), u_convecting, V, name='LTd')
     d.update(u_convecting=u_convecting, a_conv=a_conv, a_scalar=a_scalar, LT=LT, KT=KT)
     return d
 
@@ -118,12 +114,12 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, KT, LT,
         b_tmp[ui].axpy(1., b0[ui])
         b_tmp[ui].axpy(4.0/(beta(0)*dt), M*x_1[ui]) 
         b_tmp[ui].axpy(-1.0/(beta(0)*dt), M*x_2[ui]) 
-        if not les_model is None:
+        if not les_model is "NoModel":
             LT.assemble_rhs(i)
             b_tmp[ui].axpy(1., LT.vector())
         
     A.axpy(nu, K, True)
-    if les_model:
+    if not les_model is "NoModel":
         assemble(nut_*KT[1]*dx, tensor=KT[0])
         A.axpy(1., KT[0], True)
 

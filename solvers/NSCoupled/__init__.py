@@ -50,4 +50,4 @@ def get_solvers(**NS_namespace):
 
 def print_velocity_pressure_info(iter, error, **NS_namespace): 
     if MPI.rank(mpi_comm_world()) == 0:
-        print "Iter {}, Error = {}".format(iter+1, error)
+        print("Iter {}, Error = {}".format(iter+1, error))

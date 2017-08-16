@@ -1,5 +1,5 @@
-from io import *
-from utilities import *
+from .io import *
+from .utilities import *
 import sys, json
 
 def convert(input):

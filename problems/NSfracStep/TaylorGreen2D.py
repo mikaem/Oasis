@@ -103,7 +103,7 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
             err[ui] = "{0:2.6e}".format(norm(ue.vector())/uen)
             total_error[i] += error*dt     
         if MPI.rank(mpi_comm_world()) == 0:
-            print "Error is ", err, " at time = ", t 
+            print("Error is ", err, " at time = ", t)
         
 def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespace):
     final_error = zeros(len(sys_comp))
@@ -117,7 +117,7 @@ def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespac
         
     hmin = mesh.hmin()
     if MPI.rank(mpi_comm_world()) == 0:
-        print "hmin = {}".format(hmin)
+        print("hmin = {}".format(hmin))
     s0 = "Total Error:"
     s1 = "Final Error:"
     for i, ui in enumerate(sys_comp):
@@ -125,5 +125,5 @@ def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespac
         s1 += " {0:}={1:2.6e}".format(ui, final_error[i])
     
     if MPI.rank(mpi_comm_world()) == 0:
-        print s0
-        print s1
+        print(s0)
+        print(s1)

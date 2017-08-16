@@ -33,7 +33,7 @@ NS_parameters.update(
   output_timeseries_as_vector = True, # Store velocity as vector in Timeseries 
 
   # Choose LES model and set default parameters
-  les_model = None,       # None, Smagorinsky, Wale, DynamicLagrangian, ScaleDepDynamicLagrangian
+  les_model = 'NoModel', # NoModel, Smagorinsky, Wale, DynamicLagrangian, ScaleDepDynamicLagrangian
  
   # LES model parameters
   Smagorinsky = dict(Cs=0.1677),             # Standard Cs, same as OpenFOAM

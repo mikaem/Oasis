@@ -7,7 +7,7 @@ from ..NSfracStep import *
 from fenicstools import StructuredGrid, Probes
 from numpy import arctan, array, cos, pi
 from os import getcwd, makedirs
-import cPickle
+import pickle
 import random
 
 #restart_folder = '/home/mikael/Dropbox/ChannelDNS/64/Checkpoint'
@@ -32,7 +32,7 @@ def mesh(Nx, Ny, Nz, Lx, Ly, Lz, **params):
 if restart_folder:
     restart_folder = path.join(getcwd(), restart_folder)
     f = open(path.join(restart_folder, 'params.dat'), 'r')
-    NS_parameters.update(cPickle.load(f))
+    NS_parameters.update(pickle.load(f))
     #NS_parameters['T'] = NS_parameters['T'] + 200 * NS_parameters['dt'] 
     NS_parameters['T'] = 10
     NS_parameters['restart_folder'] = restart_folder
