@@ -5,6 +5,7 @@ __license__  = "GNU Lesser GPL version 3 or any later version"
 
 from os import makedirs, getcwd, listdir, remove, system, path
 import pickle
+import six
 from dolfin import MPI, Function, XDMFFile, HDF5File, info_red, \
     VectorFunctionSpace, mpi_comm_world, FunctionAssigner
 
@@ -83,7 +84,7 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
     timefolder = path.join(newfolder, 'Timeseries')
     if output_timeseries_as_vector:
         # project or store velocity to vector function space
-        for comp, tstepfile in tstepfiles.iteritems():
+        for comp, tstepfile in six.iteritems(tstepfiles):
             if comp == "u":
                 V = q_['u0'].function_space()
                 # First time around create vector function and assigners
@@ -103,12 +104,12 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
                 tstepfile.write(tstepfile.function, float(tstep))
             
     else:
-        for comp, tstepfile in tstepfiles.iteritems():
+        for comp, tstepfile in six.iteritems(tstepfiles):
             tstepfile << (q_[comp], float(tstep))
         
     if MPI.rank(mpi_comm_world()) == 0:
         if not path.exists(path.join(timefolder, "params.dat")):
-            f = open(path.join(timefolder, 'params.dat'), 'w')
+            f = open(path.join(timefolder, 'params.dat'), 'wb')
             pickle.dump(NS_parameters,  f)
 
 def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, u_components, 
@@ -128,7 +129,7 @@ def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, u_components,
         if path.exists(path.join(checkpointfolder, "params.dat")):
             system('cp {0} {1}'.format(path.join(checkpointfolder, "params.dat"),
                                         path.join(checkpointfolder, "params_old.dat")))
-        f = open(path.join(checkpointfolder, "params.dat"), 'w')
+        f = open(path.join(checkpointfolder, "params.dat"), 'wb')
         pickle.dump(NS_parameters,  f)
         
     MPI.barrier(mpi_comm_world())
