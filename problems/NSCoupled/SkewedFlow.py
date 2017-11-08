@@ -1,19 +1,20 @@
 __author__ = "Mikael Mortensen <mikaem@math.uio.no>"
 __date__ = "2013-06-25"
 __copyright__ = "Copyright (C) 2013 " + __author__
-__license__  = "GNU Lesser GPL version 3 or any later version"
+__license__ = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSCoupled import *
 from ..SkewedFlow import *
-#set_log_active(False)
+# set_log_active(False)
 
 # Override some problem specific parameters
 NS_parameters.update(
-    nu = 0.1,
-    omega = 1.0,
-    plot_interval = 10,
-    max_iter = 100,
-    max_error = 1e-12)
+    nu=0.1,
+    omega=1.0,
+    plot_interval=10,
+    max_iter=100,
+    max_error=1e-12)
+
 
 def create_bcs(V, VQ, mesh, **NS_namespace):
     # Create inlet profile by solving Poisson equation on boundary
@@ -26,9 +27,9 @@ def create_bcs(V, VQ, mesh, **NS_namespace):
     su = Function(Vu)
     us = TrialFunction(Vu)
     vs = TestFunction(Vu)
-    solve(inner(grad(us), grad(vs))*dx == Constant(10.0)*vs*dx, su, 
+    solve(inner(grad(us), grad(vs)) * dx == Constant(10.0) * vs * dx, su,
           bcs=[DirichletBC(Vu, Constant(0), DomainBoundary())])
-        
+
     # Wrap the boundary function in an Expression to avoid the need to interpolate it back to V
     class MyExp(Expression):
         def eval(self, values, x):
@@ -38,13 +39,14 @@ def create_bcs(V, VQ, mesh, **NS_namespace):
                 values[2] = 0
             except:
                 values[:] = 0
-                
+
         def value_shape(self):
             return (3,)
-        
-    bc0 = DirichletBC(VQ.sub(0), (0,0,0), walls)
+
+    bc0 = DirichletBC(VQ.sub(0), (0, 0, 0), walls)
     bc1 = DirichletBC(VQ.sub(0), MyExp(), inlet)
-    return dict(up = [bc0, bc1])
+    return dict(up=[bc0, bc1])
+
 
 def theend_hook(u_, p_, **NS_namespace):
     plot(u_, title='Velocity')
