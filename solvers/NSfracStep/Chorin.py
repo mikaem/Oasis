@@ -37,7 +37,7 @@ def setup(ui, u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1,
 
         # Velocity update
         Fu[ui] = (inner(u, v) * dx - inner(q_[ui], v) *
-                  dx + dt * inner(p_.dx(i), v) * dx
+                  dx + dt * inner(p_.dx(i), v) * dx)
 
     # Pressure solve
     Fp = inner(grad(q), grad(p)) * dx + (1. / dt) * div(u_) * q * dx
