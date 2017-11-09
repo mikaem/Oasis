@@ -3,11 +3,11 @@ __date__ = '2015-02-04'
 __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__ = 'GNU Lesser GPL version 3 or any later version'
 
-from dolfin import Function, FunctionSpace, TestFunction, sym, grad, dx, inner,\
-    sqrt, TrialFunction, project, CellVolume, as_vector, solve, Constant,\
-    LagrangeInterpolator, assemble, FacetFunction, DirichletBC
-from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
-    compute_Mij
+from dolfin import (Function, FunctionSpace, TestFunction, sym, grad, dx, inner,
+    sqrt, TrialFunction, project, CellVolume, as_vector, solve, Constant,
+    LagrangeInterpolator, assemble, FacetFunction, DirichletBC)
+from DynamicModules import (tophatfilter, lagrange_average, compute_Lij,
+                            compute_Mij)
 import numpy as np
 
 __all__ = ['les_setup', 'les_update']

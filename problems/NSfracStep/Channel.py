@@ -20,8 +20,8 @@ class ChannelGrid(StructuredGrid):
 
     def modify_mesh(self, dx, dy, dz):
         """Create grid skewed towards the walls located at y = 1 and y = -1"""
-        dy[1][:] = arctan(pi * (dy[1][:] + self.origin[1])) / \
-            arctan(pi) - self.origin[1]
+        dy[1][:] = (arctan(pi * (dy[1][:] + self.origin[1])) /
+                    arctan(pi) - self.origin[1])
         return dx, dy, dz
 
 

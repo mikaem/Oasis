@@ -6,8 +6,8 @@ __license__ = "GNU Lesser GPL version 3 or any later version"
 from os import makedirs, getcwd, listdir, remove, system, path
 import pickle
 import six
-from dolfin import MPI, Function, XDMFFile, HDF5File, info_red, \
-    VectorFunctionSpace, mpi_comm_world, FunctionAssigner
+from dolfin import (MPI, Function, XDMFFile, HDF5File, info_red,
+    VectorFunctionSpace, mpi_comm_world, FunctionAssigner)
 
 __all__ = ["create_initial_folders", "save_solution", "save_tstep_solution_h5",
            "save_checkpoint_solution_h5", "check_if_kill", "check_if_reset_statistics",

@@ -3,8 +3,8 @@ __date__ = '2015-01-22'
 __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__ = 'GNU Lesser GPL version 3 or any later version'
 
-from dolfin import Function, FunctionSpace, assemble, TestFunction, sym, grad, tr, \
-    Identity, dx, inner, Max, FacetFunction, DirichletBC, Constant
+from dolfin import (Function, FunctionSpace, assemble, TestFunction, sym, grad, tr,
+    Identity, dx, inner, Max, FacetFunction, DirichletBC, Constant)
 
 from common import derived_bcs
 
