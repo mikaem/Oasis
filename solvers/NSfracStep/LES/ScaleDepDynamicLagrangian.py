@@ -5,9 +5,9 @@ __license__ = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import (Function, assemble, TestFunction, dx, solve, Constant,
     FacetFunction, DirichletBC)
-from DynamicModules import (tophatfilter, lagrange_average, compute_Lij,
+from .DynamicModules import (tophatfilter, lagrange_average, compute_Lij,
     compute_Mij, compute_Qij, compute_Nij)
-import DynamicLagrangian
+from . import DynamicLagrangian
 import numpy as np
 
 __all__ = ['les_setup', 'les_update']

@@ -7,7 +7,7 @@ from dolfin import (Function, FunctionSpace, assemble, TestFunction, sym, grad,
     Vector, dx, inner, TrialFunction, sqrt, Matrix, dot, interpolate, Constant,
     DirichletBC, KrylovSolver)
 
-from common import derived_bcs
+from .common import derived_bcs
 
 __all__ = ['les_setup', 'les_update']
 
