@@ -35,10 +35,10 @@ def lagrange_average(u_CG1, dt, CG1, tensdim, delta_CG1_sq, dim,
 
     # Compute backward convective terms J(x-dt*u) (!! NOT STABLE !!)
     """
-    gradJ1 = [Function(CG1) for i in xrange(dim)]
-    gradJ2 = [Function(CG1) for i in xrange(dim)]
+    gradJ1 = [Function(CG1) for i in range(dim)]
+    gradJ2 = [Function(CG1) for i in range(dim)]
     # Solve for the gradients of J1 and J2
-    for i in xrange(dim):
+    for i in range(dim):
         solve(G_matr, gradJ1[i].vector(), dt*Sijmats[i]*J1.vector(), "cg", "hypre_amg")
         solve(G_matr, gradJ2[i].vector(), dt*Sijmats[i]*J2.vector(), "cg", "hypre_amg")
     # Compute J1 - dt*dot(u_ab,grad(J1))
@@ -75,7 +75,7 @@ def tophatfilter(G_matr, G_under, unfiltered=None, filtered=None, N=1,
 
     vec_ = unfiltered.vector()
     # Apply filter N times
-    for i in xrange(N):
+    for i in range(N):
         # Compute filtered quantity
         vec_ = (G_matr * vec_) * G_under.vector()
         vec_ = weight * vec_ + (1 - weight) * unfiltered.vector()
@@ -93,7 +93,7 @@ def compute_Lij(Lij, uiuj_pairs, tensdim, G_matr, G_under,
     """
 
     # Loop over each tensor component
-    for i in xrange(tensdim):
+    for i in range(tensdim):
         Lij[i].vector().zero()
         # Extract velocity pair
         j, k = uiuj_pairs[i]
@@ -144,7 +144,7 @@ def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq
         buf = [Ax * uf, 0.5 * (Ay * uf + Ax * vf), 0.5 * (Az * uf + Ax * wf),
                Ay * vf, 0.5 * (Az * vf + Ay * wf), Az * wf]
 
-    for i in xrange(tensdim):
+    for i in range(tensdim):
         # Solve for the different components of Sij
         solve(G_matr, Sij[i].vector(), bu[i], "cg", "default")
         # Solve for the different components of F(Sij)
@@ -155,7 +155,7 @@ def compute_Mij(Mij, G_matr, G_under, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq
     magSf = mag(Sijf, tensdim)
 
     # Loop over components and add to Mij
-    for i in xrange(tensdim):
+    for i in range(tensdim):
         # Compute |S|*Sij
         Mij[i].vector().set_local(magS * Sij[i].vector().array())
         Mij[i].vector().apply("insert")
@@ -181,7 +181,7 @@ def compute_Qij(Qij, uiuj_pairs, tensdim, G_matr, G_under, uf=None, **NS_namespa
     Function for computing Qij in ScaleDepLagrangian
     """
     # Compute Qij
-    for i in xrange(tensdim):
+    for i in range(tensdim):
         j, k = uiuj_pairs[i]
         # Filter component of Qij
         tophatfilter(unfiltered=Qij[i], filtered=Qij[i], weight=1, **vars())
@@ -214,14 +214,14 @@ def compute_Nij(Nij, G_matr, G_under, tensdim, Sijmats, Sijfcomps, delta_CG1_sq,
         buf = [Ax * uf, 0.5 * (Ay * uf + Ax * vf), 0.5 * (Az * uf + Ax * wf),
                Ay * vf, 0.5 * (Az * vf + Ay * wf), Az * wf]
 
-    for i in xrange(tensdim):
+    for i in range(tensdim):
         # Solve for the diff. components of F(F(Sij)))
         solve(G_matr, Sijf[i].vector(), buf[i], "cg", "default")
 
     # Compute magSf
     magSf = mag(Sijf, tensdim)
 
-    for i in xrange(tensdim):
+    for i in range(tensdim):
         # Filter Nij = F(|S|Sij) --> F(F(|S|Sij))
         tophatfilter(unfiltered=Nij[i], filtered=Nij[i], weight=1, **vars())
         # Compute 2*delta**2*(F(F(|S|Sij)) - alpha**2*F(F(|S))F(F(Sij)))

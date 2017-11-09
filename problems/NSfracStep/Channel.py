@@ -3,6 +3,7 @@ __date__ = "2013-06-25"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
+from __future__ import print_function
 from ..NSfracStep import *
 from fenicstools import StructuredGrid, Probes
 from numpy import arctan, array, cos, pi
@@ -202,7 +203,7 @@ def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
         normv = norm(q_['u1'].vector())
         normw = norm(q_['u2'].vector())
         if MPI.rank(mpi_comm_world()) == 0:
-            print "Flux = ", u1, " tstep = ", tstep, " norm = ", normv, normw
+            print("Flux = ", u1, " tstep = ", tstep, " norm = ", normv, normw)
 
 
 def theend(newfolder, tstep, stats, **NS_namespace):

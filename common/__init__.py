@@ -2,21 +2,20 @@ from .io import *
 from .utilities import *
 import sys
 import json
+import six
 
 
 def convert(input):
     if isinstance(input, dict):
-        return {convert(key): convert(value) for key, value in input.iteritems()}
+        return {convert(key): convert(value) for key, value in input.iter()}
     elif isinstance(input, list):
         return [convert(element) for element in input]
-    elif isinstance(input, unicode):
+    elif isinstance(input, six.text_type):
         return input.encode('utf-8')
     else:
         return input
 
 # Parse command-line keyword arguments
-
-
 def parse_command_line():
     commandline_kwargs = {}
     for s in sys.argv[1:]:

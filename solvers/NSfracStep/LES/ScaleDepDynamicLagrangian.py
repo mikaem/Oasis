@@ -54,7 +54,7 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, tstep,
         return
 
     # All velocity components must be interpolated to CG1 then filtered
-    for i in xrange(dim):
+    for i in range(dim):
         # Interpolate to CG1
         ll.interpolate(u_CG1[i], u_ab[i])
         # Filter
@@ -71,7 +71,7 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, tstep,
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
 
     # Now u needs to be filtered once more
-    for i in xrange(dim):
+    for i in range(dim):
         # Filter
         tophatfilter(unfiltered=u_filtered[i], filtered=u_filtered[i],
                      weight=1, **vars())

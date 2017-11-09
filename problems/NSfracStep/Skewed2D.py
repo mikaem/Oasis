@@ -33,7 +33,7 @@ def pre_solve_hook(mesh, u_, AssignedVectorFunction, **NS_namespace):
 def temporal_hook(u_, p_, mesh, tstep, print_intermediate_info,
                   uv, n, plot_interval, **NS_namespace):
     if tstep % print_intermediate_info == 0:
-        print "Continuity ", assemble(dot(u_, n) * ds())
+        print("Continuity ", assemble(dot(u_, n) * ds()))
 
     if tstep % plot_interval == 0:
         uv()

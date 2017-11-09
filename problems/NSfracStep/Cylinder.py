@@ -3,6 +3,7 @@ __date__ = "2014-03-21"
 __copyright__ = "Copyright (C) 2014 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
+from __future__ import print_function
 from ..NSfracStep import *
 from ..Cylinder import *
 from os import getcwd
@@ -88,7 +89,7 @@ def temporal_hook(q_, u_, tstep, V, uv, p_, plot_interval, omega, ds,
     tau = -p_ * Identity(2) + nu * (grad(u_) + grad(u_).T)
     forces = assemble(dot(dot(tau, n), c) * ds(1)).array() * 2 / Umean**2 / D
 
-    print "Cd = {}, CL = {}".format(*forces)
+    print("Cd = {}, CL = {}".format(*forces))
 
     if tstep % save_step == 0:
         try:
@@ -113,7 +114,7 @@ def theend_hook(q_, u_, p_, uv, mesh, ds, V, nu, Umean, D, **NS_namespace):
     ds = ds[ff]
     forces = assemble(dot(dot(tau, n), c) * ds(1)).array() * 2 / Umean**2 / D
 
-    print "Cd = {}, CL = {}".format(*forces)
+    print("Cd = {}, CL = {}".format(*forces))
 
     from fenicstools import Probes
     from numpy import linspace, repeat, where, resize
@@ -123,5 +124,5 @@ def theend_hook(q_, u_, p_, uv, mesh, ds, V, nu, Umean, D, **NS_namespace):
     probes = Probes(x.flatten(), V)
     probes(u_[0])
     nmax = where(probes.array() < 0)[0][-1]
-    print "L = ", x[nmax, 0] - 0.25
-    print "dP = ", p_(Point(0.15, 0.2)) - p_(Point(0.25, 0.2))
+    print("L = ", x[nmax, 0] - 0.25)
+    print("dP = ", p_(Point(0.15, 0.2)) - p_(Point(0.25, 0.2)))

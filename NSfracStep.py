@@ -48,7 +48,7 @@ exec("from solvers.NSfracStep.{} import *".format(solver))
 
 # Create lists of components solved for
 dim = mesh.geometry().dim()
-u_components = list(map(lambda x: 'u' + str(x), range(dim)))
+u_components = ['u' + str(x) for x in range(dim)]
 sys_comp = u_components + ['p'] + scalar_components
 uc_comp = u_components + scalar_components
 

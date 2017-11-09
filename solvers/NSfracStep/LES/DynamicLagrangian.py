@@ -102,7 +102,7 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep,
         return
 
     # All velocity components must be interpolated to CG1 then filtered
-    for i in xrange(dim):
+    for i in range(dim):
         # Interpolate to CG1
         ll.interpolate(u_CG1[i], u_ab[i])
         # Filter

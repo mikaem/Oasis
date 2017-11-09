@@ -68,7 +68,7 @@ def temporal_hook(u_, mesh, tstep, print_intermediate_info,
                   plot_interval, **NS_namespace):
 
     if tstep % print_intermediate_info == 0:
-        print "Continuity ", assemble(dot(u_, FacetNormal(mesh)) * ds())
+        print("Continuity ", assemble(dot(u_, FacetNormal(mesh)) * ds()))
 
     if tstep % plot_interval == 0:
         plot(u_, title='Velocity')

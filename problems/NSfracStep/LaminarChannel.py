@@ -87,6 +87,6 @@ def temporal_hook(tstep, q_, t, Re, L, **NS_namespace):
         # point is found on one processor, the others pass
         u_computed = q_['u0'](array([L, 0.]))
         u_exact = reference(Re, t)
-        print "Error = ", (u_exact - u_computed) / u_exact
+        print("Error = ", (u_exact - u_computed) / u_exact)
     except:
         pass
