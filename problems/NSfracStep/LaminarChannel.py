@@ -13,19 +13,19 @@ H = 1.
 def mesh(Nx, Ny, **params):
     m = RectangleMesh(Point(0., -H), Point(L, H), Nx, Ny)
     # Squeeze towards walls
-    x = m.coordinates()        
-    x[:, 1] = arctan(1.*pi*(x[:, 1]))/arctan(1.*pi) 
+    x = m.coordinates()
+    x[:, 1] = arctan(1.*pi*(x[:, 1]))/arctan(1.*pi)
     return m
 
 class PeriodicDomain(SubDomain):
 
     def inside(self, x, on_boundary):
         return bool(near(x[0], 0) and on_boundary)
-                      
+
     def map(self, x, y):
         y[0] = x[0] - L
-        y[1] = x[1] 
-            
+        y[1] = x[1]
+
 constrained_domain = PeriodicDomain()
 
 # Override some problem specific parameters
@@ -47,9 +47,9 @@ NS_parameters.update(dict(
 
 def walls(x, on_boundary):
     return (on_boundary and (near(x[1], -H) or near(x[1], H)))
-    
+
 def create_bcs(V, sys_comp, **NS_namespace):
-    bcs = dict((ui, []) for ui in sys_comp)    
+    bcs = dict((ui, []) for ui in sys_comp)
     bc0  = DirichletBC(V, 0., walls)
     bcs['u0'] = [bc0]
     bcs['u1'] = [bc0]
@@ -69,12 +69,12 @@ def reference(Re, t, num_terms=100):
     return u
 
 def temporal_hook(tstep, q_, t, Re, **NS_namespace):
-    if tstep % 20 == 0:        
+    if tstep % 20 == 0:
         plot(q_['u0'])
     try:
         # point is found on one processor, the others pass
         u_computed = q_['u0'](array([L, 0.]))
         u_exact = reference(Re, t)
-        print "Error = ", (u_exact-u_computed)/u_exact
+        print("Error = ", (u_exact-u_computed)/u_exact)
     except:
         pass
