@@ -1,3 +1,4 @@
+from __future__ import print_function
 __author__ = "Mikael Mortensen <mikaem@math.uio.no>"
 __date__ = "2014-04-04"
 __copyright__ = "Copyright (C) 2014 " + __author__
