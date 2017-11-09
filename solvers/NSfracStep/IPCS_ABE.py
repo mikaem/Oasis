@@ -109,7 +109,7 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         ## tentative velocity solver ##
         u_sol = KrylovSolver(velocity_krylov_solver['solver_type'],
                              velocity_krylov_solver['preconditioner_type'])
-        u_sol.parameters['preconditioner']['structure'] = 'same'
+        #u_sol.parameters['preconditioner']['structure'] = 'same'
         u_sol.parameters.update(krylov_solvers)
 
         ## pressure solver ##

@@ -104,7 +104,8 @@ class OasisMemoryUsage:
         self.memory_vm = MPI.sum(mpi_comm_world(), getMemoryUsage(False))
         if MPI.rank(mpi_comm_world()) == 0 and verbose:
             info_blue('{0:26s}  {1:10d} MB {2:10d} MB {3:10d} MB {4:10d} MB'.format(s,
-                        self.memory - self.prev, self.memory, self.memory_vm - self.prev_vm, self.memory_vm))
+                        int(self.memory - self.prev), int(self.memory),
+                        int(self.memory_vm - self.prev_vm), int(self.memory_vm)))
 
 
 # Print memory use up til now

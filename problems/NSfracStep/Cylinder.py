@@ -1,9 +1,9 @@
+from __future__ import print_function
 __author__ = "Mikael Mortensen <mikaem@math.uio.no>"
 __date__ = "2014-03-21"
 __copyright__ = "Copyright (C) 2014 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
-from __future__ import print_function
 from ..NSfracStep import *
 from ..Cylinder import *
 from os import getcwd
