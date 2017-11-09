@@ -8,12 +8,13 @@ from ..SkewedFlow import *
 # set_log_active(False)
 
 # Override some problem specific parameters
-NS_parameters.update(
-    nu=0.1,
-    omega=1.0,
-    plot_interval=10,
-    max_iter=100,
-    max_error=1e-12)
+def problem_parameters(NS_parameters, **NS_namespace):
+    NS_parameters.update(
+        nu=0.1,
+        omega=1.0,
+        plot_interval=10,
+        max_iter=100,
+        max_error=1e-12)
 
 
 def create_bcs(V, VQ, mesh, **NS_namespace):
@@ -44,7 +45,7 @@ def create_bcs(V, VQ, mesh, **NS_namespace):
             return (3,)
 
     bc0 = DirichletBC(VQ.sub(0), (0, 0, 0), walls)
-    bc1 = DirichletBC(VQ.sub(0), MyExp(), inlet)
+    bc1 = DirichletBC(VQ.sub(0), MyExp(element=VQ.sub(0).ufl_element()), inlet)
     return dict(up=[bc0, bc1])
 
 

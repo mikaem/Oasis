@@ -6,6 +6,31 @@ __license__ = "GNU Lesser GPL version 3 or any later version"
 from ..NSfracStep import *
 
 
+# Override some problem specific parameters
+def problem_parameters(NS_parameters, commandline_kwargs, NS_expressions, **NS_namespace):
+    Re = 500.
+    nu = 1. / Re
+    NS_parameters.update(dict(
+        nu=nu,
+        T=10,
+        dt=0.01,
+        Re=Re,
+        Nx=40,
+        Ny=40,
+        folder="Lshape_results",
+        max_iter=1,
+        plot_interval=1,
+        velocity_degree=2,
+        use_krylov_solvers=True))
+
+    if "pressure_degree" in commandline_kwargs.keys():
+        degree = commandline_kwargs["pressure_degree"]
+    else:
+        degree = NS_parameters["pressure_degree"]
+
+    NS_expressions.update(dict(p_in=Expression("sin(pi*t)", t=0., degree=degree)))
+
+
 # Create a mesh here
 class Submesh(SubDomain):
     def inside(self, x, on_boundary):
@@ -19,23 +44,6 @@ def mesh(Nx, Ny, **params):
     mf1.set_all(0)
     subm.mark(mf1, 1)
     return SubMesh(mesh_, mf1, 0)
-
-
-# Override some problem specific parameters
-Re = 500.
-nu = 1. / Re
-NS_parameters.update(dict(
-    nu=nu,
-    T=10,
-    dt=0.01,
-    Re=Re,
-    Nx=40,
-    Ny=40,
-    folder="Lshape_results",
-    max_iter=1,
-    plot_interval=1,
-    velocity_degree=2,
-    use_krylov_solvers=True))
 
 
 def inlet(x, on_boundary):
@@ -52,10 +60,7 @@ def walls(x, on_boundary):
              x[1] > 0.25 - 5 * DOLFIN_EPS) and on_boundary)
 
 
-p_in = Expression("sin(pi*t)", t=0.)
-
-
-def create_bcs(V, Q, sys_comp, **NS_namespace):
+def create_bcs(V, Q, sys_comp, p_in, **NS_namespace):
     bcs = dict((ui, []) for ui in sys_comp)
     bc0 = DirichletBC(V, 0., walls)
     pc0 = DirichletBC(Q, p_in, inlet)
@@ -71,7 +76,7 @@ def pre_solve_hook(mesh, OasisFunction, u_, **NS_namespace):
     return dict(Vv=Vv, uv=OasisFunction(u_, Vv))
 
 
-def start_timestep_hook(t, **NS_namespace):
+def start_timestep_hook(t, p_in, **NS_namespace):
     p_in.t = t
 
 

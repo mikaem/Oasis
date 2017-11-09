@@ -6,27 +6,29 @@ __license__ = "GNU Lesser GPL version 3 or any later version"
 from ..NSfracStep import *
 from ..DrivenCavity import *
 
+#set_log_active(False)
+
 # Override some problem specific parameters
-NS_parameters.update(
-    nu=0.001,
-    T=1.0,
-    dt=0.001,
-    folder="drivencavity_results",
-    plot_interval=20,
-    save_step=10000,
-    checkpoint=10000,
-    print_intermediate_info=100,
-    use_krylov_solvers=True)
+def problem_parameters(NS_parameters, scalar_components, Schmidt, **NS_namespace):
+    NS_parameters.update(
+        nu=0.001,
+        T=1.0,
+        dt=0.001,
+        folder="drivencavity_results",
+        plot_interval=20,
+        save_step=10000,
+        checkpoint=10000,
+        print_intermediate_info=100,
+        use_krylov_solvers=True)
 
-# NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
-#'report': False,
-#'relative_tolerance': 1e-10,
-#'absolute_tolerance': 1e-10}
+    scalar_components += ["alfa", "beta"]
+    Schmidt["alfa"] = 1.
+    Schmidt["beta"] = 10.
 
-scalar_components = ["alfa", "beta"]
-Schmidt["alfa"] = 1.
-Schmidt["beta"] = 10.
-# set_log_active(False)
+    #NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
+    #                                   'report': False,
+    #                                   'relative_tolerance': 1e-10,
+    #                                   'absolute_tolerance': 1e-10}
 
 
 # Specify boundary conditions

@@ -24,12 +24,13 @@ becomes more realistic.
 """)
 
 # Override some problem specific parameters
-NS_parameters.update(
-    nu=0.001,
-    T=0.05,
-    dt=0.01,
-    use_krylov_solvers=True,
-    print_velocity_pressure_convergence=True)
+def problem_parameters(NS_parameters, **NS_namespace):
+    NS_parameters.update(
+        nu=0.001,
+        T=0.05,
+        dt=0.01,
+        use_krylov_solvers=True,
+        print_velocity_pressure_convergence=True)
 
 
 def create_bcs(V, Q, mesh, **NS_namespace):
@@ -55,7 +56,7 @@ def create_bcs(V, Q, mesh, **NS_namespace):
                 values[0] = 0
 
     bc0 = DirichletBC(V, 0, walls)
-    bc1 = DirichletBC(V, MyExp(), inlet)
+    bc1 = DirichletBC(V, MyExp(element=V.ufl_element()), inlet)
     bc2 = DirichletBC(V, 0, inlet)
     return dict(u0=[bc0, bc1],
                 u1=[bc0, bc2],

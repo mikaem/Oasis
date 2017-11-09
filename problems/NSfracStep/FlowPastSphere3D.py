@@ -8,55 +8,46 @@ from numpy import cos, pi, cosh
 from os import getcwd
 import pickle
 
-#restart_folder = "results/data/36/Checkpoint"
-restart_folder = None
-
 
 # Create a mesh
-def mesh(h, sol, **params):
+def mesh(**params):
     m = Mesh('/home/mikael/MySoftware/Oasis/mymesh/boxwithsphererefined.xml')
     return m
 
 
-if restart_folder:
-    restart_folder = path.join(getcwd(), restart_folder)
-    f = open(path.join(restart_folder, 'params.dat'), 'r')
-    NS_parameters.update(pickle.load(f))
-    NS_parameters['T'] = NS_parameters['T'] + 10 * NS_parameters['dt']
-    NS_parameters['restart_folder'] = restart_folder
-    globals().update(NS_parameters)
+def problem_parameters(commandline_kwargs, NS_parameters, **NS_namespace):
+    if "restart_folder" in commandline_kwargs.keys():
+        restart_folder = commandline_kwargs["restart_folder"]
+        restart_folder = path.join(getcwd(), restart_folder)
+        f = open(path.join(restart_folder, 'params.dat'), 'r')
+        NS_parameters.update(pickle.load(f))
+        NS_parameters['T'] = NS_parameters['T'] + 10 * NS_parameters['dt']
+        NS_parameters['restart_folder'] = restart_folder
+        globals().update(NS_parameters)
 
-else:
-    # Override some problem specific parameters
-    NS_parameters.update(
-        nu=0.1,
-        T=5.0,
-        dt=0.01,
-        h=0.75,
-        sol=40,
-        dpdx=0.05,
-        velocity_degree=2,
-        plot_interval=10,
-        print_intermediate_info=10,
-        use_krylov_solvers=True)
-    NS_parameters['krylov_solvers']['monitor_convergence'] = True
-
-    globals().update(NS_parameters)
-
-
-def body_force(mesh, **NS_namespace):
-    """Specify body force"""
-    return Constant((0, 0, 0))
-
-
-# Specify boundary conditions
-walls = "on_boundary && std::abs((x[1]-3)*(x[1]+3)*(x[2]-3)*(x[2]+3))<1e-8"
-inners = "on_boundary && std::sqrt(x[0]*x[0]+x[1]*x[1]+x[2]*x[2]) < 1.5*{}".format(h)
-inlet = "x[0] < -3+1e-8 && on_boundary"
-outlet = "x[0] > 6-1e-8 && on_boundary"
+    else:
+        # Override some problem specific parameters
+        NS_parameters.update(
+            nu=0.1,
+            T=5.0,
+            dt=0.01,
+            h=0.75,
+            sol=40,
+            dpdx=0.05,
+            velocity_degree=2,
+            plot_interval=10,
+            print_intermediate_info=10,
+            use_krylov_solvers=True)
+        NS_parameters['krylov_solvers']['monitor_convergence'] = True
 
 
 def create_bcs(V, Q, mesh, **NS_namespace):
+    # Specify boundary conditions
+    walls = "on_boundary && std::abs((x[1]-3)*(x[1]+3)*(x[2]-3)*(x[2]+3))<1e-8"
+    inners = "on_boundary && std::sqrt(x[0]*x[0]+x[1]*x[1]+x[2]*x[2]) < 1.5*{}".format(h)
+    inlet = "x[0] < -3+1e-8 && on_boundary"
+    outlet = "x[0] > 6-1e-8 && on_boundary"
+
     bmesh = BoundaryMesh(mesh, 'exterior')
     cc = CellFunction('size_t', bmesh, 0)
     ii = AutoSubDomain(lambda x, on_bnd: near(x[0], -3))
@@ -72,8 +63,7 @@ def create_bcs(V, Q, mesh, **NS_namespace):
     lp = LagrangeInterpolator()
     sv = Function(V)
     lp.interpolate(sv, su)
-    #plot(su, interactive=True)
-    #plot(sv, interactive=True)
+
     bc0 = DirichletBC(V, 0, walls)
     bc1 = DirichletBC(V, 0, inners)
     bcp1 = DirichletBC(Q, 0, outlet)
@@ -83,13 +73,6 @@ def create_bcs(V, Q, mesh, **NS_namespace):
                 u1=[bc0, bc1, bc2],
                 u2=[bc0, bc1, bc2],
                 p=[bcp1])
-
-
-def initialize(x_1, x_2, bcs, **NS_namespace):
-    pass
-    # for ui in x_2:
-    #[bc.apply(x_1[ui]) for bc in bcs[ui]]
-    #[bc.apply(x_2[ui]) for bc in bcs[ui]]
 
 
 def pre_solve_hook(mesh, velocity_degree, u_,

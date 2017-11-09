@@ -7,16 +7,17 @@ from ..NSfracStep import *
 from ..Skewed2D import *
 
 # Override some problem specific parameters
-NS_parameters.update(
-    nu=0.1,
-    T=10.0,
-    dt=0.05,
-    use_krylov_solvers=True,
-    print_velocity_pressure_convergence=True)
+def problem_parameters(NS_parameters, **NS_namespace):
+    NS_parameters.update(
+        nu=0.1,
+        T=10.0,
+        dt=0.05,
+        use_krylov_solvers=True,
+        print_velocity_pressure_convergence=True)
 
 
 def create_bcs(V, Q, mesh, **NS_namespace):
-    u_inlet = Expression("10*x[1]*(0.2-x[1])")
+    u_inlet = Expression("10*x[1]*(0.2-x[1])", element=V.ufl_element())
     bc0 = DirichletBC(V, 0, walls)
     bc1 = DirichletBC(V, u_inlet, inlet)
     bc2 = DirichletBC(V, 0, inlet)

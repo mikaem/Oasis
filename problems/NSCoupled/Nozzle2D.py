@@ -7,15 +7,16 @@ import sys
 from numpy import array, linspace
 
 # Override some problem specific parameters
-re_high = False
-NS_parameters.update(
-    omega=0.4,
-    nu=0.0035 / 1056.,
-    folder="nozzle_results",
-    max_error=1e-13,
-    max_iter=25,
-    re_high=re_high,
-    solver='cylindrical')
+def problem_parameters(NS_parameters, **NS_namespace):
+    re_high = False
+    NS_parameters.update(
+        omega=0.4,
+        nu=0.0035 / 1056.,
+        folder="nozzle_results",
+        max_error=1e-13,
+        max_iter=25,
+        re_high=re_high,
+        solver='cylindrical')
 
 
 def create_bcs(VQ, mesh, sys_comp, re_high, **NS_namespce):

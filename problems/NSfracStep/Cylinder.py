@@ -8,32 +8,32 @@ from ..Cylinder import *
 from os import getcwd
 import pickle
 
-#restart_folder = "results/data/8/Checkpoint"
-restart_folder = None
+def problem_parameters(commandline_kwargs, NS_parameters, scalar_components,
+                       Schmidt, **NS_namespace):
+    # Example: python NSfracstep.py [...] restart_folder="results/data/8/Checkpoint"
+    if "restart_folder" in commandline_kwargs.keys():
+        restart_folder = commandline_kwargs["restart_folder"]
+        restart_folder = path.join(getcwd(), restart_folder)
+        f = open(path.join(restart_folder, 'params.dat'), 'r')
+        NS_parameters.update(pickle.load(f))
+        NS_parameters['restart_folder'] = restart_folder
+        globals().update(NS_parameters)
 
-if restart_folder:
-    restart_folder = path.join(getcwd(), restart_folder)
-    f = open(path.join(restart_folder, 'params.dat'), 'r')
-    NS_parameters.update(pickle.load(f))
-    NS_parameters['restart_folder'] = restart_folder
-    globals().update(NS_parameters)
+    else:
+        # Override some problem specific parameters
+        NS_parameters.update(
+            T=5.0,
+            dt=0.05,
+            checkpoint=1000,
+            save_step=5000,
+            plot_interval=10,
+            velocity_degree=2,
+            print_intermediate_info=100,
+            use_krylov_solvers=True,
+            krylov_solvers=dict(monitor_convergence=True))
 
-else:
-
-    # Override some problem specific parameters
-    NS_parameters.update(
-        T=5.0,
-        dt=0.05,
-        checkpoint=1000,
-        save_step=5000,
-        plot_interval=10,
-        velocity_degree=2,
-        print_intermediate_info=100,
-        use_krylov_solvers=True,
-        krylov_solvers=dict(monitor_convergence=True))
-
-scalar_components = ["alfa"]
-Schmidt["alfa"] = 0.1
+    scalar_components.append("alfa")
+    Schmidt["alfa"] = 0.1
 
 
 def create_bcs(V, Q, Um, H, **NS_namespace):

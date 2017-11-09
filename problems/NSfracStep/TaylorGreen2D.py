@@ -5,28 +5,38 @@ __license__ = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSfracStep import *
 
-# Override some problem specific parameters
-NS_parameters.update(
-    nu=0.01,
-    T=1.,
-    dt=0.001,
-    Nx=20, Ny=20,
-    folder="taylorgreen2D_results",
-    plot_interval=1000,
-    save_step=10000,
-    checkpoint=10000,
-    print_intermediate_info=1000,
-    compute_error=1,
-    use_krylov_solvers=True,
-    velocity_degree=1,
-    pressure_degree=1,
-    krylov_report=False
-)
 
-NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
-                                   'report': False,
-                                   'relative_tolerance': 1e-12,
-                                   'absolute_tolerance': 1e-12}
+# Override some problem specific parameters
+def problem_parameters(NS_parameters, NS_expressions, **NS_namespace):
+    NS_parameters.update(
+        nu=0.01,
+        T=1.,
+        dt=0.001,
+        Nx=20, Ny=20,
+        folder="taylorgreen2D_results",
+        plot_interval=1000,
+        save_step=10000,
+        checkpoint=10000,
+        print_intermediate_info=1000,
+        compute_error=1,
+        use_krylov_solvers=True,
+        velocity_degree=1,
+        pressure_degree=1,
+        krylov_report=False)
+
+    NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
+                                       'report': False,
+                                       'relative_tolerance': 1e-12,
+                                       'absolute_tolerance': 1e-12}
+    NS_expressions.update(dict(
+        constrained_domain=PeriodicDomain(),
+        initial_fields=dict(
+            u0='-sin(pi*x[1])*cos(pi*x[0])*exp(-2.*pi*pi*nu*t)',
+            u1='sin(pi*x[0])*cos(pi*x[1])*exp(-2.*pi*pi*nu*t)',
+            p='-(cos(2*pi*x[0])+cos(2*pi*x[1]))*exp(-4.*pi*pi*nu*t)/4.'),
+        dpdx=('sin(2*pi*x[0])*2*pi*exp(-4.*pi*pi*nu*t)/4.',
+              'sin(2*pi*x[1])*2*pi*exp(-4.*pi*pi*nu*t)/4.'),
+        total_error=zeros(3)))
 
 
 def mesh(Nx, Ny, **params):
@@ -53,17 +63,6 @@ class PeriodicDomain(SubDomain):
             y[1] = x[1] - 2.0
 
 
-constrained_domain = PeriodicDomain()
-
-initial_fields = dict(
-    u0='-sin(pi*x[1])*cos(pi*x[0])*exp(-2.*pi*pi*nu*t)',
-    u1='sin(pi*x[0])*cos(pi*x[1])*exp(-2.*pi*pi*nu*t)',
-    p='-(cos(2*pi*x[0])+cos(2*pi*x[1]))*exp(-4.*pi*pi*nu*t)/4.')
-
-dpdx = ('sin(2*pi*x[0])*2*pi*exp(-4.*pi*pi*nu*t)/4.',
-        'sin(2*pi*x[1])*2*pi*exp(-4.*pi*pi*nu*t)/4.')
-
-
 def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
     """Initialize solution.
 
@@ -86,11 +85,8 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
     q_1['p'].vector()[:] = q_['p'].vector()[:]
 
 
-total_error = zeros(3)
-
-
 def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_comp,
-                  compute_error, **NS_namespace):
+                  compute_error, total_error, **NS_namespace):
     """Function called at end of timestep.
 
     Plot solution and compute error by comparing to analytical solution.
@@ -120,7 +116,7 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
             print("Error is ", err, " at time = ", t)
 
 
-def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, initial_fields, **NS_namespace):
+def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, total_error, initial_fields, **NS_namespace):
     final_error = zeros(len(sys_comp))
     for i, ui in enumerate(sys_comp):
         deltat = dt / 2. if ui is 'p' else 0.

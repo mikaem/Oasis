@@ -5,6 +5,34 @@ __license__ = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSfracStep import *
 
+def problem_parameters(NS_parameters, NS_expressions, **NS_namespace):
+    # Override some problem specific parameters
+    recursive_update(NS_parameters, dict(
+        nu=0.005,
+        T=0.2,
+        dt=0.01,
+        Nx=33,
+        Ny=33,
+        Nz=33,
+        folder="taylorgreen3D_results",
+        max_iter=1,
+        velocity_degree=1,
+        save_step=10000,
+        checkpoint=10000,
+        plot_interval=10,
+        print_dkdt_info=10000,
+        use_krylov_solvers=True,
+        krylov_solvers=dict(monitor_convergence=True)))
+
+    NS_expressions.update(dict(
+        constrained_domain=PeriodicDomain(),
+        kin=zeros(1),
+        initial_fields=dict(
+                u0='sin(x[0])*cos(x[1])*cos(x[2])',
+                u1='-cos(x[0])*sin(x[1])*cos(x[2])',
+                u2='0',
+                p='1./16.*(cos(2*x[0])+cos(2*x[1]))*(cos(2*x[2])+2)')))
+
 
 def mesh(Nx, Ny, Nz, **params):
     return BoxMesh(Point(-pi, -pi, -pi), Point(pi, pi, pi), Nx, Ny, Nz)
@@ -51,36 +79,10 @@ class PeriodicDomain(SubDomain):
             y[2] = x[2] - 2.0 * pi
 
 
-constrained_domain = PeriodicDomain()
-
-# Override some problem specific parameters
-recursive_update(NS_parameters, dict(
-    nu=0.005,
-    T=0.2,
-    dt=0.01,
-    Nx=33,
-    Ny=33,
-    Nz=33,
-    folder="taylorgreen3D_results",
-    max_iter=1,
-    velocity_degree=1,
-    save_step=10000,
-    checkpoint=10000,
-    plot_interval=10,
-    print_dkdt_info=10000,
-    use_krylov_solvers=True,
-    krylov_solvers=dict(monitor_convergence=True)))
-
-initial_fields = dict(
-    u0='sin(x[0])*cos(x[1])*cos(x[2])',
-    u1='-cos(x[0])*sin(x[1])*cos(x[2])',
-    u2='0',
-    p='1./16.*(cos(2*x[0])+cos(2*x[1]))*(cos(2*x[2])+2)')
-
-
 def initialize(q_, q_1, q_2, VV, initial_fields, OasisFunction, **NS_namespace):
     for ui in q_:
-        vv = OasisFunction(Expression((initial_fields[ui])), VV[ui])
+        vv = OasisFunction(Expression((initial_fields[ui]),
+                                      element=VV[ui].ufl_element()), VV[ui])
         vv()
         q_[ui].vector()[:] = vv.vector()[:]
         if not ui == 'p':
@@ -88,11 +90,8 @@ def initialize(q_, q_1, q_2, VV, initial_fields, OasisFunction, **NS_namespace):
             q_2[ui].vector()[:] = q_[ui].vector()[:]
 
 
-kin = zeros(1)
-
-
 def temporal_hook(u_, p_, tstep, plot_interval, print_dkdt_info, nu,
-                  dt, t, oasis_memory, **NS_namespace):
+                  dt, t, oasis_memory, kin, **NS_namespace):
     oasis_memory("tmp", True)
     if (tstep % print_dkdt_info == 0 or
             tstep % print_dkdt_info == 1):
@@ -109,7 +108,3 @@ def temporal_hook(u_, p_, tstep, plot_interval, print_dkdt_info, nu,
         plot(p_, title='pressure')
         plot(u_[0], title='velocity-x')
         plot(u_[1], title='velocity-y')
-
-
-def theend_hook(u_, p_, **kw):
-    pass

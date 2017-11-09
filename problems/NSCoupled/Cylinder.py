@@ -7,13 +7,14 @@ from ..NSCoupled import *
 from ..Cylinder import *
 
 # Override some problem specific parameters
-NS_parameters.update(
-    omega=1.0,
-    max_iter=100,
-    plot_interval=10,
-    velocity_degree=2)
+def problem_parameters(NS_parameters, scalar_components, **NS_namespace):
+    NS_parameters.update(
+        omega=1.0,
+        max_iter=100,
+        plot_interval=10,
+        velocity_degree=2)
 
-scalar_components = ["c", "d"]
+    scalar_components += ["c", "d"]
 
 
 def scalar_source(c_, d_, **NS_namespace):

@@ -10,9 +10,45 @@ from os import getcwd, makedirs
 import pickle
 import random
 
-#restart_folder = '/home/mikael/Dropbox/ChannelDNS/64/Checkpoint'
-#restart_folder = 'channel_results/data/20/Checkpoint'
-restart_folder = None
+
+def problem_parameters(commandline_kwargs, NS_parameters, NS_expressions, **NS_namespace):
+    if "restart_folder" in commandline_kwargs.keys():
+         restart_folder = commandline_kwargs["restart_folder"]
+         restart_folder = path.join(getcwd(), restart_folder)
+         f = open(path.join(path.dirname(path.abspath(__file__)), restart_folder, 'params.dat'), 'r')
+         NS_parameters.update(pickle.load(f))
+         NS_parameters['restart_folder'] = restart_folder
+         globals().update(NS_parameters)
+    else:
+        Lx = 4. * pi
+        Ly = 2.
+        Lz = 4. * pi / 3.
+        Nx = 16
+        Ny = 16
+        Nz = 16
+        NS_parameters.update(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz)
+
+        # Override some problem specific parameters
+        T = 1.
+        dt = 0.2
+        nu = 2.e-5
+        Re_tau = 178.12
+        NS_parameters.update(
+            update_statistics=10,
+            save_statistics=100,
+            check_flux=10,
+            checkpoint=100,
+            utau = nu * Re_tau,
+            save_step=100,
+            nu=nu,
+            Re_tau=Re_tau,
+            T=T,
+            dt=dt,
+            velocity_degree=1,
+            folder="channel_results",
+            use_krylov_solvers=True)
+
+    NS_expressions.update(dict(constrained_domain=PeriodicDomain(Lx, Lz)))
 
 
 class ChannelGrid(StructuredGrid):
@@ -34,71 +70,30 @@ def mesh(Nx, Ny, Nz, Lx, Ly, Lz, **params):
     return m
 
 
-### If restarting from previous solution then read in parameters ########
-if restart_folder:
-    restart_folder = path.join(getcwd(), restart_folder)
-    f = open(path.join(restart_folder, 'params.dat'), 'r')
-    NS_parameters.update(pickle.load(f))
-    #NS_parameters['T'] = NS_parameters['T'] + 200 * NS_parameters['dt']
-    NS_parameters['T'] = 10
-    NS_parameters['restart_folder'] = restart_folder
-    globals().update(NS_parameters)
-
-else:
-    Lx = 4. * pi
-    Ly = 2.
-    Lz = 4. * pi / 3.
-    Nx = 16
-    Ny = 16
-    Nz = 16
-    NS_parameters.update(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz)
-
-    # Override some problem specific parameters
-    T = 1.
-    dt = 0.2
-    nu = 2.e-5
-    Re_tau = 178.12
-    NS_parameters.update(
-        update_statistics=10,
-        save_statistics=100,
-        check_flux=10,
-        checkpoint=100,
-        save_step=100,
-        nu=nu,
-        Re_tau=Re_tau,
-        T=T,
-        dt=dt,
-        velocity_degree=1,
-        folder="channel_results",
-        use_krylov_solvers=True
-    )
-
-##############################################################
-
-
 class PeriodicDomain(SubDomain):
+    def __init__(self, Lx, Lz):
+        self.Lx = Lx
+        self.Lz = Lz
+        SubDomain.__init__(self)
 
     def inside(self, x, on_boundary):
         # return True if on left or bottom boundary AND NOT on one of the two slave edges
-        return bool((near(x[0], 0) or near(x[2], -Lz / 2.)) and
-                    (not (near(x[0], Lx) or near(x[2], Lz / 2.))) and on_boundary)
+        return bool((near(x[0], 0) or near(x[2], -self.Lz / 2.)) and
+                    (not (near(x[0], self.Lx) or near(x[2], self.Lz / 2.))) and on_boundary)
 
     def map(self, x, y):
-        if near(x[0], Lx) and near(x[2], Lz / 2.):
-            y[0] = x[0] - Lx
+        if near(x[0], self.Lx) and near(x[2], self.Lz / 2.):
+            y[0] = x[0] - self.Lx
             y[1] = x[1]
-            y[2] = x[2] - Lz
-        elif near(x[0], Lx):
-            y[0] = x[0] - Lx
+            y[2] = x[2] - self.Lz
+        elif near(x[0], self.Lx):
+            y[0] = x[0] - self.Lx
             y[1] = x[1]
             y[2] = x[2]
         else:  # near(x[2], Lz/2.):
             y[0] = x[0]
             y[1] = x[1]
-            y[2] = x[2] - Lz
-
-
-constrained_domain = PeriodicDomain()
+            y[2] = x[2] - self.Lz
 
 
 def inlet(x, on_bnd):
@@ -106,15 +101,12 @@ def inlet(x, on_bnd):
 
 
 # Specify body force
-utau = nu * Re_tau
-
-
-def body_force(**NS_namespace):
+def body_force(nu, Re_tau, utau, **NS_namespace):
     return Constant((utau**2, 0., 0.))
 
 
 def pre_solve_hook(V, u_, mesh, AssignedVectorFunction, newfolder, MPI,
-                   mpi_comm_world, **NS_namespace):
+                   mpi_comm_world, Nx, Ny, Nz, Lx, Ly, Lz, **NS_namespace):
     """Called prior to time loop"""
     if MPI.rank(mpi_comm_world()) == 0:
         makedirs(path.join(newfolder, "Stats"))
@@ -135,11 +127,10 @@ def pre_solve_hook(V, u_, mesh, AssignedVectorFunction, newfolder, MPI,
     return dict(uv=uv, stats=stats, facets=facets, normal=normal)
 
 
-def walls(x, on_bnd):
-    return (near(x[1], -Ly / 2.) or near(x[1], Ly / 2.))
+def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, Ly, **NS_namespace):
+    def walls(x, on_bnd):
+        return (near(x[1], -Ly / 2.) or near(x[1], Ly / 2.))
 
-
-def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, **NS_namespace):
     info_red("Creating boundary conditions")
     bcs = dict((ui, []) for ui in sys_comp)
     bc = [DirichletBC(V, Constant(0), walls)]
@@ -150,8 +141,7 @@ def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, **NS_namespace):
 
 
 class RandomStreamVector(Expression):
-    def __init__(self):
-        random.seed(2 + MPI.rank(mpi_comm_world()))
+    random.seed(2 + MPI.rank(mpi_comm_world()))
 
     def eval(self, values, x):
         values[0] = 0.0005 * random.random()
@@ -162,21 +152,22 @@ class RandomStreamVector(Expression):
         return (3,)
 
 
-def initialize(V, q_, q_1, q_2, bcs, restart_folder, **NS_namespace):
+def initialize(V, q_, q_1, q_2, bcs, restart_folder, utau, nu, **NS_namespace):
     if restart_folder is None:
         # Initialize using a perturbed flow. Create random streamfunction
-        Vv = VectorFunctionSpace(
-            V.mesh(), V.ufl_element().family(), V.ufl_element().degree())
-        psi = interpolate(RandomStreamVector(), Vv)
+        Vv = VectorFunctionSpace(V.mesh(), V.ufl_element().family(),
+                                 V.ufl_element().degree())
+        psi = interpolate(RandomStreamVector(element=Vv.ufl_element()), Vv)
         u0 = project(curl(psi), Vv)
         u0x = project(u0[0], V, bcs=bcs['u0'])
         u1x = project(u0[1], V, bcs=bcs['u0'])
         u2x = project(u0[2], V, bcs=bcs['u0'])
 
         # Create base flow
-        y = interpolate(Expression("x[1] > 0 ? 1-x[1] : 1+x[1]"), V)
+        y = interpolate(Expression("x[1] > 0 ? 1-x[1] : 1+x[1]",
+                                   element=V.ufl_element()), V)
         uu = project((1.25 * (utau / 0.41 * ln(conditional(y < 1e-12, 1.e-12, y) *
-                                                utau / nu) + 5. * utau), V, bcs=bcs['u0']))
+                                        utau / nu) + 5. * utau)), V, bcs=bcs['u0'])
 
         # initialize vectors at two timesteps
         q_1['u0'].vector()[:] = uu.vector()[:]

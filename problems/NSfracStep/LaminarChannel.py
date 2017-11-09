@@ -7,52 +7,57 @@ from ..NSfracStep import *
 from numpy import pi, arctan, array
 set_log_active(False)
 
+
+# Override some problem specific parameters
+def problem_parameters(NS_parameters, NS_expressions, **NS_namespace):
+    nu = 0.01
+    Re = 1. / nu
+    L = 10.
+    NS_parameters.update(dict(
+        nu=nu,
+        L=L,
+        H=1.,
+        T=10,
+        dt=0.01,
+        Re=Re,
+        Nx=40,
+        Ny=40,
+        folder="laminarchannel_results",
+        max_iter=1,
+        velocity_degree=1,
+        use_krylov_solvers=False))
+
+    NS_expressions.update(dict(constrained_domain=PeriodicDomain(L)))
+
+
 # Create a mesh here
-L = 10.
-H = 1.
-
-
-def mesh(Nx, Ny, **params):
+def mesh(Nx, Ny, L, H, **params):
     m = RectangleMesh(Point(0., -H), Point(L, H), Nx, Ny)
+
     # Squeeze towards walls
     x = m.coordinates()
     x[:, 1] = arctan(1. * pi * (x[:, 1])) / arctan(1. * pi)
+
     return m
 
 
 class PeriodicDomain(SubDomain):
+    def __init__(self, L):
+        self.L = L
+        SubDomain.__init__(self)
 
     def inside(self, x, on_boundary):
         return bool(near(x[0], 0) and on_boundary)
 
     def map(self, x, y):
-        y[0] = x[0] - L
+        y[0] = x[0] - self.L
         y[1] = x[1]
 
 
-constrained_domain = PeriodicDomain()
+def create_bcs(V, H, sys_comp, **NS_namespace):
+    def walls(x, on_boundary):
+        return (on_boundary and (near(x[1], -H) or near(x[1], H)))
 
-# Override some problem specific parameters
-nu = 0.01
-Re = 1. / nu
-NS_parameters.update(dict(
-    nu=nu,
-    T=10,
-    dt=0.01,
-    Re=Re,
-    Nx=40,
-    Ny=40,
-    folder="laminarchannel_results",
-    max_iter=1,
-    velocity_degree=1,
-    use_krylov_solvers=False))
-
-
-def walls(x, on_boundary):
-    return (on_boundary and (near(x[1], -H) or near(x[1], H)))
-
-
-def create_bcs(V, sys_comp, **NS_namespace):
     bcs = dict((ui, []) for ui in sys_comp)
     bc0 = DirichletBC(V, 0., walls)
     bcs['u0'] = [bc0]
@@ -75,7 +80,7 @@ def reference(Re, t, num_terms=100):
     return u
 
 
-def temporal_hook(tstep, q_, t, Re, **NS_namespace):
+def temporal_hook(tstep, q_, t, Re, L, **NS_namespace):
     if tstep % 20 == 0:
         plot(q_['u0'])
     try:

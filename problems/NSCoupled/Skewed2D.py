@@ -7,16 +7,17 @@ from ..NSCoupled import *
 from ..Skewed2D import *
 
 # Override some problem specific parameters
-NS_parameters.update(
-    nu=0.1,
-    omega=1.0,
-    plot_interval=10,
-    max_iter=100,
-    max_error=1e-12)
+def problem_parameters(NS_parameters, **NS_namespace):
+    NS_parameters.update(
+        nu=0.1,
+        omega=1.0,
+        plot_interval=10,
+        max_iter=100,
+        max_error=1e-12)
 
 
-def create_bcs(V, VQ, mesh, **NS_namespace):
-    u_inlet = Expression(("10*x[1]*(0.2-x[1])", "0"))
+def create_bcs(VQ, mesh, **NS_namespace):
+    u_inlet = Expression(("10*x[1]*(0.2-x[1])", "0"), element=VQ.sub(0).ufl_element())
     bc0 = DirichletBC(VQ.sub(0), (0, 0), walls)
     bc1 = DirichletBC(VQ.sub(0), u_inlet, inlet)
     return dict(up=[bc1, bc0])

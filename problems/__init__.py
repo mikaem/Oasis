@@ -47,6 +47,8 @@ NS_parameters = dict(
     pressure_degree=1    # default pressure degree
 )
 
+NS_expressions = {}
+
 constrained_domain = None
 
 # To solve for scalars provide a list like ['scalar1', 'scalar2']
@@ -186,8 +188,13 @@ def theend_hook(**NS_namespace):
     pass
 
 
+def problem_parameters(**NS_namespace):
+    """Updates problem specific parameters, and handles restart"""
+    pass
+
+
 def post_import_problem(NS_parameters, mesh, commandline_kwargs,
-                        **NS_namespace):
+                        NS_expressions, **NS_namespace):
     """Called after importing from problem."""
 
     # Update NS_parameters with all parameters modified through command line
@@ -206,4 +213,5 @@ def post_import_problem(NS_parameters, mesh, commandline_kwargs,
     # Returned dictionary to be updated in the NS namespace
     d = dict(mesh=mesh)
     d.update(NS_parameters)
+    d.update(NS_expressions)
     return d

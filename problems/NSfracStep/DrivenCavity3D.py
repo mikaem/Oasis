@@ -7,6 +7,22 @@ from ..NSfracStep import *
 from numpy import cos, pi
 
 
+# Override some problem specific parameters
+def problem_parameters(NS_parameters, NS_expressions, **NS_namespace):
+    NS_parameters.update(
+        nu=0.01,
+        T=1.0,
+        dt=0.01,
+        Nx=15,
+        Ny=15,
+        Nz=15,
+        plot_interval=20,
+        print_intermediate_info=100,
+        use_krylov_solvers=True)
+
+    NS_expressions.update(dict(constrained_domain=PeriodicDomain()))
+
+
 # Create a mesh
 def mesh(Nx, Ny, Nz, **params):
     m = UnitCubeMesh(Nx, Ny, Nz)
@@ -14,19 +30,6 @@ def mesh(Nx, Ny, Nz, **params):
     x[:, :2] = (x[:, :2] - 0.5) * 2
     x[:, :2] = 0.5 * (cos(pi * (x[:, :2] - 1.) / 2.) + 1.)
     return m
-
-
-# Override some problem specific parameters
-NS_parameters.update(
-    nu=0.01,
-    T=1.0,
-    dt=0.01,
-    Nx=15,
-    Ny=15,
-    Nz=15,
-    plot_interval=20,
-    print_intermediate_info=100,
-    use_krylov_solvers=True)
 
 
 class PeriodicDomain(SubDomain):
@@ -41,17 +44,15 @@ class PeriodicDomain(SubDomain):
         y[2] = x[2] - 1.0
 
 
-constrained_domain = PeriodicDomain()
-
-# Specify boundary conditions
-noslip = "std::abs(x[0]*x[1]*(1-x[0]))<1e-8"
-top = "std::abs(x[1]-1) < 1e-8"
-
-
 def create_bcs(V, **NS_namespace):
+    # Specify boundary conditions
+    noslip = "std::abs(x[0]*x[1]*(1-x[0]))<1e-8"
+    top = "std::abs(x[1]-1) < 1e-8"
+
     bc0 = DirichletBC(V, 0, noslip)
     bc00 = DirichletBC(V, 1, top)
     bc01 = DirichletBC(V, 0, top)
+
     return dict(u0=[bc00, bc0],
                 u1=[bc01, bc0],
                 u2=[bc01, bc0],
