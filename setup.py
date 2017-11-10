@@ -6,7 +6,7 @@ from distutils.core import setup
 major = 2017
 minor = 2
 
-setup(name = "Oasis",
+setup(name = "oasis",
       version = "%d.%d" % (major, minor),
       description = "Oasis - Navier-Stokes solvers in FEniCS",
       author = "Mikael Mortensen",
@@ -20,10 +20,10 @@ setup(name = "Oasis",
           'Topic :: Scientific/Engineering :: Mathematics',
           'Topic :: Software Development :: Libraries :: Python Modules',
           ],
-      packages = ["Oasis",
-                  "Oasis.problems",
-                  "Oasis.solvers",
-                  "Oasis.common",
+      packages = ["oasis",
+                  "oasis.problems",
+                  "oasis.solvers",
+                  "oasis.common",
                   ],
-      package_dir = {"Oasis": "Oasis"},
+      package_dir = {"oasis": "oasis"},
     )

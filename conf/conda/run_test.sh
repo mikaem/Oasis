@@ -6,9 +6,6 @@ if [[ "$(uname)" == "Darwin" ]]; then
   export CXXFLAGS="-std=c++11 -stdlib=libc++ $CXXFLAGS"
 fi
 
-export INSTANT_CACHE_DIR="${SRC_DIR}/instant"
-
-pushd "$SRC_DIR/tests"
-python -b -m pytest -vs
+python -b -m pytest -vs tests/
 
 #mpirun -np 2 py.test -v
