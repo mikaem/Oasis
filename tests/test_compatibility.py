@@ -25,6 +25,26 @@ def test_LES(num_p, solver, les_model):
                                      "LaminarChannel", "Lshape", "Skewed2D",
                                      "SkewedFlow", "TaylorGreen2D", "TaylorGreen3D"])
 def test_demo_NSfracStep(num_p, solver, problem):
+    if problem in ["FlowPastSphere3D", "Skewed2D"]:
+        pytest.xfail("Dependent on gmsh")
+
+    if num_p == 4 and problem in ["SkewedFlow", "FlowPastSphere", "Lshape"]:
+        pytest.xfail("Submesh does not run in parallell yet")
+
     cmd = "mpirun -np {} python NSfracStep.py solver={} T=0.0001 dt=0.00005 problem={};"
+    cmd = "cd ..; " + cmd + " cd tests"
+    subprocess.check_output(cmd.format(num_p, solver, problem), shell=True)
+
+@pytest.mark.parametrize("num_p", [1, 4])
+@pytest.mark.parametrize("solver", ["default", "naive"])
+@pytest.mark.parametrize("problem", ["Cylinder", "DrivenCavity", "Skewed2D", "Nozzle2D"])
+def test_demo_NSCoupled(num_p, solver, problem):
+    if problem in ["Skewed2D"]:
+        pytest.xfail("Dependent on gmsh")
+
+    if num_p == 4 and problem in ["SkewedFlow"]:
+        pytest.xfail("Submesh does not run in parallell yet")
+
+    cmd = "mpirun -np {} python NSCoupled.py solver={} problem={};"
     cmd = "cd ..; " + cmd + " cd tests"
     subprocess.check_output(cmd.format(num_p, solver, problem), shell=True)

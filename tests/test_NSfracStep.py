@@ -45,10 +45,10 @@ def test_temporal_rate_of_convergence(num_p, solver):
            "pressure_degree={}; cd tests")
     p_err = []
     u0_err = []
-    DT = [0.002, 0.003, 0.004, 0.006]
+    DT = [0.003, 0.004, 0.006]
     T = 0.012
     N = 100
-    u_deg = 4
+    u_deg = 5
     p_deg = 4
 
     for dt in DT:
@@ -58,8 +58,8 @@ def test_temporal_rate_of_convergence(num_p, solver):
         match = re.search("Final Error: u0=" + number + " u1="
                           + number + " p=" + number, str(d))
         err = match.groups()
-        u0_err.append(err[0])
-        p_err.append(err[2])
+        u0_err.append(eval(err[0]))
+        p_err.append(eval(err[2]))
 
     p_conv = []
     u_conv = []
