@@ -38,7 +38,6 @@ def mesh(Nx, Ny, L, H, **params):
     # Squeeze towards walls
     x = m.coordinates()
     x[:, 1] = arctan(1. * pi * (x[:, 1])) / arctan(1. * pi)
-
     return m
 
 
@@ -79,7 +78,6 @@ def reference(Re, t, num_terms=100):
         c = -c
         u += a * exp(-b * t) * c
     return u
-
 
 def temporal_hook(tstep, q_, t, Re, L, **NS_namespace):
     if tstep % 20 == 0:

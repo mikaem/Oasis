@@ -1,7 +1,7 @@
 language: generic
 
 os: osx
-osx_image: xcode8.1
+osx_image: xcode6.4
 
 sudo: false
 
@@ -13,7 +13,7 @@ env:
   global:
     - FENICS_VERSION="2017.2.dev"
     # travis encrypt BINSTAR_TOKEN="..." --repo mikaem/Oasis
-    - secure: "jAzA+9V5i0BTIrnWum25w9cZS5PavqROPrdzgk43+ZafXhwFEdSbYNwkCVONXk3UF/Il5FkU/IiQAXetllBqtd1ySFfM093MO9BVynzKpExN80S6CVKtRa1KW1GtwNFq7p/vDj+Wr3D7hlEbloYJeAQREOYnOSrtttfgyHIPZwejTlPp56ZrUo0fgMrFI2BgmnT6adRKBDCmYhsoKZD57Uvt4kBRGuUQmccQJ/hVedUoPbViSjL3ka14aep3Agp1yMAk1iIw1iWEdhKd5voRX3lcjiP0y7Q+EoSLCqls2de1yE5I4glKYRCtYaITq8BBY8B/aKJNn741L4Ue7TNYcWtViV92IoJuVuAXLU2bYDIPB4NX0PVVXqVj2A9rY0dWhnxckndE86QxyK1/6FuZC/pz1PtMD4Xcv8+gs3iEVRDBUPVqKYUmM+mfLj7Ts9eHfSI0wtSHbhRcN6e+HSiJecHwNK4EnKex4QJI+xbqsynlTC9GDsGhkiWInYAC4TnBXWe6Z1j1vZW/TVcFV6RWA18ATHt0aO+NYOBIVNERnMbrS0IPLTJWXgjslqRgHWXKiLNxkcjvC+H+JMpy34JKtE3JhPlz64Zl6FarJwhv3rhzFRFxBzRll/onL1wxLnyebEvbjh+vHIfS/ycw/ezrxjS1ZbW+j1gf5fQV214o9RY="
+    - secure: "Lci618N57axwAmkbKcwyr2EiG/tvWW94Pl54WGQrkS5Rp/GAilgCBO03sAgYu+ClbAtCrxxYZwGcrCk8DzNYde3TBr+OYkENxb0sITALBil37BcoS8w1Bqyh5H4UHOJM9uavTHnBgu0J82yPSq9aY/v+cAmmM5DJH18WMVARWOrojKtoV/06n6lvo8W+JpjFmew0kuVDWR6ztMvpjRawQUkMYMK1lB/zs+1YXEh0Rg8BYYaG5v0UlxpklNjUscxxr4X74SH2pGHz2ZJ5pbjH9XIUEZ7V6fcv3rAWeFutT40S9HknpWMGTwj3gAO2FMHw4PYkEDluLUJ/2kQ1zViT24A0lJuTztryHvPjWBdxpEJI7JX/ewx29tJE9T5rjy8k4vty1UgsAMF40VzPEFY+p1cwvbGrJt5wxFSIVUyQ9/kE2Uo4JQvQmw/l7cMzOXP6wHBWv3/VcGkgvy8n7hgdlXsFPQQIBk/fXzL7X1q6vH9J23RmOVsCNFUeASLpbgXmcG04FBPcAioidD6LWZGw6STaquMWpZiMmK9oXZFEzhjTFoyChVifL2hGuS2MeZgS1h8O7bnUh/z09i5QkcGkWPd3WZJGp9kVsZ5oYjeCXYjTIAtNFfjuVRvzixKTV0g45dXJlBu1oFS+T5Las7v/kkr9ZOzDfVALGc+/Le4tK+M="
 
 before_install:
     # Remove homebrew.
@@ -45,7 +45,9 @@ install:
       conda config --add channels conda-forge
       conda config --add channels mikaem/label/OSX-10.12-clang
       conda update -q conda
-      conda install --yes fenics=${FENICS_VERSION} pyvtk h5py-parallel pytest
+      conda install --yes --quiet conda-forge-build-setup
+      source run_conda_forge_build_setup
+      conda install --yes fenics=${FENICS_VERSION} pytest
       #export INSTANT_CACHE_DIR="/Users/travis/miniconda2/.cache/instant"
 
 after_failure:
@@ -53,4 +55,9 @@ after_failure:
 
 script:
     - export INSTANT_CACHE_DIR="${HOME}/instant"
-    - cd ${PWD}/tests; py.test
+    - which python
+    - python -c "print('Hi')"
+    - python NSfracStep.py problem=TaylorGreen2D T=0.01 Nx=50 Ny=50
+    - cd ${PWD}/tests
+    - python test_NSfracStep.py
+    - python test_NSCoupled.py

@@ -1,0 +1,25 @@
+package:
+  name: oasis
+  version: {{FENICS_VERSION}}
+
+source:
+  git_url: ../../
+
+build:
+  number: 0
+  script: $PYTHON setup.py install
+
+requirements:
+  build:
+    - fenics {{FENICS_VERSION}}
+    - pyvtk
+    - h5py-parallel
+
+  run:
+    - fenics {{FENICS_VERSION}}
+    - pyvtk
+    - h5py-parallel
+
+test:
+  requires:
+    - pytest
