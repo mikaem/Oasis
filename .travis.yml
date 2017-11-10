@@ -55,7 +55,7 @@ after_failure:
 
 script:
     - export INSTANT_CACHE_DIR="${HOME}/instant"
-    - mpirun -np 1 python NSfracStep.py problem=TaylorGreen2D T=0.01 Nx=50 Ny=50
+    - python NSfracStep.py problem=TaylorGreen2D T=0.01 Nx=50 Ny=50
     - cd ${PWD}/tests
     - python test_NSfracStep.py
     - python test_NSCoupled.py
