@@ -55,6 +55,8 @@ after_failure:
 
 script:
     - export INSTANT_CACHE_DIR="${HOME}/instant"
+    - which python
+    - python -c "print('Hi')"
     - python NSfracStep.py problem=TaylorGreen2D T=0.01 Nx=50 Ny=50
     - cd ${PWD}/tests
     - python test_NSfracStep.py
