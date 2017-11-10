@@ -53,4 +53,6 @@ after_failure:
 
 script:
     - export INSTANT_CACHE_DIR="${HOME}/instant"
-    - cd ${PWD}/tests; python test_NSfracStep.py; py.test
+    - cd ${PWD}/tests
+    - python test_NSfracStep.py
+    - python test_NCCoupled.py
