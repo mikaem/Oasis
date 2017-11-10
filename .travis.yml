@@ -1,7 +1,7 @@
 language: generic
 
 os: osx
-osx_image: xcode8.1
+osx_image: xcode6.4
 
 sudo: false
 
@@ -45,6 +45,8 @@ install:
       conda config --add channels conda-forge
       #conda config --add channels mikaem/label/OSX-10.12-clang
       conda update -q conda
+      conda install --yes --quiet conda-forge-build-setup
+      source run_conda_forge_build_setup
       conda install --yes fenics=${FENICS_VERSION} pytest
       #export INSTANT_CACHE_DIR="/Users/travis/miniconda2/.cache/instant"
 
@@ -55,4 +57,4 @@ script:
     - export INSTANT_CACHE_DIR="${HOME}/instant"
     - cd ${PWD}/tests
     - python test_NSfracStep.py
-    - python test_NCCoupled.py
+    - python test_NSCoupled.py
