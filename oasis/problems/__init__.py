@@ -9,6 +9,8 @@ from os import getpid, path
 from collections import defaultdict
 from numpy import array, maximum, zeros
 import six
+from . import NSfracStep
+from . import NSCoupled
 
 #UnitSquareMesh(20, 20) # Just due to MPI bug on Scinet
 
