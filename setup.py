@@ -31,6 +31,6 @@ setup(name = "oasis",
                   "oasis.common",
                   ],
       package_dir = {"oasis": "oasis"},
-      scripts = ['NSfracStep.py',
-                 'NSCoupled.py'],
+      scripts = ['bin/NSfracStep.py',
+                 'bin/NSCoupled.py'],
     )
