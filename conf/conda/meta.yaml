@@ -20,6 +20,10 @@ requirements:
     - pyvtk
     - h5py-parallel
 
+
 test:
+  source_files:
+    - tests
+    - demo
   requires:
     - pytest
