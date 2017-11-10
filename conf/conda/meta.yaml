@@ -24,6 +24,5 @@ requirements:
 test:
   source_files:
     - tests
-    - demo
   requires:
     - pytest

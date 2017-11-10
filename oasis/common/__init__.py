@@ -11,7 +11,7 @@ def convert(input):
         return input.encode('utf-8')
     else:
         return input
-    
+
 # Parse command-line keyword arguments
 def parse_command_line():
     commandline_kwargs = {}
@@ -21,8 +21,8 @@ def parse_command_line():
         else:
             raise TypeError(s+" Only kwargs separated with '=' sign allowed. See NSdefault_hooks for a range of parameters. Your problem file should contain problem specific parameters.")
         try:
-            value = json.loads(value) 
-                        
+            value = json.loads(value)
+
         except ValueError:
             if value in ("True", "False"): # json understands true/false, but not True/False
                 value = eval(value)
@@ -30,7 +30,7 @@ def parse_command_line():
                 value = eval(value)
         if isinstance(value, dict):
             value = convert(value)
-                
+
         commandline_kwargs[key] = value
     return commandline_kwargs
 

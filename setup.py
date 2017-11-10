@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+from setuptools import setup
 
 # Version number
 major = 2017
@@ -22,8 +22,15 @@ setup(name = "oasis",
           ],
       packages = ["oasis",
                   "oasis.problems",
+                  "oasis.problems.NSfracStep",
+                  "oasis.problems.NSCoupled",
                   "oasis.solvers",
+                  "oasis.solvers.NSfracStep",
+                  "oasis.solvers.NSfracStep.LES",
+                  "oasis.solvers.NSCoupled",
                   "oasis.common",
                   ],
       package_dir = {"oasis": "oasis"},
+      scripts = ['NSfracStep.py',
+                 'NSCoupled.py'],
     )

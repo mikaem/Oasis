@@ -9,17 +9,17 @@ from numpy import cos, pi, cosh
 
 warning("""
 This problem does not work well with IPCS since the outflow
-boundary condition 
-         
+boundary condition
+
     grad(u)*n=0, p=0
-    
-here is a poor representation of actual physics. 
 
-Need to use coupled solver with pseudo-traction 
+here is a poor representation of actual physics.
 
-    (grad(u)-p)*n = 0 
+Need to use coupled solver with pseudo-traction
 
-or extrude outlet such that the outflow boundary condition 
+    (grad(u)-p)*n = 0
+
+or extrude outlet such that the outflow boundary condition
 becomes more realistic.
 """
 )
@@ -43,9 +43,9 @@ def create_bcs(V, Q, mesh, **NS_namespace):
     su = Function(Vu)
     us = TrialFunction(Vu)
     vs = TestFunction(Vu)
-    solve(inner(grad(us), grad(vs))*dx == Constant(10.0)*vs*dx, su, 
+    solve(inner(grad(us), grad(vs))*dx == Constant(10.0)*vs*dx, su,
           bcs=[DirichletBC(Vu, Constant(0), DomainBoundary())])
-        
+
     # Wrap the boundary function in an Expression to avoid the need to interpolate it back to V
     class MyExp(Expression):
         def eval(self, values, x):
@@ -53,7 +53,7 @@ def create_bcs(V, Q, mesh, **NS_namespace):
                 values[0] = su(x)
             except:
                 values[0] = 0
-                        
+
     bc0 = DirichletBC(V, 0, walls)
     bc1 = DirichletBC(V, MyExp(), inlet)
     bc2 = DirichletBC(V, 0, inlet)
@@ -61,13 +61,13 @@ def create_bcs(V, Q, mesh, **NS_namespace):
                 u1 = [bc0, bc2],
                 u2 = [bc0, bc2],
                 p = [DirichletBC(Q, 0, outlet)])
-  
-def temporal_hook(u_, mesh, tstep, print_intermediate_info, 
+
+def temporal_hook(u_, mesh, tstep, print_intermediate_info,
                   plot_interval, **NS_namespace):
-  
+
     if tstep % print_intermediate_info == 0:
-        print "Continuity ", assemble(dot(u_, FacetNormal(mesh))*ds())
-    
+        print("Continuity ", assemble(dot(u_, FacetNormal(mesh))*ds()))
+
     if tstep % plot_interval == 0:
         plot(u_, title='Velocity')
         plot(p_, title='Pressure')
