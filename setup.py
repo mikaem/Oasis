@@ -31,5 +31,5 @@ setup(name = "oasis",
                   "oasis.common",
                   ],
       package_dir = {"oasis": "oasis"},
-      entry_points = 'console_scripts': ['oasis=oasis.oasis:main'],
+      entry_points = {'console_scripts': ['oasis=oasis.oasis:main']},
     )
