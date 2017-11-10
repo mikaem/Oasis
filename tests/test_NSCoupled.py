@@ -51,3 +51,9 @@ def test_naive_mpi_Coupled():
 
 def test_cylindrical_Coupled():
     d = subprocess.check_output("cd ..;mpirun -np 1 python NSCoupled.py problem=Pipe solver=cylindrical testing=True; cd tests", shell=True)
+
+if __name__ == '__main__':
+    test_default_Coupled()
+    test_default_CR_Coupled()
+    test_default_MINI_Coupled()
+    test_naive_Coupled()
