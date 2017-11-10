@@ -53,4 +53,4 @@ after_failure:
 
 script:
     - export INSTANT_CACHE_DIR="${HOME}/instant"
-    - cd ${PWD}/tests; py.test
+    - cd ${PWD}/tests; python test_NSfracStep.py; py.test
