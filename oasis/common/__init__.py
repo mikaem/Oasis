@@ -15,7 +15,8 @@ def convert(input):
 # Parse command-line keyword arguments
 def parse_command_line():
     commandline_kwargs = {}
-    for s in sys.argv[1:]:
+    assert sys.argv[1] in ('NSfracStep', 'NSCoupled')
+    for s in sys.argv[2:]:
         if s.count('=') == 1:
             key, value = s.split('=', 1)
         else:

@@ -4,6 +4,7 @@ import sys
 
 def main():
     if 'NSfracStep' in sys.argv[1:]:
+        print(sys.argv)
         from oasis import NSfracStep
 
     elif 'NSCoupled' in sys.argv[1:]:
@@ -12,3 +13,5 @@ def main():
     else:
         raise NotImplementedError
 
+if __name__ == '__main__':
+    main()
