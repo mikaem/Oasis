@@ -31,6 +31,5 @@ setup(name = "oasis",
                   "oasis.common",
                   ],
       package_dir = {"oasis": "oasis"},
-      scripts = ['bin/NSfracStep.py',
-                 'bin/NSCoupled.py'],
+      entry_points = 'console_scripts': ['oasis=oasis.oasis:main'],
     )
