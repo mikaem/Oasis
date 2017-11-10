@@ -33,7 +33,7 @@ problems/NSfracStep/__init__.py for all possible parameters.
 
 """
 import importlib
-from common import *
+from .common import *
 
 commandline_kwargs = parse_command_line()
 
