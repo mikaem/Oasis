@@ -79,6 +79,7 @@ def reference(Re, t, num_terms=100):
         u += a * exp(-b * t) * c
     return u
 
+
 def temporal_hook(tstep, q_, t, Re, L, **NS_namespace):
     if tstep % 20 == 0:
         plot(q_['u0'])
