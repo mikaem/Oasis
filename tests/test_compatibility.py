@@ -48,3 +48,9 @@ def test_demo_NSCoupled(num_p, solver, problem):
     cmd = "mpirun -np {} python NSCoupled.py solver={} problem={};"
     cmd = "cd ..; " + cmd + " cd tests"
     subprocess.check_output(cmd.format(num_p, solver, problem), shell=True)
+
+
+if __name__ == "__main__":
+    test_demo_NSCoupled()
+    test_demo_NSfracStep()
+    test_LES()
