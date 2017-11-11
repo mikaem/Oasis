@@ -3,35 +3,47 @@ __date__ = '2014-04-04'
 __copyright__ = 'Copyright (C) 2014 ' + __author__
 __license__  = 'GNU Lesser GPL version 3 or any later version'
 
-from common import *
+import importlib
+from oasis.common import *
 
 """
-This module implements a generic steady state coupled solver for the 
+This module implements a generic steady state coupled solver for the
 incompressible Navier-Stokes equations. Several mixed function spaces
-are supported. The spaces are chosen at run-time through the parameter    
+are supported. The spaces are chosen at run-time through the parameter
 elements, that may be
 
     "TaylorHood" Pq continuous Lagrange elements for velocity and Pq-1 for pressure
     "CR"         Crouzeix-Raviart for velocity - discontinuous Galerkin (DG0) for pressure
     "MINI"       P1 velocity with bubble - P1 for pressure
-    
+
 Each new problem needs to implement a new problem module to be placed in
-the problems/NSCoupled folder. From the problems module one needs to import 
-a mesh and a control dictionary called NS_parameters. See 
-problems/NSCoupled/__init__.py for all possible parameters.    
+the problems/NSCoupled folder. From the problems module one needs to import
+a mesh and a control dictionary called NS_parameters. See
+problems/NSCoupled/__init__.py for all possible parameters.
 
 """
 
 commandline_kwargs = parse_command_line()
 
 default_problem = 'DrivenCavity'
-exec('from problems.NSCoupled.{} import *'.format(commandline_kwargs.get('problem', default_problem)))
+#exec('from problems.NSCoupled.{} import *'.format(commandline_kwargs.get('problem', default_problem)))
+problemname = commandline_kwargs.get('problem', default_problem)
+try:
+    problemmod = importlib.import_module('.'.join(('oasis.problems.NSCoupled', problemname)))
+except ImportError:
+    problemmod = importlib.import_module(problemname)
+except:
+    raise RuntimeError(problemname+' not found')
+
+vars().update(**vars(problemmod))
 
 # Update current namespace with NS_parameters and commandline_kwargs ++
 vars().update(post_import_problem(**vars()))
 
 # Import chosen functionality from solvers
-exec('from solvers.NSCoupled.{} import *'.format(solver))
+#exec('from solvers.NSCoupled.{} import *'.format(solver))
+solver = importlib.import_module('.'.join(('oasis.solvers.NSCoupled', solver)))
+vars().update({name:solver.__dict__[name] for name in solver.__all__})
 
 # Create lists of components solved for
 u_components = ['u']
@@ -46,7 +58,7 @@ if element == 'TaylorHood':
     degree['u'] = commandline_kwargs.get('velocity_degree', degree['u'])
     degree['p'] = commandline_kwargs.get('pressure_degree', degree['p'])
     # Should assert that degree['p'] = degree['u']-1 ??
-    
+
 # Declare Elements
 V = VectorElement(family['u'], mesh.ufl_cell(), degree['u'])
 Q = FiniteElement(family['p'], mesh.ufl_cell(), degree['p'])
@@ -79,12 +91,12 @@ q_1 = dict((ui, Function(VV[ui], name=ui+'_1')) for ui in sys_comp)
 
 # Short forms
 up_  = q_ ['up'] # Solution at next iteration
-up_1 = q_1['up'] # Solution at previous iteration 
+up_1 = q_1['up'] # Solution at previous iteration
 u_, p_ = split(up_)
 u_1, p_1 = split(up_1)
 
 # Create short forms for accessing the solution vectors
-x_  = dict((ui, q_ [ui].vector()) for ui in sys_comp)     # Solution vectors 
+x_  = dict((ui, q_ [ui].vector()) for ui in sys_comp)     # Solution vectors
 x_1 = dict((ui, q_1[ui].vector()) for ui in sys_comp)     # Solution vectors previous iteration
 
 # Create vectors to hold rhs of equations
@@ -101,7 +113,7 @@ bcs = create_bcs(**vars())
 # Initialize solution
 initialize(**vars())
 
-#  Fetch linear algebra solvers 
+#  Fetch linear algebra solvers
 up_sol, c_sol = get_solvers(**vars())
 
 # Get constant body forces
@@ -120,23 +132,23 @@ def iterate(iters=max_iter):
     # Newton iterations for steady flow
     iter = 0
     error = 1
-    
-    while iter < iters and error > max_error:  
+
+    while iter < iters and error > max_error:
         start_iter_hook(**globals())
         NS_assemble(**globals())
         NS_hook(**globals())
-        NS_solve(**globals())                        
+        NS_solve(**globals())
         end_iter_hook(**globals())
 
         # Update to next iteration
         for ui in sys_comp:
             x_1[ui].zero(); x_1[ui].axpy(1.0, x_ [ui])
-            
-        error = b['up'].norm('l2')                    
+
+        error = b['up'].norm('l2')
         print_velocity_pressure_info(**locals())
 
         iter += 1
-    
+
 def iterate_scalar(iters=max_iter, errors=max_error):
     # Newton iterations for scalars
     if len(scalar_components) > 0:
@@ -154,7 +166,7 @@ def iterate_scalar(iters=max_iter, errors=max_error):
                 citer += 1
 
 if __name__ == "__main__":
-    
+
     timer = OasisTimer('Start Newton iterations flow', True)
     # Assemble rhs once, before entering iterations (velocity components)
     b['up'] = assemble(Fs['up'], tensor=b['up'])
@@ -164,7 +176,7 @@ if __name__ == "__main__":
     iterate(max_iter)
     timer.stop()
 
-    # Assuming there is no feedback to the flow solver from the scalar field, 
+    # Assuming there is no feedback to the flow solver from the scalar field,
     # we solve the scalar only after converging the flow
     if len(scalar_components) > 0:
         scalar_timer = OasisTimer('Start Newton iterations scalars', True)

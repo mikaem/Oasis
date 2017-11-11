@@ -8,7 +8,7 @@ import os
 import platform
 
 if not os.path.isfile("cylinder.xml"):
-    if platform.system() == "Linus":
+    if platform.system() == "Linux":
         os.system("wget -O cylinder.xml https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=0")
     elif platform.system() == "Darwin":
         os.system("curl -L https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=0 -o cylinder.xml")
@@ -22,7 +22,7 @@ if not os.path.isfile("cylinder.xml"):
     #except RuntimeError:
         #os.system("wget -O cylinder.xml https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=0")
         ##raise "Gmsh is required to run this demo"
-      
+
 mesh = Mesh("cylinder.xml")
 
 H = 0.41
@@ -32,7 +32,7 @@ center = 0.2
 cases = {
       1: {'Um': 0.3,
           'Re': 20.0},
-      
+
       2: {'Um': 1.5,
           'Re': 100.0}
       }

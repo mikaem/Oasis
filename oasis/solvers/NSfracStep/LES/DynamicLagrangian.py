@@ -6,7 +6,7 @@ __license__  = 'GNU Lesser GPL version 3 or any later version'
 from dolfin import Function, FunctionSpace, TestFunction, sym, grad, dx, inner,\
         sqrt, TrialFunction, project, CellVolume, as_vector, solve, Constant,\
         LagrangeInterpolator, assemble, FacetFunction, DirichletBC
-from DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
+from .DynamicModules import tophatfilter, lagrange_average, compute_Lij,\
         compute_Mij
 import numpy as np
 
@@ -17,12 +17,12 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **
     Set up for solving the Germano Dynamic LES model applying
     Lagrangian Averaging.
     """
-    
+
     # Create function spaces
     CG1 = FunctionSpace(mesh, "CG", 1)
     p, q = TrialFunction(CG1), TestFunction(CG1)
     dim = mesh.geometry().dim()
-    
+
     # Define delta and project delta**2 to CG1
     delta = pow(CellVolume(mesh), 1./dim)
     delta_CG1_sq = project(delta, CG1)
@@ -59,7 +59,7 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **
     # Set up functions for Lij and Mij
     Lij = [Function(CG1) for i in range(dim*dim)]
     Mij = [Function(CG1) for i in range(dim*dim)]
-    # Check if case is 2D or 3D and set up uiuj product pairs and 
+    # Check if case is 2D or 3D and set up uiuj product pairs and
     # Sij forms, assemble required matrices
     Sijcomps = [Function(CG1) for i in range(dim*dim)]
     Sijfcomps = [Function(CG1) for i in range(dim*dim)]
@@ -71,24 +71,24 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **
     else:
         tensdim = 3
         uiuj_pairs = ((0,0),(0,1),(1,1))
-    
+
     # Set up Lagrange functions
     JLM = Function(CG1)
     JLM.vector()[:] += 1E-32
     JMM = Function(CG1)
     JMM.vector()[:] += 1
-    
+
     return dict(Sij=Sij, nut_form=nut_form, nut_=nut_, delta=delta, bcs_nut=bcs_nut,
-                delta_CG1_sq=delta_CG1_sq, CG1=CG1, Cs=Cs, u_CG1=u_CG1, 
-                u_filtered=u_filtered, ll=ll, Lij=Lij, Mij=Mij, Sijcomps=Sijcomps, 
-                Sijfcomps=Sijfcomps, Sijmats=Sijmats, JLM=JLM, JMM=JMM, dim=dim, 
-                tensdim=tensdim, G_matr=G_matr, G_under=G_under, dummy=dummy, 
-                uiuj_pairs=uiuj_pairs) 
-    
-def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep, 
+                delta_CG1_sq=delta_CG1_sq, CG1=CG1, Cs=Cs, u_CG1=u_CG1,
+                u_filtered=u_filtered, ll=ll, Lij=Lij, Mij=Mij, Sijcomps=Sijcomps,
+                Sijfcomps=Sijfcomps, Sijmats=Sijmats, JLM=JLM, JMM=JMM, dim=dim,
+                tensdim=tensdim, G_matr=G_matr, G_under=G_under, dummy=dummy,
+                uiuj_pairs=uiuj_pairs)
+
+def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep,
             DynamicSmagorinsky, Cs, u_CG1, u_filtered, Lij, Mij,
             JLM, JMM, dim, tensdim, G_matr, G_under, ll,
-            dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq, 
+            dummy, uiuj_pairs, Sijmats, Sijcomps, Sijfcomps, delta_CG1_sq,
             **NS_namespace):
 
     # Check if Cs is to be computed, if not update nut_ and break
@@ -97,7 +97,7 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep,
         nut_()
         # Break function
         return
-    
+
     # All velocity components must be interpolated to CG1 then filtered
     for i in xrange(dim):
         # Interpolate to CG1
@@ -111,11 +111,11 @@ def les_update(u_ab, nut_, nut_form, dt, CG1, delta, tstep,
     # Compute Mij applying dynamic modules function
     alpha = 2.0
     magS = compute_Mij(alphaval=alpha, u_nf=u_CG1, u_f=u_filtered, **vars())
-    
+
     # Lagrange average Lij and Mij
     lagrange_average(J1=JLM, J2=JMM, Aij=Lij, Bij=Mij, **vars())
 
-    # Update Cs = sqrt(JLM/JMM) and filter/smooth Cs, then clip at 0.3. 
+    # Update Cs = sqrt(JLM/JMM) and filter/smooth Cs, then clip at 0.3.
     """
     Important that the term in nut_form is Cs**2 and not Cs
     since Cs here is stored as sqrt(JLM/JMM).

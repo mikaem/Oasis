@@ -3,7 +3,7 @@ __date__ = "2014-04-09"
 __copyright__ = "Copyright (C) 2014 " + __author__
 __license__  = "GNU Lesser GPL version 3 or any later version"
 
-from problems import *
+from oasis.problems import *
 
 # Default parameters NSfracStep solver
 NS_parameters.update(

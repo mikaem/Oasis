@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 
-import sys
+import sys, os
+
+sys.path.append(os.getcwd())
 
 def main():
-    if 'NSfracStep' in sys.argv[1:]:
-        print(sys.argv)
+    assert sys.argv[1] in ('NSfracStep', 'NSCoupled')
+    solver = sys.argv.pop(1)
+    if solver == 'NSfracStep':
         from oasis import NSfracStep
 
-    elif 'NSCoupled' in sys.argv[1:]:
+    elif solver == 'NSCoupled':
         from oasis import NSCoupled
 
     else:
