@@ -1,13 +1,16 @@
 from .io import *
 from .utilities import *
-import sys, json
+import sys
+import json
+import six
+
 
 def convert(input):
     if isinstance(input, dict):
-        return {convert(key): convert(value) for key, value in input.iteritems()}
+        return {convert(key): convert(value) for key, value in input.iter()}
     elif isinstance(input, list):
         return [convert(element) for element in input]
-    elif isinstance(input, unicode):
+    elif isinstance(input, six.text_type):
         return input.encode('utf-8')
     else:
         return input
@@ -19,12 +22,15 @@ def parse_command_line():
         if s.count('=') == 1:
             key, value = s.split('=', 1)
         else:
-            raise TypeError(s+" Only kwargs separated with '=' sign allowed. See NSdefault_hooks for a range of parameters. Your problem file should contain problem specific parameters.")
+            raise TypeError((s + " Only kwargs separated with '=' sign " +
+                            "allowed. See NSdefault_hooks for a range of " +
+                            "parameters. Your problem file should contain " +
+                            "problem specific parameters."))
         try:
             value = json.loads(value)
 
         except ValueError:
-            if value in ("True", "False"): # json understands true/false, but not True/False
+            if value in ("True", "False"):  # json understands true/false, but not True/False
                 value = eval(value)
             elif "True" in value or "False" in value:
                 value = eval(value)

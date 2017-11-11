@@ -1,8 +1,10 @@
 import pytest
-import subprocess, re
+import subprocess
+import re
 import platform
 
 number = "[+-]([0-9]+.[0-9]+e[+-][0-9]+)"
+
 
 def test_default_Coupled():
     d = subprocess.check_output("mpirun -np 1 oasis NSCoupled problem=Cylinder testing=True", shell=True)
@@ -11,12 +13,14 @@ def test_default_Coupled():
     assert round(eval(err[0]) - 5.5739206, 6) == 0
     assert round(eval(err[1]) - 0.0107497, 6) == 0
 
+
 def test_default_CR_Coupled():
     d = subprocess.check_output("mpirun -np 1 oasis NSCoupled problem=Cylinder testing=True element=CR", shell=True)
     match = re.search("Cd = "+number+", CL = "+number, str(d))
     err = match.groups(0)
     assert round(eval(err[0]) - 5.587641, 6) == 0
     assert round(eval(err[1]) - 0.0116757, 6) == 0
+
 
 @pytest.mark.skip(reason="Fenics fails on enriched element")
 def test_default_MINI_Coupled():
@@ -26,12 +30,14 @@ def test_default_MINI_Coupled():
     assert round(eval(err[0]) - 5.534679, 5) == 0
     assert round(eval(err[1]) - 0.0102132, 5) == 0
 
+
 def test_naive_Coupled():
     d = subprocess.check_output("mpirun -np 1 oasis NSCoupled problem=Cylinder solver=naive testing=True", shell=True)
     match = re.search("Cd = "+number+", CL = "+number, str(d))
     err = match.groups(0)
     assert round(eval(err[0]) - 5.5739206, 6) == 0
     assert round(eval(err[1]) - 0.0107497, 6) == 0
+
 
 @pytest.mark.skipif(platform.system() == "Darwin", reason="Parallel LU solver fails on Darwin")
 def test_default_mpi_Coupled():
@@ -40,6 +46,7 @@ def test_default_mpi_Coupled():
     err = match.groups(0)
     assert round(eval(err[0]) - 5.5739206, 6) == 0
     assert round(eval(err[1]) - 0.0107497, 6) == 0
+
 
 @pytest.mark.skipif(platform.system() == "Darwin", reason="Parallel LU solver fails on Darwin")
 def test_naive_mpi_Coupled():

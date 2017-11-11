@@ -1,7 +1,7 @@
 __author__ = 'Mikael Mortensen <mikaem@math.uio.no>'
 __date__ = '2014-04-04'
 __copyright__ = 'Copyright (C) 2014 ' + __author__
-__license__  = 'GNU Lesser GPL version 3 or any later version'
+__license__ = 'GNU Lesser GPL version 3 or any later version'
 
 import importlib
 from oasis.common import *
@@ -37,6 +37,9 @@ except:
 
 vars().update(**vars(problemmod))
 
+# Update problem spesific parameters
+problem_parameters(**vars())
+
 # Update current namespace with NS_parameters and commandline_kwargs ++
 vars().update(post_import_problem(**vars()))
 
@@ -47,7 +50,7 @@ vars().update({name:solver.__dict__[name] for name in solver.__all__})
 
 # Create lists of components solved for
 u_components = ['u']
-sys_comp =  ['up'] + scalar_components
+sys_comp = ['up'] + scalar_components
 
 # Get the chosen mixed elment
 element = commandline_kwargs.get('element', 'TaylorHood')
@@ -66,8 +69,9 @@ Q = FiniteElement(family['p'], mesh.ufl_cell(), degree['p'])
 # Create Mixed space
 # MINI element has bubble, add to V
 if bubble:
-    B = VectorElement("Bubble", mesh.ufl_cell(), mesh.geometry().dim()+1)
-    VQ = FunctionSpace(mesh, (V + B) * Q, constrained_domain=constrained_domain)
+    B = VectorElement("Bubble", mesh.ufl_cell(), mesh.geometry().dim() + 1)
+    VQ = FunctionSpace(mesh, (V + B) * Q,
+                       constrained_domain=constrained_domain)
 
 else:
     VQ = FunctionSpace(mesh, V * Q, constrained_domain=constrained_domain)
@@ -79,19 +83,19 @@ v, q = TestFunctions(VQ)
 
 # For scalars use CG space
 CG = FunctionSpace(mesh, 'CG', 1, constrained_domain=constrained_domain)
-c  = TrialFunction(CG)
+c = TrialFunction(CG)
 ct = TestFunction(CG)
 
 VV = dict(up=VQ)
 VV.update(dict((ui, CG) for ui in scalar_components))
 
 # Create dictionaries for the solutions at two timesteps
-q_  = dict((ui, Function(VV[ui], name=ui)) for ui in sys_comp)
-q_1 = dict((ui, Function(VV[ui], name=ui+'_1')) for ui in sys_comp)
+q_ = dict((ui, Function(VV[ui], name=ui)) for ui in sys_comp)
+q_1 = dict((ui, Function(VV[ui], name=ui + '_1')) for ui in sys_comp)
 
 # Short forms
-up_  = q_ ['up'] # Solution at next iteration
-up_1 = q_1['up'] # Solution at previous iteration
+up_ = q_['up']    # Solution at next iteration
+up_1 = q_1['up']  # Solution at previous iteration
 u_, p_ = split(up_)
 u_1, p_1 = split(up_1)
 
@@ -128,6 +132,7 @@ vars().update(setup(**vars()))
 # Anything problem specific
 vars().update(pre_solve_hook(**vars()))
 
+
 def iterate(iters=max_iter):
     # Newton iterations for steady flow
     iter = 0
@@ -142,7 +147,8 @@ def iterate(iters=max_iter):
 
         # Update to next iteration
         for ui in sys_comp:
-            x_1[ui].zero(); x_1[ui].axpy(1.0, x_ [ui])
+            x_1[ui].zero()
+            x_1[ui].axpy(1.0, x_[ui])
 
         error = b['up'].norm('l2')
         print_velocity_pressure_info(**locals())
@@ -158,12 +164,13 @@ def iterate_scalar(iters=max_iter, errors=max_error):
             citer = 0
             while citer < iters and err[ci] > errors:
                 scalar_assemble(**globals())
-                scalar_hook (**globals())
+                scalar_hook(**globals())
                 scalar_solve(**globals())
                 err[ci] = b[ci].norm('l2')
                 if MPI.rank(mpi_comm_world()) == 0:
                     print('Iter {}, Error {} = {}'.format(citer, ci, err[ci]))
                 citer += 1
+
 
 if __name__ == "__main__":
 
@@ -193,8 +200,10 @@ if __name__ == "__main__":
     info_red('Total computing time = {0:f}'.format(timer.elapsed()[0]))
     oasis_memory('Final memory use ')
     total_initial_dolfin_memory = MPI.sum(mpi_comm_world(), initial_memory_use)
-    info_red('Memory use for importing dolfin = {} MB (RSS)'.format(total_initial_dolfin_memory))
-    info_red('Total memory use of solver = ' + str(oasis_memory.memory - total_initial_dolfin_memory) + ' MB (RSS)')
+    info_red('Memory use for importing dolfin = {} MB (RSS)'.format(
+        total_initial_dolfin_memory))
+    info_red('Total memory use of solver = ' +
+             str(oasis_memory.memory - total_initial_dolfin_memory) + ' MB (RSS)')
 
     # Final hook
     theend_hook(**vars())
