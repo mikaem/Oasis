@@ -80,7 +80,7 @@ def test_temporal_rate_of_convergence(num_p, solver):
 @pytest.mark.parametrize("solver", ["IPCS_ABCN", "IPCS_ABE", "Chorin", "BDFPC_Fast"])
 @pytest.mark.parametrize("num_p", [1, 4])
 def test_TaylorGreen2D(solver, num_p):
-    cmd = ("cmpirun -np {} oasis NSfracStep solver={} "
+    cmd = ("mpirun -np {} oasis NSfracStep solver={} "
            "problem=TaylorGreen2D T=0.01 Nx=50 Ny=50")
     d = subprocess.check_output(cmd.format(num_p, solver), shell=True)
     match = re.search("Final Error: u0=" + number +

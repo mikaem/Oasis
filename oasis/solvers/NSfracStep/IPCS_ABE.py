@@ -4,8 +4,8 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import *
-from IPCS_ABCN import *
-from IPCS_ABCN import __all__, attach_pressure_nullspace
+from .IPCS_ABCN import *
+from .IPCS_ABCN import __all__, attach_pressure_nullspace
 
 docstrings = {func: eval(func + ".__doc__") for func in __all__}
 

@@ -20,7 +20,7 @@ max_iter = 1
 iters_on_first_timestep = 1
 
 
-def setup(ui, u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1,
+def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1,
           nu, p_, dp_, mesh, f, fs, q, p, u_, Schmidt,
           scalar_components, **NS_namespace):
     """Set up all equations to be solved."""
