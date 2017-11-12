@@ -54,10 +54,4 @@ after_failure:
     - find /Users/travis/miniconda2/.cache/instant/error/* -name 'compile.log' -print -exec cat '{}' \;
 
 script:
-    - export INSTANT_CACHE_DIR="${HOME}/instant"
-    - which python
-    - python -c "print('Hi')"
-    - python NSfracStep.py problem=TaylorGreen2D T=0.01 Nx=50 Ny=50
-    - cd ${PWD}/tests
-    - python test_NSfracStep.py
-    - python test_NSCoupled.py
+    - py.test -v tests/
