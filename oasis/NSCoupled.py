@@ -172,38 +172,37 @@ def iterate_scalar(iters=max_iter, errors=max_error):
                 citer += 1
 
 
-if __name__ == "__main__":
 
-    timer = OasisTimer('Start Newton iterations flow', True)
+timer = OasisTimer('Start Newton iterations flow', True)
+# Assemble rhs once, before entering iterations (velocity components)
+b['up'] = assemble(Fs['up'], tensor=b['up'])
+for bc in bcs['up']:
+    bc.apply(b['up'], x_['up'])
+
+iterate(max_iter)
+timer.stop()
+
+# Assuming there is no feedback to the flow solver from the scalar field,
+# we solve the scalar only after converging the flow
+if len(scalar_components) > 0:
+    scalar_timer = OasisTimer('Start Newton iterations scalars', True)
     # Assemble rhs once, before entering iterations (velocity components)
-    b['up'] = assemble(Fs['up'], tensor=b['up'])
-    for bc in bcs['up']:
-        bc.apply(b['up'], x_['up'])
+    for scalar in scalar_components:
+        b[scalar] = assemble(Fs[scalar], tensor=b[scalar])
+        for bc in bcs[scalar]:
+            bc.apply(b[scalar], x_[scalar])
 
-    iterate(max_iter)
-    timer.stop()
+    iterate_scalar()
+    scalar_timer.stop()
 
-    # Assuming there is no feedback to the flow solver from the scalar field,
-    # we solve the scalar only after converging the flow
-    if len(scalar_components) > 0:
-        scalar_timer = OasisTimer('Start Newton iterations scalars', True)
-        # Assemble rhs once, before entering iterations (velocity components)
-        for scalar in scalar_components:
-            b[scalar] = assemble(Fs[scalar], tensor=b[scalar])
-            for bc in bcs[scalar]:
-                bc.apply(b[scalar], x_[scalar])
+list_timings(TimingClear_clear, [TimingType_wall])
+info_red('Total computing time = {0:f}'.format(timer.elapsed()[0]))
+oasis_memory('Final memory use ')
+total_initial_dolfin_memory = MPI.sum(mpi_comm_world(), initial_memory_use)
+info_red('Memory use for importing dolfin = {} MB (RSS)'.format(
+    total_initial_dolfin_memory))
+info_red('Total memory use of solver = ' +
+            str(oasis_memory.memory - total_initial_dolfin_memory) + ' MB (RSS)')
 
-        iterate_scalar()
-        scalar_timer.stop()
-
-    list_timings(TimingClear_clear, [TimingType_wall])
-    info_red('Total computing time = {0:f}'.format(timer.elapsed()[0]))
-    oasis_memory('Final memory use ')
-    total_initial_dolfin_memory = MPI.sum(mpi_comm_world(), initial_memory_use)
-    info_red('Memory use for importing dolfin = {} MB (RSS)'.format(
-        total_initial_dolfin_memory))
-    info_red('Total memory use of solver = ' +
-             str(oasis_memory.memory - total_initial_dolfin_memory) + ' MB (RSS)')
-
-    # Final hook
-    theend_hook(**vars())
+# Final hook
+theend_hook(**vars())

@@ -13,7 +13,7 @@ import re
                                        "DynamicLagrangian",
                                        "ScaleDepDynamicLagrangian"])
 def test_LES(num_p, solver, les_model):
-    cmd = "mpirun -np {} python NSfracStep.py solver={} T=0.0001 dt=0.00005 les_model={};"
+    cmd = "mpirun -np {} oasis NSfracStep solver={} T=0.0001 dt=0.00005 les_model={};"
     cmd = "cd ..; " + cmd + " cd tests"
     subprocess.check_output(cmd.format(num_p, solver, les_model), shell=True)
 
@@ -31,7 +31,7 @@ def test_demo_NSfracStep(num_p, solver, problem):
     if num_p == 4 and problem in ["SkewedFlow", "FlowPastSphere", "Lshape"]:
         pytest.xfail("Submesh does not run in parallell yet")
 
-    cmd = "mpirun -np {} python NSfracStep.py solver={} T=0.0001 dt=0.00005 problem={};"
+    cmd = "mpirun -np {} oasis NSfracStep solver={} T=0.0001 dt=0.00005 problem={};"
     cmd = "cd ..; " + cmd + " cd tests"
     subprocess.check_output(cmd.format(num_p, solver, problem), shell=True)
 
@@ -45,7 +45,7 @@ def test_demo_NSCoupled(num_p, solver, problem):
     if num_p == 4 and problem in ["SkewedFlow"]:
         pytest.xfail("Submesh does not run in parallell yet")
 
-    cmd = "mpirun -np {} python NSCoupled.py solver={} problem={};"
+    cmd = "mpirun -np {} oasis NSCoupled solver={} problem={};"
     cmd = "cd ..; " + cmd + " cd tests"
     subprocess.check_output(cmd.format(num_p, solver, problem), shell=True)
 
