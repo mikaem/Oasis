@@ -14,6 +14,7 @@ def test_default_Coupled():
     assert round(eval(err[1]) - 0.0107497, 6) == 0
 
 
+@pytest.mark.skip(reason="Time")
 def test_default_CR_Coupled():
     d = subprocess.check_output("mpirun -np 1 oasis NSCoupled problem=Cylinder testing=True element=CR", shell=True)
     match = re.search("Cd = "+number+", CL = "+number, str(d))
@@ -31,6 +32,7 @@ def test_default_MINI_Coupled():
     assert round(eval(err[1]) - 0.0102132, 5) == 0
 
 
+@pytest.mark.skip(reason="Time")
 def test_naive_Coupled():
     d = subprocess.check_output("mpirun -np 1 oasis NSCoupled problem=Cylinder solver=naive testing=True", shell=True)
     match = re.search("Cd = "+number+", CL = "+number, str(d))
@@ -47,7 +49,6 @@ def test_default_mpi_Coupled():
     err = match.groups(0)
     assert round(eval(err[0]) - 5.5739206, 6) == 0
     assert round(eval(err[1]) - 0.0107497, 6) == 0
-
 
 #@pytest.mark.skipif(platform.system() == "Darwin", reason="Parallel LU solver fails on Darwin")
 @pytest.mark.skip(reason="Problem with direct solvers and MPI")

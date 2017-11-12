@@ -7,7 +7,7 @@ number = "([0-9]+.[0-9]+e[+-][0-9]+)"
 
 
 @pytest.mark.parametrize("solver", ["IPCS"])
-@pytest.mark.parametrize("num_p", [1, 4])
+@pytest.mark.parametrize("num_p", [1, 2])
 def test_spatial_rate_of_convergence(num_p, solver):
     cmd = ("mpirun -np {} oasis NSfracStep solver={} "
             "problem=TaylorGreen2D T={} dt={} Nx={} Ny={}")
@@ -15,7 +15,7 @@ def test_spatial_rate_of_convergence(num_p, solver):
     u0_err = []
     dt = 0.0001
     T = dt*2
-    N = [20, 40, 60, 80]
+    N = [20, 26, 32, 38]
 
     for n in N:
         d = subprocess.check_output(cmd.format(num_p, solver, T, dt, n, n),
@@ -33,7 +33,7 @@ def test_spatial_rate_of_convergence(num_p, solver):
         u_conv.append(math.log(u0_err[i] / u0_err[i+1]) / math.log(dx[i] / dx[i+1]))
         p_conv.append(math.log(p_err[i] / p_err[i+1]) / math.log(dx[i] / dx[i+1]))
 
-    assert round(u_conv[-1], 2) == 2.0
+    assert round(u_conv[-1], 1) == 2.0
     # FIXME: Doublecheck that it makes sence that p converges as dx**4
     assert round(p_conv[-1], 1) == 4.0
 
@@ -78,23 +78,23 @@ def test_temporal_rate_of_convergence(num_p, solver):
 
 
 @pytest.mark.parametrize("solver", ["IPCS_ABCN", "IPCS_ABE", "Chorin", "BDFPC_Fast"])
-@pytest.mark.parametrize("num_p", [1, 4])
+@pytest.mark.parametrize("num_p", [1, 2])
 def test_TaylorGreen2D(solver, num_p):
     cmd = ("mpirun -np {} oasis NSfracStep solver={} "
-           "problem=TaylorGreen2D T=0.01 Nx=50 Ny=50")
+           "problem=TaylorGreen2D T=0.01 Nx=40 Ny=40")
     d = subprocess.check_output(cmd.format(num_p, solver), shell=True)
     match = re.search("Final Error: u0=" + number +
                       " u1=" + number + " p=" + number, str(d))
     err = match.groups()
     if "IPCS_AB" in solver:
         for e in err:
-            assert eval(e) < 1e-5
+            assert eval(e) < 1e-4
     elif "Chorin" in solver:
         for e in err[:2]:
             assert eval(e) < 1e-4
     else:
         for e in err[:2]:
-            assert eval(e) < 1e-5
+            assert eval(e) < 1e-4
 
     # Make sure the optimized version gives the same result as naive
     slow=None

@@ -47,11 +47,10 @@ install:
       conda update -q conda
       conda install --yes --quiet conda-forge-build-setup
       source run_conda_forge_build_setup
-      conda install --yes fenics=${FENICS_VERSION} pytest
       #export INSTANT_CACHE_DIR="/Users/travis/miniconda2/.cache/instant"
 
 after_failure:
     - find /Users/travis/miniconda2/.cache/instant/error/* -name 'compile.log' -print -exec cat '{}' \;
 
 script:
-    - py.test -v tests/
+    - conda build conf/conda
