@@ -6,7 +6,7 @@ import math
 number = "([0-9]+.[0-9]+e[+-][0-9]+)"
 
 
-@pytest.mark.parametrize("solver", ["IPCS"])
+@pytest.mark.parametrize("solver", ["IPCS_ABCN"])
 @pytest.mark.parametrize("num_p", [1, 2])
 def test_spatial_rate_of_convergence(num_p, solver):
     cmd = ("mpirun -np {} oasis NSfracStep solver={} "
