@@ -7,6 +7,7 @@ import re
 # test any properties. These should be replace with better tests.
 ########
 
+@pytest.mark.skip(reason="Time")
 @pytest.mark.parametrize("num_p", [1, 2])
 @pytest.mark.parametrize("solver", ["IPCS_ABCN", "IPCS_ABE", "Chorin", "BDFPC", "BDFPC_Fast"])
 @pytest.mark.parametrize("les_model", ["Smagorinsky", "Wale",
