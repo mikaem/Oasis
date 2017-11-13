@@ -30,4 +30,9 @@ test:
   override:
     - |
       conda build conf/conda
-      upload_or_check_non_existence ./conf/conda mikaem --channel main || exit 1
+
+deployment:
+  master:
+    branch: master
+    commands:
+      upload_or_check_non_existence ./conf/conda mikaem --channel docker-conda-gcc || exit 1
