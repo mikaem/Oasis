@@ -54,10 +54,9 @@ Installation
 ------------
 
 Oasis requires a compatible installation of FEniCS, see the releases. 
-Oasis should be installed by cloning to a local repository. 
+Oasis is installed with regular distutils
 
-  * git clone https://github.com/mikaem/Oasis.git
-
+  * python setup.py install --prefix='Path to where you want Oasis installed. Must be on PYTHONPATH'
 
 Contact
 -------
