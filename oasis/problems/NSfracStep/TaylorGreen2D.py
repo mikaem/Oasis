@@ -71,7 +71,10 @@ def initialize(q_, q_1, q_2, VV, t, nu, dt, initial_fields, **NS_namespace):
 
     """
     for ui in q_:
-        deltat = dt / 2. if ui is 'p' else 0.
+        if 'IPCS' in NS_parameters['solver']:
+            deltat = dt / 2. if ui is 'p' else 0.
+        else:
+            deltat = 0.
         vv = interpolate(Expression((initial_fields[ui]),
                                      element=VV[ui].ufl_element(),
                                      t=t + deltat, nu=nu), VV[ui])
@@ -103,7 +106,10 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
     if tstep % compute_error == 0:
         err = {}
         for i, ui in enumerate(sys_comp):
-            deltat_ = dt / 2. if ui is 'p' else 0.
+            if 'IPCS' in NS_parameters['solver']:
+                deltat_ = dt / 2. if ui is 'p' else 0.
+            else:
+                deltat_ = 0.
             ue = Expression((initial_fields[ui]),
                             element=VV[ui].ufl_element(),
                             t=t - deltat_, nu=nu)
@@ -120,14 +126,15 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
 def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, total_error, initial_fields, **NS_namespace):
     final_error = zeros(len(sys_comp))
     for i, ui in enumerate(sys_comp):
-        deltat = dt / 2. if ui is 'p' else 0.
+        if 'IPCS' in NS_parameters['solver']:
+            deltat = dt / 2. if ui is 'p' else 0.
+        else:
+            deltat = 0.
         ue = Expression((initial_fields[ui]),
                         element=VV[ui].ufl_element(),
                         t=t - deltat, nu=nu)
         ue = interpolate(ue, VV[ui])
-        uen = norm(ue.vector())
-        ue.vector().axpy(-1, q_[ui].vector())
-        final_error[i] = norm(ue.vector()) / uen
+        final_error[i] = errornorm(q_[ui], ue)
 
     hmin = mesh.hmin()
     if MPI.rank(mpi_comm_world()) == 0:

@@ -6,16 +6,17 @@ import math
 number = "([0-9]+.[0-9]+e[+-][0-9]+)"
 
 
-@pytest.mark.parametrize("solver", ["IPCS_ABCN"])
-@pytest.mark.parametrize("num_p", [1, 2])
+@pytest.mark.parametrize("solver", ["IPCS_ABCN", "BDFPC_Fast"])
+@pytest.mark.parametrize("num_p", [1])
 def test_spatial_rate_of_convergence(num_p, solver):
     cmd = ("mpirun -np {} oasis NSfracStep solver={} "
-            "problem=TaylorGreen2D T={} dt={} Nx={} Ny={}")
+            "problem=TaylorGreen2D compute_error=1e8 T={} dt={} Nx={} Ny={}")
     p_err = []
     u0_err = []
     dt = 0.0001
-    T = dt*2
+    T = dt*4
     N = [20, 26, 32, 38]
+    #N = [20, 30, 40, 50, 60]
 
     for n in N:
         d = subprocess.check_output(cmd.format(num_p, solver, T, dt, n, n),
@@ -82,6 +83,9 @@ def test_temporal_rate_of_convergence(num_p, solver):
 def test_TaylorGreen2D(solver, num_p):
     cmd = ("mpirun -np {} oasis NSfracStep solver={} "
            "problem=TaylorGreen2D T=0.01 Nx=40 Ny=40")
+    if num_p > 1 and solver == "Chorin":  # Uses direct solver
+        return
+
     d = subprocess.check_output(cmd.format(num_p, solver), shell=True)
     match = re.search("Final Error: u0=" + number +
                       " u1=" + number + " p=" + number, str(d))
@@ -131,7 +135,8 @@ def test_DrivenCavity(num_p):
     assert abs(eval(err[0]) - eval(err2[0])) < 1e-9
 
 if __name__ == '__main__':
-    test_DrivenCavity()
-    test_TaylorGreen2D()
-    test_spatial_rate_of_convergence()
-    test_temporal_rate_of_convergence()
+    #test_DrivenCavity()
+    #test_TaylorGreen2D()
+    #test_spatial_rate_of_convergence(1, "BDFPC_Fast")
+    test_spatial_rate_of_convergence(1, "IPCS_ABCN")
+    #test_temporal_rate_of_convergence()
