@@ -49,5 +49,5 @@ def get_solvers(**NS_namespace):
     return up_sol, c_sol
 
 def print_velocity_pressure_info(iter, error, **NS_namespace):
-    if MPI.rank(mpi_comm_world()) == 0:
+    if MPI.comm_world.Get_rank() == 0:
         print("Iter {}, Error = {}".format(iter + 1, error))

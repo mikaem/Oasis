@@ -167,7 +167,7 @@ def iterate_scalar(iters=max_iter, errors=max_error):
                 scalar_hook(**globals())
                 scalar_solve(**globals())
                 err[ci] = b[ci].norm('l2')
-                if MPI.rank(mpi_comm_world()) == 0:
+                if MPI.comm_world.Get_rank() == 0:
                     print('Iter {}, Error {} = {}'.format(citer, ci, err[ci]))
                 citer += 1
 
@@ -198,7 +198,7 @@ if len(scalar_components) > 0:
 list_timings(TimingClear_clear, [TimingType_wall])
 info_red('Total computing time = {0:f}'.format(timer.elapsed()[0]))
 oasis_memory('Final memory use ')
-total_initial_dolfin_memory = MPI.sum(mpi_comm_world(), initial_memory_use)
+total_initial_dolfin_memory = MPI.sum(MPI.comm_world, initial_memory_use)
 info_red('Memory use for importing dolfin = {} MB (RSS)'.format(
     total_initial_dolfin_memory))
 info_red('Total memory use of solver = ' +

@@ -1,1 +1,1 @@
-from .oasis import main
+from .run_oasis import main

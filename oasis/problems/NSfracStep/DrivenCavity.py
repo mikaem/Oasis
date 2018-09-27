@@ -73,7 +73,7 @@ def theend_hook(u_, p_, uv, mesh, testing, **NS_namespace):
         plot(p_, title='Pressure')
 
     u_norm = norm(u_[0].vector())
-    if MPI.rank(mpi_comm_world()) == 0 and testing:
+    if MPI.comm_world.Get_rank() == 0 and testing:
         print("Velocity norm = {0:2.6e}".format(u_norm))
 
     if not testing:

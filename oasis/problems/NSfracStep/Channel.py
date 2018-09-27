@@ -104,9 +104,9 @@ def body_force(nu, Re_tau, utau, **NS_namespace):
     return Constant((utau**2, 0., 0.))
 
 def pre_solve_hook(V, u_, mesh, AssignedVectorFunction, newfolder, MPI,
-                   mpi_comm_world, Nx, Ny, Nz, Lx, Ly, Lz, **NS_namespace):
+                    Nx, Ny, Nz, Lx, Ly, Lz, **NS_namespace):
     """Called prior to time loop"""
-    if MPI.rank(mpi_comm_world()) == 0:
+    if MPI.comm_world.Get_rank() == 0:
         makedirs(path.join(newfolder, "Stats"))
 
     uv = AssignedVectorFunction(u_)
@@ -138,7 +138,7 @@ def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, Ly, **NS_namespace):
 
 
 class RandomStreamVector(Expression):
-    random.seed(2 + MPI.rank(mpi_comm_world()))
+    random.seed(2 + MPI.comm_world.Get_rank())
 
     def eval(self, values, x):
         values[0] = 0.0005 * random.random()
@@ -197,7 +197,7 @@ def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
         u1 = assemble(dot(u_, normal) * ds(1, domain=mesh, subdomain_data=facets))
         normv = norm(q_['u1'].vector())
         normw = norm(q_['u2'].vector())
-        if MPI.rank(mpi_comm_world()) == 0:
+        if MPI.comm_world.Get_rank() == 0:
             print("Flux = ", u1, " tstep = ", tstep, " norm = ", normv, normw)
 
 def theend(newfolder, tstep, stats, **NS_namespace):

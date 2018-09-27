@@ -3,8 +3,8 @@
 from setuptools import setup
 
 # Version number
-major = 2017
-minor = 2
+major = 2018
+minor = 1
 
 setup(name = "oasis",
       version = "%d.%d" % (major, minor),
@@ -31,5 +31,5 @@ setup(name = "oasis",
                   "oasis.common",
                   ],
       package_dir = {"oasis": "oasis"},
-      entry_points = {'console_scripts': ['oasis=oasis.oasis:main']},
+      entry_points = {'console_scripts': ['oasis=oasis.run_oasis:main']},
     )

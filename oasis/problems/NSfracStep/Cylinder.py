@@ -23,10 +23,10 @@ def problem_parameters(commandline_kwargs, NS_parameters, scalar_components,
     else:
         # Override some problem specific parameters
         NS_parameters.update(
-            T=5.0,
+            T=0.5,
             dt=0.05,
-            checkpoint=1000,
-            save_step=5000,
+            checkpoint=10,
+            save_step=50,
             plot_interval=10,
             velocity_degree=2,
             print_intermediate_info=100,
@@ -67,7 +67,7 @@ def pre_solve_hook(mesh, V, newfolder, tstepfiles, tstep, ds, u_,
     omega = Function(V, name='omega')
     # Store omega each save_step
     add_function_to_tstepfiles(omega, newfolder, tstepfiles, tstep)
-    ff = FacetFunction("size_t", mesh, 0)
+    ff = MeshFunction("size_t", mesh, mesh.ufl_cell().geometric_dimension()-1)
     Cyl.mark(ff, 1)
     n = FacetNormal(mesh)
     ds = ds[ff]
@@ -85,7 +85,7 @@ def temporal_hook(q_, u_, tstep, V, uv, p_, plot_interval, omega, ds,
     R = VectorFunctionSpace(mesh, 'R', 0)
     c = TestFunction(R)
     tau = -p_ * Identity(2) + nu * (grad(u_) + grad(u_).T)
-    forces = assemble(dot(dot(tau, n), c) * ds(1)).array() * 2 / Umean**2 / D
+    forces = assemble(dot(dot(tau, n), c) * ds(1)).get_local() * 2 / Umean**2 / D
 
     print("Cd = {}, CL = {}".format(*forces))
 
@@ -105,11 +105,11 @@ def theend_hook(q_, u_, p_, uv, mesh, ds, V, nu, Umean, D, **NS_namespace):
     R = VectorFunctionSpace(mesh, 'R', 0)
     c = TestFunction(R)
     tau = -p_ * Identity(2) + nu * (grad(u_) + grad(u_).T)
-    ff = FacetFunction("size_t", mesh, 0)
+    ff = MeshFunction("size_t", mesh, mesh.ufl_cell().geometric_dimension()-1)
     Cyl.mark(ff, 1)
     n = FacetNormal(mesh)
     ds = ds[ff]
-    forces = assemble(dot(dot(tau, n), c) * ds(1)).array() * 2 / Umean**2 / D
+    forces = assemble(dot(dot(tau, n), c) * ds(1)).get_local() * 2 / Umean**2 / D
 
     print("Cd = {}, CL = {}".format(*forces))
 

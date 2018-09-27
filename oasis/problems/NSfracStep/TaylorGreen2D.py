@@ -5,7 +5,7 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSfracStep import *
-
+from matplotlib import pyplot as plt
 
 # Override some problem specific parameters
 def problem_parameters(NS_parameters, NS_expressions, **NS_namespace):
@@ -101,7 +101,7 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
         plot(q_['u0'], title='u')
         plot(q_['u1'], title='v')
         plot(q_['p'], title='p')
-        interactive()
+        plt.show()
 
     if tstep % compute_error == 0:
         err = {}
@@ -119,7 +119,7 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
             error = norm(ue.vector()) / uen
             err[ui] = "{0:2.6e}".format(norm(ue.vector()) / uen)
             total_error[i] += error * dt
-        if MPI.rank(mpi_comm_world()) == 0:
+        if MPI.comm_world.Get_rank() == 0:
             print("Error is ", err, " at time = ", t)
 
 
@@ -137,7 +137,7 @@ def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, total_error, initial_fields, 
         final_error[i] = errornorm(q_[ui], ue)
 
     hmin = mesh.hmin()
-    if MPI.rank(mpi_comm_world()) == 0:
+    if MPI.comm_world.Get_rank() == 0:
         print("hmin = {}".format(hmin))
     s0 = "Total Error:"
     s1 = "Final Error:"
@@ -145,6 +145,6 @@ def theend_hook(mesh, q_, t, dt, nu, VV, sys_comp, total_error, initial_fields, 
         s0 += " {0:}={1:2.6e}".format(ui, total_error[i])
         s1 += " {0:}={1:2.6e}".format(ui, final_error[i])
 
-    if MPI.rank(mpi_comm_world()) == 0:
+    if MPI.comm_world.Get_rank() == 0:
         print(s0)
         print(s1)

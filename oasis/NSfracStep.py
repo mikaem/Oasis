@@ -151,7 +151,8 @@ vars().update(setup(**vars()))
 # Anything problem specific
 vars().update(pre_solve_hook(**vars()))
 
-tic()
+tx = OasisTimer('Timestep timer')
+tx.start()
 stop = False
 total_timer = OasisTimer("Start simulations", True)
 while t < (T - tstep * DOLFIN_EPS) and not stop:
@@ -218,21 +219,22 @@ while t < (T - tstep * DOLFIN_EPS) and not stop:
 
     # Print some information
     if tstep % print_intermediate_info == 0:
+        toc = tx.stop()
         info_green( 'Time = {0:2.4e}, timestep = {1:6d}, End time = {2:2.4e}'.format(t, tstep, T))
         info_red('Total computing time on previous {0:d} timesteps = {1:f}'.format(
-            print_intermediate_info, toc()))
-        list_timings(TimingClear_clear, [TimingType_wall])
-        tic()
+            print_intermediate_info, toc))
+        list_timings(TimingClear.clear, [TimingType.wall])
+        tx.start()
 
     # AB projection for pressure on next timestep
     if AB_projection_pressure and t < (T - tstep * DOLFIN_EPS) and not stop:
         x_['p'].axpy(0.5, dp_.vector())
 
 total_timer.stop()
-list_timings(TimingClear_keep, [TimingType_wall])
+list_timings(TimingClear.keep, [TimingType.wall])
 info_red('Total computing time = {0:f}'.format(total_timer.elapsed()[0]))
 oasis_memory('Final memory use ')
-total_initial_dolfin_memory = MPI.sum(mpi_comm_world(), initial_memory_use)
+total_initial_dolfin_memory = MPI.sum(MPI.comm_world, initial_memory_use)
 info_red('Memory use for importing dolfin = {} MB (RSS)'.format(
     total_initial_dolfin_memory))
 info_red('Total memory use of solver = ' +

@@ -4,13 +4,13 @@ __copyright__ = "Copyright (C) 2014 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
 from dolfin import (assemble, KrylovSolver, LUSolver,  Function,
-    TrialFunction,TestFunction, dx, Vector, Matrix, GenericMatrix,
-    FunctionSpace, Timer, div, Form, Coefficient, inner, grad,
+    TrialFunction,TestFunction, dx, Vector, Matrix,
+    FunctionSpace, Timer, div, Form, inner, grad,
     as_backend_type, VectorFunctionSpace, FunctionAssigner, PETScKrylovSolver,
     PETScPreconditioner, DirichletBC)
 
 from ufl.tensors import ListTensor
-
+from ufl import Coefficient
 
 # Create some dictionaries to hold work matrices
 class Mat_cache_dict(dict):
@@ -36,7 +36,7 @@ class Solver_cache_dict(dict):
         form, bcs, solver_type, preconditioner_type = key
         prec = PETScPreconditioner(preconditioner_type)
         sol = PETScKrylovSolver(solver_type, prec)
-        sol.prec = prec
+        #sol.prec = prec
         #sol = KrylovSolver(solver_type, preconditioner_type)
 
         #sol.parameters["preconditioner"]["structure"] = "same"
