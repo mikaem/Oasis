@@ -7,7 +7,6 @@ source:
 
 build:
   number: 10
-  script: $PYTHON setup.py install
 
 requirements:
   build:
