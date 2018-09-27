@@ -5,7 +5,10 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSfracStep import *
-from matplotlib import pyplot as plt
+try:
+    from matplotlib import pyplot as plt
+except:
+    pass
 
 # Override some problem specific parameters
 def problem_parameters(NS_parameters, NS_expressions, **NS_namespace):
@@ -101,7 +104,10 @@ def temporal_hook(q_, t, nu, VV, dt, plot_interval, initial_fields, tstep, sys_c
         plot(q_['u0'], title='u')
         plot(q_['u1'], title='v')
         plot(q_['p'], title='p')
-        plt.show()
+        try:
+            plt.show()
+        except:
+            pass
 
     if tstep % compute_error == 0:
         err = {}
