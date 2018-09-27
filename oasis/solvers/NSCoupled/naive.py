@@ -21,7 +21,7 @@ def setup(u_, p_, up_, up, u, p, v, q, nu, f, mesh, c, ct, q_,
     Fs = {"up": F}
     Ac = {}
     Js = {}
-    h = CellSize(mesh)
+    h = CellDiameter(mesh)
     vw = ct + h * inner(grad(ct), u_)
     n = FacetNormal(mesh)
     for ci in scalar_components:

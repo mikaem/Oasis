@@ -1,0 +1,53 @@
+version: 2
+jobs:
+  build:
+    machine: true
+    environment: 
+      FENICS_VERSION: 2018.1
+    steps:
+      - checkout
+
+      - restore_cache:
+          key: v1-miniconda-{{ .Branch }}
+
+      - run:
+          name: install miniconda
+          command: |
+            if [[ ! -d /home/circleci/miniconda ]]; then
+                wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh &&
+                bash miniconda.sh -b -f -p /home/circleci/miniconda;
+            else
+                echo "Using cached miniconda";
+            fi
+            source ~/miniconda/bin/activate root
+            conda config --set always_yes yes
+            conda update -q conda
+            conda config --add channels conda-forge
+            conda install -n root conda-build
+            conda install --yes --quiet conda-forge-ci-setup=1
+            source run_conda_forge_build_setup
+
+      - save_cache:
+          key: v1-miniconda-{{ .Branch }}
+          paths:
+            - /home/circleci/miniconda
+
+      - run:
+          name: Build and test
+          command: |
+            source ~/miniconda/bin/activate root
+            cd /home/circleci/project
+            #conda build --python 2.7 ./conf/conda
+            conda build --python 3.6 ./conf/conda
+        
+      - run:
+          name: Upload packages
+          command: |
+              source ~/miniconda/bin/activate root
+              cd /home/circleci/project
+              #export CONDA_PY=27
+              #upload_or_check_non_existence ./conf/conda mikaem --channel main
+              export CONDA_PY=36
+              upload_or_check_non_existence ./conf/conda mikaem --channel main
+
+

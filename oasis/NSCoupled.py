@@ -44,7 +44,6 @@ problem_parameters(**vars())
 vars().update(post_import_problem(**vars()))
 
 # Import chosen functionality from solvers
-#exec('from solvers.NSCoupled.{} import *'.format(solver))
 solver = importlib.import_module('.'.join(('oasis.solvers.NSCoupled', solver)))
 vars().update({name:solver.__dict__[name] for name in solver.__all__})
 
@@ -195,7 +194,7 @@ if len(scalar_components) > 0:
     iterate_scalar()
     scalar_timer.stop()
 
-list_timings(TimingClear_clear, [TimingType_wall])
+list_timings(TimingClear.keep, [TimingType.wall])
 info_red('Total computing time = {0:f}'.format(timer.elapsed()[0]))
 oasis_memory('Final memory use ')
 total_initial_dolfin_memory = MPI.sum(MPI.comm_world, initial_memory_use)

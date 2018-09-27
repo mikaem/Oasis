@@ -1,7 +1,7 @@
 language: generic
 
 os: osx
-osx_image: xcode8.1
+osx_image: xcode6.4
 
 sudo: false
 
@@ -11,7 +11,7 @@ env:
     - CONDA_PY=36
 
   global:
-    - FENICS_VERSION="2017.2.dev"
+    - FENICS_VERSION="2018.1.0"
     # travis encrypt BINSTAR_TOKEN="..." --repo mikaem/Oasis
     - secure: "Lci618N57axwAmkbKcwyr2EiG/tvWW94Pl54WGQrkS5Rp/GAilgCBO03sAgYu+ClbAtCrxxYZwGcrCk8DzNYde3TBr+OYkENxb0sITALBil37BcoS8w1Bqyh5H4UHOJM9uavTHnBgu0J82yPSq9aY/v+cAmmM5DJH18WMVARWOrojKtoV/06n6lvo8W+JpjFmew0kuVDWR6ztMvpjRawQUkMYMK1lB/zs+1YXEh0Rg8BYYaG5v0UlxpklNjUscxxr4X74SH2pGHz2ZJ5pbjH9XIUEZ7V6fcv3rAWeFutT40S9HknpWMGTwj3gAO2FMHw4PYkEDluLUJ/2kQ1zViT24A0lJuTztryHvPjWBdxpEJI7JX/ewx29tJE9T5rjy8k4vty1UgsAMF40VzPEFY+p1cwvbGrJt5wxFSIVUyQ9/kE2Uo4JQvQmw/l7cMzOXP6wHBWv3/VcGkgvy8n7hgdlXsFPQQIBk/fXzL7X1q6vH9J23RmOVsCNFUeASLpbgXmcG04FBPcAioidD6LWZGw6STaquMWpZiMmK9oXZFEzhjTFoyChVifL2hGuS2MeZgS1h8O7bnUh/z09i5QkcGkWPd3WZJGp9kVsZ5oYjeCXYjTIAtNFfjuVRvzixKTV0g45dXJlBu1oFS+T5Las7v/kkr9ZOzDfVALGc+/Le4tK+M="
 
@@ -40,21 +40,16 @@ install:
       echo ""
       echo "Configuring conda."
       source /Users/travis/miniconda3/bin/activate root
-      conda config --set always_yes yes
-      conda config --set show_channel_urls true
+      conda config --set always_yes yes      
+      conda config --add channels defaults
       conda config --add channels conda-forge
-      conda config --add channels mikaem/label/OSX-10.12-clang
-      conda update -q conda
-      conda install --yes --quiet conda-forge-build-setup
+      conda config --set show_channel_urls true
+      conda install --yes --quiet conda-forge-ci-setup=1
       source run_conda_forge_build_setup
-      #export INSTANT_CACHE_DIR="/Users/travis/miniconda2/.cache/instant"
-
-after_failure:
-    - find /Users/travis/miniconda2/.cache/instant/error/* -name 'compile.log' -print -exec cat '{}' \;
 
 script:
     - conda build conf/conda
 
 after_success:
-    - upload_or_check_non_existence ./conf/conda mikaem --channel OSX-10.12-clang || exit 1
+    - upload_or_check_non_existence ./conf/conda mikaem --channel main
 

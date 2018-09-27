@@ -14,7 +14,7 @@ def test_default_Coupled():
     assert round(eval(err[1]) - 0.0107497, 6) == 0
 
 
-@pytest.mark.skip(reason="Time")
+#@pytest.mark.skip(reason="Time")
 def test_default_CR_Coupled():
     d = subprocess.check_output("mpirun -np 1 oasis NSCoupled problem=Cylinder testing=True element=CR", shell=True)
     match = re.search("Cd = "+number+", CL = "+number, str(d))
@@ -32,7 +32,7 @@ def test_default_MINI_Coupled():
     assert round(eval(err[1]) - 0.0102132, 5) == 0
 
 
-@pytest.mark.skip(reason="Time")
+#@pytest.mark.skip(reason="Time")
 def test_naive_Coupled():
     d = subprocess.check_output("mpirun -np 1 oasis NSCoupled problem=Cylinder solver=naive testing=True", shell=True)
     match = re.search("Cd = "+number+", CL = "+number, str(d))
@@ -61,6 +61,6 @@ def test_naive_mpi_Coupled():
 
 if __name__ == '__main__':
     test_default_Coupled()
-    test_default_CR_Coupled()
-    test_default_MINI_Coupled()
-    test_naive_Coupled()
+    #test_default_CR_Coupled()
+    #test_default_MINI_Coupled()
+    #test_naive_Coupled()

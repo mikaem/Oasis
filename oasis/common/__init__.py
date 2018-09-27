@@ -3,9 +3,6 @@ from .utilities import *
 import sys
 import json
 import six
-import warnings
-from ffc.quadrature.deprecation import QuadratureRepresentationDeprecationWarning
-warnings.simplefilter("once", QuadratureRepresentationDeprecationWarning)
 
 def convert(input):
     if isinstance(input, dict):

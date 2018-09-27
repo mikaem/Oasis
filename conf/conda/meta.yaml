@@ -12,13 +12,13 @@ build:
 requirements:
   build:
     - fenics {{FENICS_VERSION}}
-    - pyvtk
-    - h5py-parallel
+    #- pyvtk
+    #- h5py-parallel
 
   run:
     - fenics {{FENICS_VERSION}}
-    - pyvtk
-    - h5py-parallel
+    #- pyvtk
+    #- h5py-parallel
 
 test:
   source_files:

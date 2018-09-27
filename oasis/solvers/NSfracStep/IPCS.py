@@ -46,7 +46,7 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
           dx + (1. / dt) * div(u_) * q * dx)
 
     # Scalar with SUPG
-    h = CellSize(mesh)
+    h = CellDiameter(mesh)
     #vw = v + h*inner(grad(v), U_AB)
     vw = v
     n = FacetNormal(mesh)
@@ -74,8 +74,9 @@ def pressure_solve(Fp, p_, bcs, dp_, x_, u_, q_, Q, **NS_namespace):
     solve(lhs(Fp) == rhs(Fp), p_, bcs['p'])
     if bcs['p'] == []:
         normalize(p_.vector())
-    dp_.vector()._scale(-1)
-    dp_.vector().axpy(1.0, x_['p'])
+    dpv = dp_.vector()
+    dpv *= -1
+    dpv.axpy(1.0, x_['p'])
 
 
 def velocity_update(u_components, q_, bcs, Fu, dp_, V, dt, **NS_namespace):

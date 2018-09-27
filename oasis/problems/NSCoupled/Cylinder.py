@@ -54,11 +54,11 @@ def theend_hook(u_, p_, up_, mesh, ds, VQ, nu, Umean, c_, testing, **NS_namespac
     R = VectorFunctionSpace(mesh, 'R', 0)
     c = TestFunction(R)
     tau = -p_ * Identity(2) + nu * (grad(u_) + grad(u_).T)
-    ff = FacetFunction("size_t", mesh, 0)
+    ff = MeshFunction("size_t", mesh, 1, 0)
     Cyl.mark(ff, 1)
     n = FacetNormal(mesh)
     ds = ds(subdomain_data=ff)
-    forces = assemble(dot(dot(tau, n), c) * ds(1)).array() * 2 / Umean**2 / D
+    forces = assemble(dot(dot(tau, n), c) * ds(1)).get_local() * 2 / Umean**2 / D
 
     try:
         print("Cd = {0:2.6e}, CL = {1:2.6e}".format(*forces))

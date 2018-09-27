@@ -26,7 +26,9 @@ def theend_hook(u_, p_, mesh, **NS_namespace):
 
     try:
         from fenicstools import StreamFunction
+        import matplotlib.pyplot as plt
         psi = StreamFunction(u_, [], mesh, use_strong_bc=True)
-        plot(psi, title='Streamfunction', interactive=True)
+        plot(psi, title='Streamfunction')
+        plt.show()
     except:
         pass
