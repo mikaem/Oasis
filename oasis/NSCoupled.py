@@ -166,7 +166,7 @@ def iterate_scalar(iters=max_iter, errors=max_error):
                 scalar_hook(**globals())
                 scalar_solve(**globals())
                 err[ci] = b[ci].norm('l2')
-                if MPI.comm_world.Get_rank() == 0:
+                if MPI.rank(MPI.comm_world) == 0:
                     print('Iter {}, Error {} = {}'.format(citer, ci, err[ci]))
                 citer += 1
 
