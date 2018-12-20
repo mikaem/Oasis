@@ -37,14 +37,24 @@ from oasis.common import *
 
 commandline_kwargs = parse_command_line()
 
+# Import the problem module
 default_problem = 'DrivenCavity'
 problemname = commandline_kwargs.get('problem', default_problem)
-try:
-    problemmod = importlib.import_module('.'.join(('oasis.problems.NSfracStep', problemname)))
-except ImportError:
-    problemmod = importlib.import_module(problemname)
-except:
-    raise RuntimeError(problemname+' not found')
+# Check if problem module exists in example problems directory and/or current directory
+problemspec1 = importlib.util.find_spec('.'.join(('oasis.problems.NSfracStep', problemname)))
+problemspec2 = importlib.util.find_spec(problemname)
+if problemspec1 and problemspec2:
+    raise RuntimeError(problemname+" found in example problems directory AND current directory (ambiguous).")
+elif problemspec1:
+    problemspec = problemspec1
+    print("Found problem '"+problemname+"' in example problems directory.")
+elif problemspec2:
+    problemspec = problemspec2
+    print("Found problem '"+problemname+"' in current directory.")
+else:
+    raise RuntimeError("Problem '"+problemname+"' not found.")
+problemmod = importlib.util.module_from_spec(problemspec)
+problemspec.loader.exec_module(problemmod)
 
 vars().update(**vars(problemmod))
 
