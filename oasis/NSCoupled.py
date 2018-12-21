@@ -25,22 +25,17 @@ problems/NSCoupled/__init__.py for all possible parameters.
 
 commandline_kwargs = parse_command_line()
 
-# Import the problem module
+# Find the problem module
 default_problem = 'DrivenCavity'
 problemname = commandline_kwargs.get('problem', default_problem)
-# Check if problem module exists in example problems directory and/or current directory
-problemspec1 = importlib.util.find_spec('.'.join(('oasis.problems.NSCoupled', problemname)))
-problemspec2 = importlib.util.find_spec(problemname)
-if problemspec1 and problemspec2:
-    raise RuntimeError(problemname+" found in example problems directory AND current directory (ambiguous).")
-elif problemspec1:
-    problemspec = problemspec1
-    print("Found problem '"+problemname+"' in example problems directory.")
-elif problemspec2:
-    problemspec = problemspec2
-    print("Found problem '"+problemname+"' in current directory.")
-else:
-    raise RuntimeError("Problem '"+problemname+"' not found.")
+problemspec = importlib.util.find_spec('.'.join(('oasis.problems.NSCoupled', problemname)))
+if problemspec is None:
+    problemspec = importlib.util.find_spec(problemname)
+if problemspec is None:
+    raise RuntimeError(problemname+' not found')
+
+# Import the problem module
+print('Importing problem module '+problemname+':\n'+problemspec.origin)
 problemmod = importlib.util.module_from_spec(problemspec)
 problemspec.loader.exec_module(problemmod)
 
