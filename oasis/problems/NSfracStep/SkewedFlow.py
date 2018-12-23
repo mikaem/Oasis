@@ -49,7 +49,7 @@ def create_bcs(V, Q, mesh, **NS_namespace):
           bcs=[DirichletBC(Vu, Constant(0), DomainBoundary())])
 
     # Wrap the boundary function in an Expression to avoid the need to interpolate it back to V
-    class MyExp(Expression):
+    class MyExp(UserExpression):
         def eval(self, values, x):
             try:
                 values[0] = su(x)
