@@ -26,7 +26,7 @@ def create_bcs(VQ, mesh, sys_comp, re_high, **NS_namespce):
     # Analytical, could be more exact numerical, different r_0
     u_maks = Q / (4. * r_0 * r_0 * (1. - 2. / pi))
     #inn = Expression(("u_maks * cos(sqrt(pow(x[1],2))/r_0/2.*pi)", "0"), u_maks=u_maks, r_0=r_0)
-    inn = Expression(("u_maks * (1-x[1]*x[1]/r_0/r_0)", "0"), u_maks=u_maks, r_0=r_0)
+    inn = Expression(("u_maks * (1-x[1]*x[1]/r_0/r_0)", "0"), u_maks=u_maks, r_0=r_0, degree=2)
 
     bc0 = DirichletBC(VQ.sub(0),    inn,  inlet)
     bc1 = DirichletBC(VQ.sub(0), (0, 0),  walls)
