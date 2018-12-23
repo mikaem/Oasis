@@ -8,7 +8,7 @@ from ..NSfracStep import *
 from ..SkewedFlow import *
 from numpy import cos, pi, cosh
 
-warning("""
+print("""
 This problem does not work well with IPCS since the outflow
 boundary condition
 
