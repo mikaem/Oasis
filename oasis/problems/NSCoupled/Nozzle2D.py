@@ -42,7 +42,7 @@ def pre_solve_hook(mesh, V, **NS_namespace):
     Outlet = AutoSubDomain(outlet)
     Walls = AutoSubDomain(walls)
     Centerline = AutoSubDomain(centerline)
-    facets = FacetFunction('size_t', mesh, 0)
+    facets = MeshFunction('size_t', mesh, mesh.topology().dim() - 1, 0)
     Inlet.mark(facets, 1)
     Outlet.mark(facets, 2)
     Walls.mark(facets, 3)

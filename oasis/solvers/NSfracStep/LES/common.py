@@ -4,7 +4,7 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__ = 'GNU Lesser GPL version 3 or any later version'
 
 import warnings
-from dolfin import FacetFunction, DirichletBC, Constant
+from dolfin import MeshFunction, DirichletBC, Constant
 
 
 def derived_bcs(V, original_bcs, u_):
@@ -15,7 +15,7 @@ def derived_bcs(V, original_bcs, u_):
     subdomain = original_bcs[0].user_sub_domain()
     if subdomain is None:
         mesh = V.mesh()
-        ff = FacetFunction("size_t", mesh, 0)
+        ff = MeshFunction("size_t", mesh, mesh.topology().dim() - 1, 0)
         for i, bc in enumerate(original_bcs):
             bc.apply(u_[0].vector())  # Need to initialize bc
             m = bc.markers()  # Get facet indices of boundary

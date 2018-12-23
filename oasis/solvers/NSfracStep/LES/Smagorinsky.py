@@ -4,7 +4,7 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__ = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import (Function, FunctionSpace, assemble, TestFunction, sym, grad, dx, inner, sqrt,
-    FacetFunction, DirichletBC, Constant)
+    MeshFunction, DirichletBC, Constant)
 
 from .common import derived_bcs
 

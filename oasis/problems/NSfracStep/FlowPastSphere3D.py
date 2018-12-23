@@ -49,7 +49,7 @@ def create_bcs(V, Q, mesh, **NS_namespace):
     outlet = "x[0] > 6-1e-8 && on_boundary"
 
     bmesh = BoundaryMesh(mesh, 'exterior')
-    cc = CellFunction('size_t', bmesh, 0)
+    cc = MeshFunction('size_t', bmesh, bmesh.topology().dim(), 0)
     ii = AutoSubDomain(lambda x, on_bnd: near(x[0], -3))
     ii.mark(cc, 1)
     smesh = SubMesh(bmesh, cc, 1)

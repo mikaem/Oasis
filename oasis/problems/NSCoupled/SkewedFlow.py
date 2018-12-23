@@ -20,7 +20,7 @@ def problem_parameters(NS_parameters, **NS_namespace):
 def create_bcs(V, VQ, mesh, **NS_namespace):
     # Create inlet profile by solving Poisson equation on boundary
     bmesh = BoundaryMesh(mesh, 'exterior')
-    cc = CellFunction('size_t', bmesh, 0)
+    cc = MeshFunction('size_t', bmesh, bmesh.topology().dim(), 0)
     ii = AutoSubDomain(inlet)
     ii.mark(cc, 1)
     smesh = SubMesh(bmesh, cc, 1)

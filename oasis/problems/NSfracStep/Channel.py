@@ -116,9 +116,9 @@ def pre_solve_hook(V, u_, mesh, AssignedVectorFunction, newfolder, MPI,
     stats = ChannelGrid(V, [Nx, Ny + 1, Nz], [tol, -Ly / 2., -Lz / 2. + tol], [[1., 0., 0.], [
                         0., 1., 0.], [0., 0., 1.]], [Lx - Lx / Nx, Ly, Lz - Lz / Nz], statistics=True)
 
-    # Create FacetFunction to compute flux
+    # Create MeshFunction to compute flux
     Inlet = AutoSubDomain(inlet)
-    facets = FacetFunction('size_t', mesh, 0)
+    facets = MeshFunction('size_t', mesh, mesh.topology().dim() - 1, 0)
     Inlet.mark(facets, 1)
     normal = FacetNormal(mesh)
 
