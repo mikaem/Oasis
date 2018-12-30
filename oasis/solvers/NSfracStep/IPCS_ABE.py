@@ -138,10 +138,10 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
     else:
         ## tentative velocity solver ##
         u_sol = LUSolver('mumps')
-        u_sol.parameters['same_nonzero_pattern'] = True
+        #u_sol.parameters['same_nonzero_pattern'] = True
         ## pressure solver ##
         p_sol = LUSolver('mumps')
-        p_sol.parameters['reuse_factorization'] = True
+        #p_sol.parameters['reuse_factorization'] = True
         if bcs['p'] == []:
             p_sol.normalize = True
         sols = [u_sol, p_sol]
