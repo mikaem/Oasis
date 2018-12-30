@@ -142,8 +142,6 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
         ## pressure solver ##
         p_sol = LUSolver()
         #p_sol.parameters['reuse_factorization'] = True
-        if bcs['p'] == []:
-            p_sol.normalize = True
         sols = [u_sol, p_sol]
         ## scalar solver ##
         if len(scalar_components) > 0:
@@ -260,7 +258,7 @@ def pressure_solve(dp_, x_, Ap, b, p_sol, bcs, **NS_namespace):
     p_sol.solve(Ap, x_['p'], b['p'])
     t1.stop()
     # LUSolver use normalize directly for normalization of pressure
-    if hasattr(p_sol, 'normalize'):
+    if bcs['p'] == []:
         normalize(x_['p'])
 
     dpv = dp_.vector()
