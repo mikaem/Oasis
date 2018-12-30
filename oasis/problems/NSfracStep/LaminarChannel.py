@@ -6,7 +6,7 @@ __license__ = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSfracStep import *
 from numpy import pi, arctan, array
-set_log_active(False)
+#set_log_active(False)
 
 
 # Override some problem specific parameters

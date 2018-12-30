@@ -5,7 +5,7 @@ __license__ = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import (Function, FunctionSpace, TestFunction, sym, grad, dx, inner,
     sqrt, TrialFunction, project, CellVolume, as_vector, solve, Constant,
-    LagrangeInterpolator, assemble, FacetFunction, DirichletBC)
+    LagrangeInterpolator, assemble, MeshFunction, DirichletBC)
 from .DynamicModules import (tophatfilter, lagrange_average, compute_Lij,
                             compute_Mij)
 import numpy as np
@@ -36,7 +36,7 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **
     Cs = Function(CG1)
     nut_form = Cs**2 * delta**2 * magS
     # Create nut_ BCs
-    ff = FacetFunction("size_t", mesh, 0)
+    ff = MeshFunction("size_t", mesh, mesh.topology().dim() - 1, 0)
     bcs_nut = []
     for i, bc in enumerate(bcs['u0']):
         bc.apply(u_[0].vector())  # Need to initialize bc

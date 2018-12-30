@@ -4,7 +4,7 @@ __copyright__ = 'Copyright (C) 2015 ' + __author__
 __license__ = 'GNU Lesser GPL version 3 or any later version'
 
 from dolfin import (Function, assemble, TestFunction, dx, solve, Constant,
-    FacetFunction, DirichletBC)
+    MeshFunction, DirichletBC)
 from .DynamicModules import (tophatfilter, lagrange_average, compute_Lij,
     compute_Mij, compute_Qij, compute_Nij)
 from . import DynamicLagrangian

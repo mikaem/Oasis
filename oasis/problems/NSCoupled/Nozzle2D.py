@@ -26,7 +26,7 @@ def create_bcs(VQ, mesh, sys_comp, re_high, **NS_namespce):
     # Analytical, could be more exact numerical, different r_0
     u_maks = Q / (4. * r_0 * r_0 * (1. - 2. / pi))
     #inn = Expression(("u_maks * cos(sqrt(pow(x[1],2))/r_0/2.*pi)", "0"), u_maks=u_maks, r_0=r_0)
-    inn = Expression(("u_maks * (1-x[1]*x[1]/r_0/r_0)", "0"), u_maks=u_maks, r_0=r_0)
+    inn = Expression(("u_maks * (1-x[1]*x[1]/r_0/r_0)", "0"), u_maks=u_maks, r_0=r_0, degree=2)
 
     bc0 = DirichletBC(VQ.sub(0),    inn,  inlet)
     bc1 = DirichletBC(VQ.sub(0), (0, 0),  walls)
@@ -42,7 +42,7 @@ def pre_solve_hook(mesh, V, **NS_namespace):
     Outlet = AutoSubDomain(outlet)
     Walls = AutoSubDomain(walls)
     Centerline = AutoSubDomain(centerline)
-    facets = FacetFunction('size_t', mesh, 0)
+    facets = MeshFunction('size_t', mesh, mesh.topology().dim() - 1, 0)
     Inlet.mark(facets, 1)
     Outlet.mark(facets, 2)
     Walls.mark(facets, 3)
