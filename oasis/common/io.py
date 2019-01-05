@@ -5,7 +5,6 @@ __license__ = "GNU Lesser GPL version 3 or any later version"
 
 from os import makedirs, getcwd, listdir, remove, system, path
 import pickle
-import six
 from dolfin import (MPI, Function, XDMFFile, HDF5File,
     VectorFunctionSpace, FunctionAssigner)
 from oasis.problems import info_red
@@ -89,7 +88,7 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
     timefolder = path.join(newfolder, 'Timeseries')
     if output_timeseries_as_vector:
         # project or store velocity to vector function space
-        for comp, tstepfile in six.iteritems(tstepfiles):
+        for comp, tstepfile in tstepfiles.items():
             if comp == "u":
                 # Create vector function and assigners
                 uv = AssignedVectorFunction(u_)
@@ -107,7 +106,7 @@ def save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_dom
                 tstepfile.write(tstepfile.function, float(tstep))
 
     else:
-        for comp, tstepfile in six.iteritems(tstepfiles):
+        for comp, tstepfile in tstepfiles.items():
             tstepfile << (q_[comp], float(tstep))
 
     if MPI.rank(MPI.comm_world) == 0:

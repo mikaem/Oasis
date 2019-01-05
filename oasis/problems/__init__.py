@@ -8,7 +8,6 @@ import subprocess
 from os import getpid, path
 from collections import defaultdict
 from numpy import array, maximum, zeros
-import six
 
 # UnitSquareMesh(20, 20) # Just due to MPI bug on Scinet
 
@@ -202,7 +201,7 @@ def post_import_problem(NS_parameters, mesh, commandline_kwargs,
     """Called after importing from problem."""
 
     # Update NS_parameters with all parameters modified through command line
-    for key, val in six.iteritems(commandline_kwargs):
+    for key, val in commandline_kwargs.items():
         if isinstance(val, dict):
             NS_parameters[key].update(val)
         else:
