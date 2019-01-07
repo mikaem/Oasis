@@ -25,15 +25,19 @@ problems/NSCoupled/__init__.py for all possible parameters.
 
 commandline_kwargs = parse_command_line()
 
+# Find the problem module
 default_problem = 'DrivenCavity'
-#exec('from problems.NSCoupled.{} import *'.format(commandline_kwargs.get('problem', default_problem)))
 problemname = commandline_kwargs.get('problem', default_problem)
-try:
-    problemmod = importlib.import_module('.'.join(('oasis.problems.NSCoupled', problemname)))
-except ImportError:
-    problemmod = importlib.import_module(problemname)
-except:
+problemspec = importlib.util.find_spec('.'.join(('oasis.problems.NSCoupled', problemname)))
+if problemspec is None:
+    problemspec = importlib.util.find_spec(problemname)
+if problemspec is None:
     raise RuntimeError(problemname+' not found')
+
+# Import the problem module
+print('Importing problem module '+problemname+':\n'+problemspec.origin)
+problemmod = importlib.util.module_from_spec(problemspec)
+problemspec.loader.exec_module(problemmod)
 
 vars().update(**vars(problemmod))
 
