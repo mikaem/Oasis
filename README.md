@@ -1,7 +1,6 @@
 Oasis
 =====
 [![Build Status](https://travis-ci.org/mikaem/Oasis.svg?branch=master)](https://travis-ci.org/mikaem/Oasis)
-[![CircleCI](https://circleci.com/gh/mikaem/Oasis.svg?style=svg)](https://circleci.com/gh/mikaem/Oasis)
 
 <p align="center">
     <img src="https://rawgit.com/mikaem/oasis/master/figs/channel3D.gif" width="360" height="200" alt="Channel flow"/>
