@@ -21,6 +21,8 @@ jobs:
           update-conda: true
           python-version: ${{ matrix.python-version }}
           conda-channels: anaconda, conda-forge
+      env:
+        FENICS_VERSION: 2019.1.0
     - run: conda --version
     - run: which python
     - run: |
