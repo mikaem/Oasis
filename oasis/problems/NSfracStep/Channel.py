@@ -189,8 +189,9 @@ def temporal_hook(q_, u_, V, tstep, uv, stats, update_statistics,
 
     if tstep % save_statistics == 0:
         statsfolder = path.join(newfolder, "Stats")
-        stats.toh5(0, tstep, filename=statsfolder +
-                   "/dump_mean_{}.h5".format(tstep))
+        #stats.toh5(0, tstep, filename=statsfolder +
+        #           "/dump_mean_{}.h5".format(tstep))
+        stats.tovtk(0, statsfolder+"/dump_mean_{}.vtk".format(tstep))
 
     if tstep % check_flux == 0:
         u1 = assemble(dot(u_, normal) * ds(1, domain=mesh, subdomain_data=facets))

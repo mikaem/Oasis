@@ -34,7 +34,8 @@ def create_initial_folders(folder, restart_folder, sys_comp, tstep, info_red,
         if not path.exists(newfolder):
             newfolder = path.join(newfolder, '1')
         else:
-            previous = listdir(newfolder)
+            #previous = listdir(newfolder)
+            previous = [f for f in listdir(newfolder) if not f.startswith('.')]
             previous = max(map(eval, previous)) if previous else 0
             newfolder = path.join(newfolder, str(previous + 1))
 

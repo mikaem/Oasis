@@ -34,7 +34,7 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
                                 initial_u2_norm) > DOLFIN_EPS_LARGE else Constant(3.0)
     for i, ui in enumerate(u_components):
         # Tentative velocity step
-        if not les_model is "NoModel":
+        if les_model != "NoModel":
             F[ui] = ((1. / (beta * dt)) * inner(3 * u - 4 * q_1[ui] + q_2[ui], v) * dx
                      + inner(inner(grad(u), 2 * u_1 - u_2), v) * dx
                      + (nu + nut_) * inner(grad(u), grad(v)) * dx +

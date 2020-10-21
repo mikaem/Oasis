@@ -25,7 +25,7 @@ def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
     Fu = {}
     for i, ui in enumerate(u_components):
         # Tentative velocity step
-        if not les_model is "NoModel":
+        if les_model != "NoModel":
             F[ui] = ((1. / dt) * inner(u - q_1[ui], v) * dx
                       + inner(dot(U_AB, nabla_grad(U_CN[ui])), v) * dx
                       + (nu + nut_) * inner(grad(U_CN[ui]), grad(v)) * dx
