@@ -5,6 +5,7 @@ __license__ = "GNU Lesser GPL version 3 or any later version"
 
 from os import makedirs, getcwd, listdir, remove, system, path
 import pickle
+import time
 from dolfin import (MPI, Function, XDMFFile, HDF5File,
     VectorFunctionSpace, FunctionAssigner)
 from oasis.problems import info_red
@@ -73,6 +74,11 @@ def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint,
         save_tstep_solution_h5(tstep, q_, u_, newfolder, tstepfiles, constrained_domain,
                                output_timeseries_as_vector, u_components, AssignedVectorFunction,
                                scalar_components, NS_parameters)
+
+    pauseoasis = check_if_pause(folder)
+    while pauseoasis:
+        time.sleep(5)
+        pauseoasis = check_if_pause(folder)
 
     killoasis = check_if_kill(folder)
     if tstep % checkpoint == 0 or killoasis:
@@ -169,6 +175,20 @@ def check_if_kill(folder):
         if MPI.rank(MPI.comm_world) == 0:
             remove(path.join(folder, 'killoasis'))
             info_red('killoasis Found! Stopping simulations cleanly...')
+        return True
+    else:
+        return False
+
+
+def check_if_pause(folder):
+    """Check if user has put a file named pauseoasis in folder."""
+    found = 0
+    if 'pauseoasis' in listdir(folder):
+        found = 1
+    collective = MPI.sum(MPI.comm_world, found)
+    if collective > 0:
+        if MPI.rank(MPI.comm_world) == 0:
+            info_red('pauseoasis Found! Simulations paused. Remove ' + path.join(folder, 'pauseoasis') + ' to resume simulations...')
         return True
     else:
         return False
