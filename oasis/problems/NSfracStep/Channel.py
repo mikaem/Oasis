@@ -154,16 +154,16 @@ def initialize(V, q_, q_1, q_2, bcs, restart_folder, utau, nu, **NS_namespace):
         Vv = VectorFunctionSpace(V.mesh(), V.ufl_element().family(),
                                  V.ufl_element().degree())
         psi = interpolate(RandomStreamVector(element=Vv.ufl_element()), Vv)
-        u0 = project(curl(psi), Vv)
-        u0x = project(u0[0], V, bcs=bcs['u0'])
-        u1x = project(u0[1], V, bcs=bcs['u0'])
-        u2x = project(u0[2], V, bcs=bcs['u0'])
+        u0 = project(curl(psi), Vv, solver_type='cg')
+        u0x = project(u0[0], V, bcs=bcs['u0'], solver_type='cg')
+        u1x = project(u0[1], V, bcs=bcs['u0'], solver_type='cg')
+        u2x = project(u0[2], V, bcs=bcs['u0'], solver_type='cg')
 
         # Create base flow
         y = interpolate(Expression("x[1] > 0 ? 1-x[1] : 1+x[1]",
                                    element=V.ufl_element()), V)
         uu = project((1.25 * (utau / 0.41 * ln(conditional(y < 1e-12, 1.e-12, y) *
-                                        utau / nu) + 5. * utau)), V, bcs=bcs['u0'])
+                     utau / nu) + 5. * utau)), V, bcs=bcs['u0'], solver_type='cg')
 
         # initialize vectors at two timesteps
         q_1['u0'].vector()[:] = uu.vector()[:]

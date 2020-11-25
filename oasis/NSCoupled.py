@@ -73,7 +73,7 @@ Q = FiniteElement(family['p'], mesh.ufl_cell(), degree['p'])
 # MINI element has bubble, add to V
 if bubble:
     B = VectorElement("Bubble", mesh.ufl_cell(), mesh.geometry().dim() + 1)
-    VQ = FunctionSpace(mesh, (V + B) * Q,
+    VQ = FunctionSpace(mesh, MixedElement(V+B, Q),
                        constrained_domain=constrained_domain)
 
 else:

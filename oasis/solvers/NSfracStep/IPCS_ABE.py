@@ -107,41 +107,34 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
     """
     if use_krylov_solvers:
         ## tentative velocity solver ##
-        u_sol = KrylovSolver(velocity_krylov_solver['solver_type'],
-                             velocity_krylov_solver['preconditioner_type'])
-        #u_sol.parameters['preconditioner']['structure'] = 'same'
+        u_prec = PETScPreconditioner(velocity_krylov_solver['preconditioner_type'])
+        u_sol = PETScKrylovSolver(velocity_krylov_solver['solver_type'], u_prec)
+        #u_sol = KrylovSolver(velocity_krylov_solver['solver_type'],
+        #                     velocity_krylov_solver['preconditioner_type'])
         u_sol.parameters.update(krylov_solvers)
 
         ## pressure solver ##
-        #p_prec = PETScPreconditioner('hypre_amg')
-        #p_prec.parameters['report'] = True
-        #p_prec.parameters['hypre']['BoomerAMG']['agressive_coarsening_levels'] = 0
-        #p_prec.parameters['hypre']['BoomerAMG']['strong_threshold'] = 0.5
-        #PETScOptions.set('pc_hypre_boomeramg_truncfactor', 0)
-        #PETScOptions.set('pc_hypre_boomeramg_agg_num_paths', 1)
-        p_sol = KrylovSolver(pressure_krylov_solver['solver_type'],
-                             pressure_krylov_solver['preconditioner_type'])
-        #p_sol.parameters['preconditioner']['structure'] = 'same'
-        #p_sol.parameters['profile'] = True
+        p_prec = PETScPreconditioner(pressure_krylov_solver['preconditioner_type'])
+        p_sol = PETScKrylovSolver(pressure_krylov_solver['solver_type'], p_prec)
+        #p_sol = KrylovSolver(pressure_krylov_solver['solver_type'],
+        #                     pressure_krylov_solver['preconditioner_type'])
         p_sol.parameters.update(krylov_solvers)
+        p_sol.set_reuse_preconditioner(True)
 
         sols = [u_sol, p_sol]
         ## scalar solver ##
         if len(scalar_components) > 0:
-            c_sol = KrylovSolver(scalar_krylov_solver['solver_type'],
-                                 scalar_krylov_solver['preconditioner_type'])
+            c_prec = PETScPreconditioner(scalar_krylov_solver['preconditioner_type'])
+            c_sol = PETScKrylovSolver(scalar_krylov_solver['solver_type'], c_prec)
             c_sol.parameters.update(krylov_solvers)
-            #c_sol.parameters['preconditioner']['structure'] = 'same_nonzero_pattern'
             sols.append(c_sol)
         else:
             sols.append(None)
     else:
         ## tentative velocity solver ##
         u_sol = LUSolver('mumps')
-        #u_sol.parameters['same_nonzero_pattern'] = True
         ## pressure solver ##
         p_sol = LUSolver('mumps')
-        #p_sol.parameters['reuse_factorization'] = True
         if bcs['p'] == []:
             p_sol.normalize = True
         sols = [u_sol, p_sol]

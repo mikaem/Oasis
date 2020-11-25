@@ -26,7 +26,7 @@ def les_setup(u_, mesh, assemble_matrix, CG1Function, nut_krylov_solver, bcs, **
 
     # Define delta and project delta**2 to CG1
     delta = pow(CellVolume(mesh), 1. / dim)
-    delta_CG1_sq = project(delta, CG1)
+    delta_CG1_sq = project(delta, CG1, solver_type='cg')
     delta_CG1_sq.vector().set_local(delta_CG1_sq.vector().array()**2)
     delta_CG1_sq.vector().apply("insert")
 

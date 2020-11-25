@@ -43,9 +43,9 @@ def get_solvers(**NS_namespace):
        - scalars
 
     """
-    up_sol, c_sol = LUSolver(), LUSolver()
-    #up_sol.parameters["same_nonzero_pattern"] = True
-    #c_sol .parameters["same_nonzero_pattern"] = True
+    up_sol, c_sol = LUSolver('mumps'), LUSolver('mumps')
+    #up_sol, c_sol = LUSolver('umfpack'), LUSolver('umfpack')
+    #up_sol, c_sol = LUSolver('petsc'), LUSolver('petsc')
     return up_sol, c_sol
 
 def print_velocity_pressure_info(iter, error, **NS_namespace):

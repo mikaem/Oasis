@@ -8,6 +8,7 @@ from ..NSfracStep import *
 from ..Cylinder import *
 from os import getcwd
 import pickle
+import matplotlib.pyplot as plt
 
 def problem_parameters(commandline_kwargs, NS_parameters, scalar_components,
                        Schmidt, **NS_namespace):
@@ -15,7 +16,7 @@ def problem_parameters(commandline_kwargs, NS_parameters, scalar_components,
     if "restart_folder" in commandline_kwargs.keys():
         restart_folder = commandline_kwargs["restart_folder"]
         restart_folder = path.join(getcwd(), restart_folder)
-        f = open(path.join(restart_folder, 'params.dat'), 'r')
+        f = open(path.join(restart_folder, 'params.dat'), 'rb')
         NS_parameters.update(pickle.load(f))
         NS_parameters['restart_folder'] = restart_folder
         globals().update(NS_parameters)
@@ -23,15 +24,17 @@ def problem_parameters(commandline_kwargs, NS_parameters, scalar_components,
     else:
         # Override some problem specific parameters
         NS_parameters.update(
-            T=0.5,
-            dt=0.05,
-            checkpoint=10,
+            T=100,
+            dt=0.01,
+            checkpoint=50,
             save_step=50,
             plot_interval=10,
             velocity_degree=2,
             print_intermediate_info=100,
-            use_krylov_solvers=True,
-            krylov_solvers=dict(monitor_convergence=True))
+            use_krylov_solvers=True)
+        NS_parameters['krylov_solvers'].update(dict(monitor_convergence=True))
+        NS_parameters['velocity_krylov_solver'].update(dict(preconditioner_type='jacobi',
+                                                            solver_type='bicgstab'))
 
     scalar_components.append("alfa")
     Schmidt["alfa"] = 0.1
@@ -78,9 +81,13 @@ def temporal_hook(q_, u_, tstep, V, uv, p_, plot_interval, omega, ds,
                   save_step, mesh, nu, Umean, D, n, **NS_namespace):
     if tstep % plot_interval == 0:
         uv()
+        plt.figure(1)
         plot(uv, title='Velocity')
+        plt.figure(2)
         plot(p_, title='Pressure')
+        plt.figure(3)
         plot(q_['alfa'], title='alfa')
+        plt.show()
 
     R = VectorFunctionSpace(mesh, 'R', 0)
     c = TestFunction(R)
@@ -94,7 +101,7 @@ def temporal_hook(q_, u_, tstep, V, uv, p_, plot_interval, omega, ds,
             from fenicstools import StreamFunction
             omega.assign(StreamFunction(u_, []))
         except:
-            omega.assign(project(curl(u_), V,
+            omega.assign(project(curl(u_), V, solver_type='cg',
                                  bcs=[DirichletBC(V, 0, DomainBoundary())]))
 
 def theend_hook(q_, u_, p_, uv, mesh, ds, V, nu, Umean, D, **NS_namespace):

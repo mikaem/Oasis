@@ -28,8 +28,8 @@ def create_bcs(VQ, Um, CG, V, element, **NS_namespace):
     if element == "MINI":
         # This is an inefficient solution due to FFC issue #69, solfin issue #489
         inlet0 = project(inlet, VQ.sub(0).collapse())
-        ux0 = project(ux, VQ.sub(0).collapse())
-        wall = project(Constant((0, 0)), VQ.sub(0).collapse())
+        ux0 = project(ux, VQ.sub(0).collapse(), solver_type='cg')
+        wall = project(Constant((0, 0)), VQ.sub(0).collapse(), solver_type='cg')
         bc0 = DirichletBC(VQ.sub(0), inlet0, Inlet)
         bc1 = DirichletBC(VQ.sub(0), ux0, Cyl)
         bc2 = DirichletBC(VQ.sub(0), wall, Wall)
