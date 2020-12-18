@@ -59,6 +59,14 @@ problem_parameters(**vars())
 # Update current namespace with NS_parameters and commandline_kwargs ++
 vars().update(post_import_problem(**vars()))
 
+# Use t and tstep from stored paramteres if restarting
+if restart_folder is not None:
+    f = open(path.join(path.abspath(restart_folder), 'params.dat'), 'rb')
+    params = pickle.load(f)
+    f.close()
+    t = params["t"]
+    tstep = params["tstep"]
+
 # Import chosen functionality from solvers
 solver = importlib.import_module('.'.join(('oasis.solvers.NSfracStep', solver)))
 vars().update({name:solver.__dict__[name] for name in solver.__all__})

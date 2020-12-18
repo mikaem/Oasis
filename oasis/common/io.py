@@ -210,9 +210,12 @@ def check_if_reset_statistics(folder):
 
 
 def init_from_restart(restart_folder, sys_comp, uc_comp, u_components,
-                      q_, q_1, q_2, **NS_namespace):
+                      q_, q_1, q_2, tstep, **NS_namespace):
     """Initialize solution from checkpoint files """
     if restart_folder:
+        if MPI.rank(MPI.comm_world) == 0:
+            info_red('Restarting from checkpoint at time step {}'.format(tstep))
+
         for ui in sys_comp:
             filename = path.join(restart_folder, ui + '.h5')
             hdf5_file = HDF5File(MPI.comm_world, filename, "r")
