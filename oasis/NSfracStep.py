@@ -253,5 +253,8 @@ info_red('Memory use for importing dolfin = {} MB (RSS)'.format(
 info_red('Total memory use of solver = ' +
          str(oasis_memory.memory - total_initial_dolfin_memory) + " MB (RSS)")
 
+if restart_folder is not None:
+    merge_visualization_files(**vars())
+
 # Final hook
 theend_hook(**vars())
