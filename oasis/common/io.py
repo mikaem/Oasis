@@ -4,15 +4,17 @@ __copyright__ = "Copyright (C) 2013 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
 from os import makedirs, getcwd, listdir, remove, system, path
+from xml.etree import ElementTree as ET
 import pickle
 import time
+import glob
 from dolfin import (MPI, Function, XDMFFile, HDF5File,
     VectorFunctionSpace, FunctionAssigner)
 from oasis.problems import info_red
 
 __all__ = ["create_initial_folders", "save_solution", "save_tstep_solution_h5",
            "save_checkpoint_solution_h5", "check_if_kill", "check_if_reset_statistics",
-           "init_from_restart"]
+           "init_from_restart", "merge_visualization_files", "merge_xml_files"]
 
 
 def create_initial_folders(folder, restart_folder, sys_comp, tstep, info_red,
@@ -210,9 +212,12 @@ def check_if_reset_statistics(folder):
 
 
 def init_from_restart(restart_folder, sys_comp, uc_comp, u_components,
-                      q_, q_1, q_2, **NS_namespace):
+                      q_, q_1, q_2, tstep, **NS_namespace):
     """Initialize solution from checkpoint files """
     if restart_folder:
+        if MPI.rank(MPI.comm_world) == 0:
+            info_red('Restarting from checkpoint at time step {}'.format(tstep))
+
         for ui in sys_comp:
             filename = path.join(restart_folder, ui + '.h5')
             hdf5_file = HDF5File(MPI.comm_world, filename, "r")
@@ -226,3 +231,55 @@ def init_from_restart(restart_folder, sys_comp, uc_comp, u_components,
                 if ui in u_components:
                     hdf5_file.read(q_2[ui].vector(), "/previous", False)
                     q_2[ui].vector().apply('insert')
+
+
+def merge_visualization_files(newfolder, **namesapce):
+    timefolder = path.join(newfolder, 'Timeseries')
+    # Gather files
+    xdmf_files = list(glob.glob(path.join(timefolder, "*.xdmf")))
+    xdmf_velocity = [f for f in xdmf_files if "u_from_tstep" in f.__str__()]
+    xdmf_pressure = [f for f in xdmf_files if "p_from_tstep" in f.__str__()]
+
+    # Merge files
+    for files in [xdmf_velocity, xdmf_pressure]:
+        if len(files) > 1:
+            merge_xml_files(files)
+
+
+def merge_xml_files(files):
+    # Get first timestep and trees
+    first_timesteps = []
+    trees = []
+    for f in files:
+        trees.append(ET.parse(f))
+        root = trees[-1].getroot()
+        first_timesteps.append(float(root[0][0][0][2].attrib["Value"]))
+
+    # Index valued sort (bypass numpy dependency)
+    first_timestep_sorted = sorted(first_timesteps)
+    indexes = [first_timesteps.index(i) for i in first_timestep_sorted]
+
+    # Get last timestep of first tree
+    base_tree = trees[indexes[0]]
+    last_node = base_tree.getroot()[0][0][-1]
+    ind = 1 if len(last_node.getchildren()) == 3 else 2
+    last_timestep = float(last_node[ind].attrib["Value"])
+
+    # Append
+    for index in indexes[1:]:
+        tree = trees[index]
+        for node in tree.getroot()[0][0].getchildren():
+            ind = 1 if len(node.getchildren()) == 3 else 2
+            if last_timestep < float(node[ind].attrib["Value"]):
+                base_tree.getroot()[0][0].append(node)
+                last_timestep = float(node[ind].attrib["Value"])
+
+    # Seperate xdmf files
+    new_file = [f for f in files if "_0" in f]
+    old_files = [f for f in files if "_" in f and f not in new_file]
+
+    # Write new xdmf file
+    base_tree.write(new_file[0], xml_declaration=True)
+
+    # Delete xdmf file
+    [remove(f) for f in old_files]
