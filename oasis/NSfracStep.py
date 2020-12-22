@@ -141,6 +141,13 @@ vars().update({name:lesmodel.__dict__[name] for name in lesmodel.__all__})
 
 vars().update(les_setup(**vars()))
 
+# Non-Newtonian setup
+#exec("from oasis.solvers.NSfracStep.NNModel.{} import *".format(nn_model))
+nnmodel = importlib.import_module('.'.join(('oasis.solvers.NSfracStep.NNModel', nn_model)))
+vars().update({name:nnmodel.__dict__[name] for name in nnmodel.__all__})
+
+vars().update(nn_setup(**vars()))
+
 # Initialize solution
 initialize(**vars())
 
@@ -173,7 +180,7 @@ while t < (T - tstep * DOLFIN_EPS) and not stop:
     tstep += 1
     inner_iter = 0
     udiff = array([1e8])  # Norm of velocity change over last inner iter
-    num_iter = max(iters_on_first_timestep, max_iter) if tstep == 1 else max_iter
+    num_iter = max(iters_on_first_timestep, max_iter) if tstep <= 10 else max_iter
 
     start_timestep_hook(**vars())
 
@@ -183,6 +190,7 @@ while t < (T - tstep * DOLFIN_EPS) and not stop:
         t0 = OasisTimer("Tentative velocity")
         if inner_iter == 1:
             les_update(**vars())
+            nn_update(**vars())
             assemble_first_inner_iter(**vars())
         udiff[0] = 0.0
         for i, ui in enumerate(u_components):

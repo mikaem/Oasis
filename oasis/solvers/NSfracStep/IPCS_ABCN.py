@@ -8,10 +8,10 @@ from ..NSfracStep import *
 from ..NSfracStep import __all__
 
 
-def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
+def setup(u_components, u, v, p, q, bcs, les_model, nn_model, nu, nut_,nunn_,
           scalar_components, V, Q, x_, p_, u_, A_cache,
           velocity_update_solver, assemble_matrix, homogenize,
-          GradFunction, DivFunction, LESsource, **NS_namespace):
+          GradFunction, DivFunction, LESsource, NNsource, **NS_namespace):
     """Preassemble mass and diffusion matrices.
 
     Set up and prepare all equations to be solved. Called once, before
@@ -25,7 +25,7 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     K = assemble_matrix(inner(grad(u), grad(v)) * dx)
 
     # Allocate stiffness matrix for LES that changes with time
-    KT = None if les_model == "NoModel" else (
+    KT = None if les_model == "NoModel" and nn_model == "NoModel" else (
         Matrix(M), inner(grad(u), grad(v)))
 
     # Pressure Laplacian.
@@ -76,10 +76,13 @@ def setup(u_components, u, v, p, q, bcs, les_model, nu, nut_,
     LT = None if les_model == "NoModel" else LESsource(
         nut_, u_ab, V, name='LTd')
 
+    NT = None if nn_model is "NoModel" else NNsource(
+        nunn_, u_ab, V, name='NTd')
+
     if bcs['p'] == []:
         attach_pressure_nullspace(Ap, x_, Q)
 
-    d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT, KT=KT)
+    d.update(u_ab=u_ab, a_conv=a_conv, a_scalar=a_scalar, LT=LT, KT=KT, NT=NT)
     return d
 
 def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
@@ -138,8 +141,8 @@ def get_solvers(use_krylov_solvers, krylov_solvers, bcs,
     return sols
 
 
-def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
-                              a_scalar, K, nu, nut_, u_components, LT, KT,
+def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model, nn_model,
+                              a_scalar, K, nu, nut_, nunn_, u_components, LT, KT, NT,
                               b_tmp, b0, x_1, x_2, u_ab, bcs, **NS_namespace):
     """Called on first inner iteration of velocity/pressure system.
 
@@ -171,6 +174,10 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
         assemble(nut_ * KT[1] * dx, tensor=KT[0])
         A.axpy(-0.5, KT[0], True)
 
+    if not nn_model is "NoModel":
+        assemble(nunn_ * KT[1] * dx, tensor=KT[0])
+        A.axpy(-0.5, KT[0], True)
+
     for i, ui in enumerate(u_components):
         # Start with body force
         b_tmp[ui].zero()
@@ -180,6 +187,9 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model,
         if les_model != "NoModel":
             LT.assemble_rhs(i)
             b_tmp[ui].axpy(1., LT.vector())
+        if not nn_model is "NoModel":
+            NT.assemble_rhs(i)
+            b_tmp[ui].axpy(1., NT.vector())
 
     # Reset matrix for lhs
     A *= -1.
@@ -259,7 +269,7 @@ def velocity_update(u_components, bcs, gradp, dp_, dt, x_, **NS_namespace):
         [bc.apply(x_[ui]) for bc in bcs[ui]]
 
 def scalar_assemble(a_scalar, a_conv, Ta, dt, M, scalar_components, Schmidt_T, KT,
-                    nu, nut_, Schmidt, b, K, x_1, b0, les_model, **NS_namespace):
+                    nu, nut_, nunn_, Schmidt, b, K, x_1, b0, les_model, nn_model, **NS_namespace):
     """Assemble scalar equation."""
     # Just in case you want to use a different scalar convection
     if not a_scalar is a_conv:
@@ -273,6 +283,8 @@ def scalar_assemble(a_scalar, a_conv, Ta, dt, M, scalar_components, Schmidt_T, K
         Ta.axpy(-0.5 * nu / Schmidt[ci], K, True)
         if les_model != "NoModel":
             Ta.axpy(-0.5 / Schmidt_T[ci], KT[0], True)
+        if not nn_model is "NoModel":
+            Ta.axpy(-0.5 / Schmidt_T[ci], KT[0], True)
 
         # Compute rhs
         b[ci].zero()
@@ -282,6 +294,8 @@ def scalar_assemble(a_scalar, a_conv, Ta, dt, M, scalar_components, Schmidt_T, K
         # Subtract diffusion
         Ta.axpy(0.5 * nu / Schmidt[ci], K, True)
         if les_model != "NoModel":
+            Ta.axpy(0.5 / Schmidt_T[ci], KT[0], True)
+        if not nn_model is "NoModel":
             Ta.axpy(0.5 / Schmidt_T[ci], KT[0], True)
 
     # Reset matrix for lhs - Note scalar matrix does not contain diffusion

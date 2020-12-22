@@ -320,7 +320,7 @@ class CG1Function(OasisFunction):
             self.bound()
 
     def bound(self):
-        self.vector().set_local(self.vector().array().clip(min=0))
+        self.vector().set_local(self.vector().get_local().clip(min=0))
         self.vector().apply("insert")
 
 
@@ -360,6 +360,23 @@ class LESsource(Function):
         dim = Space.mesh().geometry().dim()
         test = TestFunction(Space)
         self.bf = [inner(inner(grad(nut), u.dx(i)), test)
+                   * dx for i in range(dim)]
+
+    def assemble_rhs(self, i=0):
+        """Assemble right hand side."""
+        assemble(self.bf[i], tensor=self.vector())
+
+
+class NNsource(Function):
+    """Function used for computing the transposed source to the non-Newtonian equation."""
+
+    def __init__(self, nunn, u, Space, bcs=[], name=""):
+
+        Function.__init__(self, Space, name=name)
+
+        dim = Space.mesh().geometry().dim()
+        test = TestFunction(Space)
+        self.bf = [inner(inner(grad(nunn), u.dx(i)), test)
                    * dx for i in range(dim)]
 
     def assemble_rhs(self, i=0):
