@@ -33,6 +33,9 @@ NS_parameters.update(
     restart_folder=None, # If restarting solution, set the folder holding the solution to start from here
     output_timeseries_as_vector=True,  # Store velocity as vector in Timeseries
 
+    # Stop simulations cleanly after the given number of seconds
+    killtime=None,
+
     # Choose LES model and set default parameters
     # NoModel, Smagorinsky, Wale, DynamicLagrangian, ScaleDepDynamicLagrangian
     les_model='NoModel',
