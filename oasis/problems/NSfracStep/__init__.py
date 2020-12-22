@@ -46,6 +46,20 @@ NS_parameters.update(
     DynamicSmagorinsky=dict(Cs_comp_step=1),  # Time step interval for Cs to be recomputed
     KineticEnergySGS=dict(Ck=0.08, Ce=1.05),
 
+    # Choose Non-Newtonian model and set default parameters
+    # NoModel, ModifiedCross
+    nn_model='NoModel',
+
+    # Non-Newtonian model parameters
+    ModifiedCross = dict(
+        lam=3.736,      # s
+        m_param=2.406,  # for Non-Newtonian model
+        a_param=0.34,   # for Non-Newtonian model
+        mu_inf=0.00372, # Pa-s for non-Newtonian model
+        mu_o=0.09,      # Pa-s for non-Newtonian model
+        rho=1085        # kg/m^3
+        ),
+
     # Parameter set when enabling test mode
     testing=False,
 
@@ -79,6 +93,11 @@ NS_parameters.update(
         preconditioner_type='jacobi'),
 
     nut_krylov_solver=dict(
+        method='WeightedAverage',  # Or 'default'
+        solver_type='cg',
+        preconditioner_type='jacobi'),
+
+    nu_nn_krylov_solver=dict(
         method='WeightedAverage',  # Or 'default'
         solver_type='cg',
         preconditioner_type='jacobi'),
