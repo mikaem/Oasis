@@ -69,7 +69,7 @@ def create_initial_folders(folder, restart_folder, sys_comp, tstep, info_red,
 def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint,
                   NS_parameters, tstepfiles, u_, u_components, scalar_components,
                   output_timeseries_as_vector, constrained_domain,
-                  AssignedVectorFunction, **NS_namespace):
+                  AssignedVectorFunction, killtime, total_timer, **NS_namespace):
     """Called at end of timestep. Check for kill and save solution if required."""
     NS_parameters.update(t=t, tstep=tstep)
     if tstep % save_step == 0:
@@ -82,7 +82,7 @@ def save_solution(tstep, t, q_, q_1, folder, newfolder, save_step, checkpoint,
         time.sleep(5)
         pauseoasis = check_if_pause(folder)
 
-    killoasis = check_if_kill(folder)
+    killoasis = check_if_kill(folder, killtime, total_timer)
     if tstep % checkpoint == 0 or killoasis:
         save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, u_components,
                                     NS_parameters)
@@ -167,8 +167,8 @@ def save_checkpoint_solution_h5(tstep, q_, q_1, newfolder, u_components,
         system('rm {0}'.format(path.join(checkpointfolder, "params_old.dat")))
 
 
-def check_if_kill(folder):
-    """Check if user has put a file named killoasis in folder."""
+def check_if_kill(folder, killtime, total_timer):
+    """Check if user has put a file named killoasis in folder or if given killtime has been reached."""
     found = 0
     if 'killoasis' in listdir(folder):
         found = 1
@@ -179,7 +179,13 @@ def check_if_kill(folder):
             info_red('killoasis Found! Stopping simulations cleanly...')
         return True
     else:
-        return False
+        elapsed_time = float(total_timer.elapsed()[0])
+        if killtime is not None and killtime <= elapsed_time:
+            if MPI.rank(MPI.comm_world) == 0:
+                info_red('Given killtime reached! Stopping simulations cleanly...')
+            return True
+        else:
+            return False
 
 
 def check_if_pause(folder):
