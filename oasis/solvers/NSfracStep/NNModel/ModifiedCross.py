@@ -25,7 +25,7 @@ def nn_setup(u_, mesh, ModifiedCross, CG1Function, nu_nn_krylov_solver, bcs, **N
     # Set up Modified Cross form
     Sij = sym(grad(u_))
     SII = sqrt(2 * inner(Sij, Sij))
-    nu_nn_form = ((mu_o-mu_inf)/((1+(lam*SII)**m_param)**a_param))/rho
+    nu_nn_form = ((mu_o-mu_inf)/((1+(lam*SII)**m_param)**a_param) + mu_inf)/rho
     #bcs_nu_nn = derived_bcs(CG1, bcs['u0'], u_)
     nunn_ = CG1Function(nu_nn_form, mesh, method=nu_nn_krylov_solver, bounded=True, name="nu_nn")
     return dict(Sij=Sij, nunn_=nunn_, bcs_nu_nn=[])
