@@ -76,7 +76,7 @@ def setup(u_components, u, v, p, q, bcs, les_model, nn_model, nu, nut_,nunn_,
     LT = None if les_model == "NoModel" else LESsource(
         nut_, u_ab, V, name='LTd')
 
-    NT = None if nn_model is "NoModel" else NNsource(
+    NT = None if nn_model == "NoModel" else NNsource(
         nunn_, u_ab, V, name='NTd')
 
     if bcs['p'] == []:
@@ -174,7 +174,7 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model, nn
         assemble(nut_ * KT[1] * dx, tensor=KT[0])
         A.axpy(-0.5, KT[0], True)
 
-    if not nn_model is "NoModel":
+    if nn_model != "NoModel":
         assemble(nunn_ * KT[1] * dx, tensor=KT[0])
         A.axpy(-0.5, KT[0], True)
 
@@ -187,7 +187,7 @@ def assemble_first_inner_iter(A, a_conv, dt, M, scalar_components, les_model, nn
         if les_model != "NoModel":
             LT.assemble_rhs(i)
             b_tmp[ui].axpy(1., LT.vector())
-        if not nn_model is "NoModel":
+        if nn_model != "NoModel":
             NT.assemble_rhs(i)
             b_tmp[ui].axpy(1., NT.vector())
 
@@ -283,7 +283,7 @@ def scalar_assemble(a_scalar, a_conv, Ta, dt, M, scalar_components, Schmidt_T, K
         Ta.axpy(-0.5 * nu / Schmidt[ci], K, True)
         if les_model != "NoModel":
             Ta.axpy(-0.5 / Schmidt_T[ci], KT[0], True)
-        if not nn_model is "NoModel":
+        if nn_model != "NoModel":
             Ta.axpy(-0.5 / Schmidt_T[ci], KT[0], True)
 
         # Compute rhs
@@ -295,7 +295,7 @@ def scalar_assemble(a_scalar, a_conv, Ta, dt, M, scalar_components, Schmidt_T, K
         Ta.axpy(0.5 * nu / Schmidt[ci], K, True)
         if les_model != "NoModel":
             Ta.axpy(0.5 / Schmidt_T[ci], KT[0], True)
-        if not nn_model is "NoModel":
+        if nn_model != "NoModel":
             Ta.axpy(0.5 / Schmidt_T[ci], KT[0], True)
 
     # Reset matrix for lhs - Note scalar matrix does not contain diffusion
