@@ -3,7 +3,8 @@ __date__ = "2013-06-25"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
-from dolfin import *
+# from dolfin import *
+import dolfin as df
 import subprocess
 from os import getpid, path
 from collections import defaultdict
@@ -12,7 +13,7 @@ from numpy import array, maximum, zeros
 # UnitSquareMesh(20, 20) # Just due to MPI bug on Scinet
 
 # try:
-#from fenicstools import getMemoryUsage
+# from fenicstools import getMemoryUsage
 
 # except:
 
@@ -20,30 +21,29 @@ from numpy import array, maximum, zeros
 def getMemoryUsage(rss=True):
     mypid = str(getpid())
     rss = "rss" if rss else "vsz"
-    process = subprocess.Popen(['ps', '-o', rss, mypid],
-                                stdout=subprocess.PIPE)
+    process = subprocess.Popen(["ps", "-o", rss, mypid], stdout=subprocess.PIPE)
     out, _ = process.communicate()
     mymemory = out.split()[1]
     return eval(mymemory) / 1024
 
 
-parameters["linear_algebra_backend"] = "PETSc"
-parameters["form_compiler"]["optimize"] = True
-parameters["form_compiler"]["cpp_optimize"] = True
-parameters["form_compiler"]["representation"] = "uflacs"
-#parameters["form_compiler"]["quadrature_degree"] = 4
-#parameters["form_compiler"]["cache_dir"] = "instant"
-parameters["form_compiler"]["cpp_optimize_flags"] = "-O3"
-#parameters["mesh_partitioner"] = "ParMETIS"
-#parameters["form_compiler"].add("no_ferari", True)
-#set_log_active(False)
+df.parameters["linear_algebra_backend"] = "PETSc"
+df.parameters["form_compiler"]["optimize"] = True
+df.parameters["form_compiler"]["cpp_optimize"] = True
+df.parameters["form_compiler"]["representation"] = "uflacs"
+# df.parameters["form_compiler"]["quadrature_degree"] = 4
+# df.parameters["form_compiler"]["cache_dir"] = "instant"
+df.parameters["form_compiler"]["cpp_optimize_flags"] = "-O3"
+# df.parameters["mesh_partitioner"] = "ParMETIS"
+# df.parameters["form_compiler"].add("no_ferari", True)
+# df.set_log_active(False)
 
 # Default parameters for all solvers
 NS_parameters = dict(
-    nu=0.01,             # Kinematic viscosity
-    folder='results',    # Relative folder for storing results
-    velocity_degree=2,   # default velocity degree
-    pressure_degree=1    # default pressure degree
+    nu=0.01,  # Kinematic viscosity
+    folder="results",  # Relative folder for storing results
+    velocity_degree=2,  # default velocity degree
+    pressure_degree=1,  # default pressure degree
 )
 
 NS_expressions = {}
@@ -55,12 +55,10 @@ scalar_components = []
 
 # With diffusivities given as a Schmidt number defined by:
 #   Schmidt = nu / D (= momentum diffusivity / mass diffusivity)
-Schmidt = defaultdict(lambda: 1.)
+Schmidt = defaultdict(lambda: 1.0)
 Schmidt_T = defaultdict(lambda: 0.7)  # Turbulent Schmidt number (LES)
 
-Scalar = defaultdict(lambda: dict(Schmidt=1.0,
-                                  family="CG",
-                                  degree=1))
+Scalar = defaultdict(lambda: dict(Schmidt=1.0, family="CG", degree=1))
 
 # The following helper functions are available in dolfin
 # They are redefined here for printing only on process 0.
@@ -70,23 +68,23 @@ GREEN = "\033[1;37;32m%s\033[0m"
 
 
 def info_blue(s, check=True):
-    if MPI.rank(MPI.comm_world) == 0 and check:
+    if df.MPI.rank(df.MPI.comm_world) == 0 and check:
         print(BLUE % s)
 
 
 def info_green(s, check=True):
-    if MPI.rank(MPI.comm_world) == 0 and check:
+    if df.MPI.rank(df.MPI.comm_world) == 0 and check:
         print(GREEN % s)
 
 
 def info_red(s, check=True):
-    if MPI.rank(MPI.comm_world) == 0 and check:
+    if df.MPI.rank(df.MPI.comm_world) == 0 and check:
         print(RED % s)
 
 
-class OasisTimer(Timer):
+class OasisTimer(df.Timer):
     def __init__(self, task, verbose=False):
-        Timer.__init__(self, task)
+        df.Timer.__init__(self, task)
         info_blue(task, verbose)
 
 
@@ -99,34 +97,40 @@ class OasisMemoryUsage:
     def __call__(self, s, verbose=False):
         self.prev = self.memory
         self.prev_vm = self.memory_vm
-        self.memory = MPI.sum(MPI.comm_world, getMemoryUsage())
-        self.memory_vm = MPI.sum(MPI.comm_world, getMemoryUsage(False))
-        if MPI.rank(MPI.comm_world) == 0 and verbose:
-            info_blue('{0:26s}  {1:10d} MB {2:10d} MB {3:10d} MB {4:10d} MB'.format(s,
-                        int(self.memory - self.prev), int(self.memory),
-                        int(self.memory_vm - self.prev_vm), int(self.memory_vm)))
+        self.memory = df.MPI.sum(df.MPI.comm_world, getMemoryUsage())
+        self.memory_vm = df.MPI.sum(df.MPI.comm_world, getMemoryUsage(False))
+        if df.MPI.rank(df.MPI.comm_world) == 0 and verbose:
+            info_blue(
+                "{0:26s}  {1:10d} MB {2:10d} MB {3:10d} MB {4:10d} MB".format(
+                    s,
+                    int(self.memory - self.prev),
+                    int(self.memory),
+                    int(self.memory_vm - self.prev_vm),
+                    int(self.memory_vm),
+                )
+            )
 
 
 # Print memory use up til now
 initial_memory_use = getMemoryUsage()
-oasis_memory = OasisMemoryUsage('Start')
+oasis_memory = OasisMemoryUsage("Start")
 
 
 # Convenience functions
 def strain(u):
-    return 0.5 * (grad(u) + grad(u).T)
+    return 0.5 * (df.grad(u) + df.grad(u).T)
 
 
 def omega(u):
-    return 0.5 * (grad(u) - grad(u).T)
+    return 0.5 * (df.grad(u) - df.grad(u).T)
 
 
 def Omega(u):
-    return inner(omega(u), omega(u))
+    return df.inner(omega(u), omega(u))
 
 
 def Strain(u):
-    return inner(strain(u), strain(u))
+    return df.inner(strain(u), strain(u))
 
 
 def QC(u):
@@ -142,23 +146,26 @@ def recursive_update(dst, src):
             dst[key] = val
     return dst
 
-class OasisXDMFFile(XDMFFile, object):
+
+class OasisXDMFFile(df.XDMFFile, object):
     def __init__(self, comm, filename):
-        XDMFFile.__init__(self, comm, filename)
+        df.XDMFFile.__init__(self, comm, filename)
+
 
 def add_function_to_tstepfiles(function, newfolder, tstepfiles, tstep):
     name = function.name()
     tstepfolder = path.join(newfolder, "Timeseries")
-    tstepfiles[name] = OasisXDMFFile(MPI.comm_world,
-                                path.join(tstepfolder,
-                                          '{}_from_tstep_{}.xdmf'.format(name, tstep)))
+    tstepfiles[name] = OasisXDMFFile(
+        df.MPI.comm_world,
+        path.join(tstepfolder, "{}_from_tstep_{}.xdmf".format(name, tstep)),
+    )
     tstepfiles[name].function = function
     tstepfiles[name].parameters["rewrite_function_mesh"] = False
 
 
 def body_force(mesh, **NS_namespace):
     """Specify body force"""
-    return Constant((0,) * mesh.geometry().dim())
+    return df.Constant((0,) * mesh.geometry().dim())
 
 
 def initialize(**NS_namespace):
@@ -178,7 +185,7 @@ def scalar_hook(**NS_namespace):
 
 def scalar_source(scalar_components, **NS_namespace):
     """Return a dictionary of scalar sources."""
-    return dict((ci, Constant(0)) for ci in scalar_components)
+    return dict((ci, df.Constant(0)) for ci in scalar_components)
 
 
 def pre_solve_hook(**NS_namespace):
@@ -196,8 +203,9 @@ def problem_parameters(**NS_namespace):
     pass
 
 
-def post_import_problem(NS_parameters, mesh, commandline_kwargs,
-                        NS_expressions, **NS_namespace):
+def post_import_problem(
+    NS_parameters, mesh, commandline_kwargs, NS_expressions, **NS_namespace
+):
     """Called after importing from problem."""
 
     # Update NS_parameters with all parameters modified through command line
@@ -211,7 +219,7 @@ def post_import_problem(NS_parameters, mesh, commandline_kwargs,
     if callable(mesh):
         mesh = mesh(**NS_parameters)
 
-    assert(isinstance(mesh, Mesh))
+    assert isinstance(mesh, df.Mesh)
 
     # Returned dictionary to be updated in the NS namespace
     d = dict(mesh=mesh)
