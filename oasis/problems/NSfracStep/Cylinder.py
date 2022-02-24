@@ -5,11 +5,8 @@ __date__ = "2014-03-21"
 __copyright__ = "Copyright (C) 2014 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
-print(vars().keys())
 from ..NSfracStep import *
 from ..Cylinder import *
-
-print(vars().keys())
 
 # from oasis.NSfracStep import *
 # from oasis.problems.Cylinder import *

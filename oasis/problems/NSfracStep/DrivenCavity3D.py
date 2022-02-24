@@ -18,7 +18,8 @@ def problem_parameters(NS_parameters, NS_expressions, **NS_namespace):
         Nz=15,
         plot_interval=20,
         print_intermediate_info=100,
-        use_krylov_solvers=True)
+        use_krylov_solvers=True,
+    )
 
     NS_expressions.update(dict(constrained_domain=PeriodicDomain()))
 
@@ -28,12 +29,11 @@ def mesh(Nx, Ny, Nz, **params):
     m = UnitCubeMesh(Nx, Ny, Nz)
     x = m.coordinates()
     x[:, :2] = (x[:, :2] - 0.5) * 2
-    x[:, :2] = 0.5 * (cos(pi * (x[:, :2] - 1.) / 2.) + 1.)
+    x[:, :2] = 0.5 * (cos(pi * (x[:, :2] - 1.0) / 2.0) + 1.0)
     return m
 
 
 class PeriodicDomain(SubDomain):
-
     def inside(self, x, on_boundary):
         # return True if on left or bottom boundary AND NOT on one of the two slave edges
         return bool(near(x[2], 0) and on_boundary)
@@ -53,10 +53,7 @@ def create_bcs(V, **NS_namespace):
     bc00 = DirichletBC(V, 1, top)
     bc01 = DirichletBC(V, 0, top)
 
-    return dict(u0=[bc00, bc0],
-                u1=[bc01, bc0],
-                u2=[bc01, bc0],
-                p=[])
+    return dict(u0=[bc00, bc0], u1=[bc01, bc0], u2=[bc01, bc0], p=[])
 
 
 def initialize(x_1, x_2, bcs, **NS_namespace):
@@ -65,19 +62,25 @@ def initialize(x_1, x_2, bcs, **NS_namespace):
         [bc.apply(x_2[ui]) for bc in bcs[ui]]
 
 
-def pre_solve_hook(mesh, velocity_degree, constrained_domain, u_,
-                   AssignedVectorFunction, **NS_namespace):
+def pre_solve_hook(
+    mesh,
+    velocity_degree,
+    constrained_domain,
+    u_,
+    AssignedVectorFunction,
+    **NS_namespace
+):
     return dict(uv=AssignedVectorFunction(u_))
 
 
 def temporal_hook(tstep, u_, uv, p_, plot_interval, **NS_namespace):
     if tstep % plot_interval == 0:
         uv()
-        plot(uv, title='Velocity')
-        plot(p_, title='Pressure')
+        plot(uv, title="Velocity")
+        plot(p_, title="Pressure")
 
 
 def theend_hook(p_, uv, **NS_namespace):
     uv()
-    plot(uv, title='Velocity')
-    plot(p_, title='Pressure')
+    plot(uv, title="Velocity")
+    plot(p_, title="Pressure")
