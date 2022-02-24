@@ -29,7 +29,7 @@ def create_initial_folders(
     restart_folder,
     sys_comp,
     tstep,
-    info_red,
+    # info_red, # TODO: why is this an argument? its imported on top
     scalar_components,
     output_timeseries_as_vector,
     **NS_namespace
@@ -82,6 +82,7 @@ def create_initial_folders(
     return newfolder, tstepfiles
 
 
+# TODO: dont pass NS_parameters, but rather all
 def save_solution(
     tstep,
     t,
@@ -98,7 +99,7 @@ def save_solution(
     scalar_components,
     output_timeseries_as_vector,
     constrained_domain,
-    AssignedVectorFunction,
+    AssignedVectorFunction,  # TODO: why is this an argument? it can be imported from utilities
     killtime,
     total_timer,
     **NS_namespace

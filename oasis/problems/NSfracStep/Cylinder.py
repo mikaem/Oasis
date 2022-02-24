@@ -5,31 +5,82 @@ __date__ = "2014-03-21"
 __copyright__ = "Copyright (C) 2014 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
-from ..NSfracStep import *
-from ..Cylinder import *
 
-# from oasis.NSfracStep import *
-# from oasis.problems.Cylinder import *
-from os import getcwd
+from oasis.problems import (
+    add_function_to_tstepfiles,
+    constrained_domain,
+    scalar_components,
+    Schmidt,
+    Schmidt_T,
+    body_force,
+    initialize,
+    scalar_hook,
+    scalar_source,
+    pre_solve_hook,
+    theend_hook,
+    get_problem_parameters,
+    post_import_problem,
+    create_bcs,
+)
+from oasis.problems.NSfracStep import (
+    velocity_tentative_hook,
+    pressure_hook,
+    start_timestep_hook,
+    temporal_hook,
+)
+from oasis.problems.Cylinder import mesh, Inlet, Cyl, Wall, Outlet, center, cases, D
+from dolfin import (
+    Expression,
+    DirichletBC,
+    Function,
+    MeshFunction,
+    FacetNormal,
+    plot,
+    TestFunction,
+    Identity,
+    VectorFunctionSpace,
+    grad,
+    dot,
+    assemble,
+    project,
+    DirichletBC,
+    curl,
+    DomainBoundary,
+    Point,
+)
+from os import getcwd, path
 import pickle
 import matplotlib.pyplot as plt
 
+Schmidt["alfa"] = 0.1
+scalar_components.append("alfa")
 
-def problem_parameters(
-    commandline_kwargs, NS_parameters, scalar_components, Schmidt, **NS_namespace
-):
+
+def get_problem_parameters(**kwargs):
     # Example: python NSfracstep.py [...] restart_folder="results/data/8/Checkpoint"
-    if "restart_folder" in commandline_kwargs.keys():
-        restart_folder = commandline_kwargs["restart_folder"]
+    if "restart_folder" in kwargs.keys():
+        restart_folder = kwargs["restart_folder"]
         restart_folder = path.join(getcwd(), restart_folder)
         f = open(path.join(restart_folder, "params.dat"), "rb")
-        NS_parameters.update(pickle.load(f))
+        NS_parameters = pickle.load(f)
         NS_parameters["restart_folder"] = restart_folder
         globals().update(NS_parameters)
 
     else:
         # Override some problem specific parameters
-        NS_parameters.update(
+        case = kwargs["case"] if "case" in kwargs else 1
+        Um = cases[case]["Um"]
+        Re = cases[case]["Re"]
+        Umean = 2.0 / 3.0 * Um
+
+        NS_parameters = dict(
+            scalar_components=scalar_components,
+            Schmidt=Schmidt,
+            Schmidt_T=Schmidt_T,
+            Um=Um,
+            Re=Re,
+            Umean=Umean,
+            nu=Umean * D / Re,
             T=100,
             dt=0.01,
             checkpoint=50,
@@ -39,13 +90,15 @@ def problem_parameters(
             print_intermediate_info=100,
             use_krylov_solvers=True,
         )
-        NS_parameters["krylov_solvers"].update(dict(monitor_convergence=True))
-        NS_parameters["velocity_krylov_solver"].update(
-            dict(preconditioner_type="jacobi", solver_type="bicgstab")
+        # FIXME:
+        NS_parameters["krylov_solvers"] = dict(monitor_convergence=True)
+
+        NS_parameters["velocity_krylov_solver"] = dict(
+            preconditioner_type="jacobi", solver_type="bicgstab"
         )
 
-    scalar_components.append("alfa")
-    Schmidt["alfa"] = 0.1
+    NS_expressions = {}
+    return NS_parameters, NS_expressions
 
 
 def create_bcs(V, Q, Um, H, **NS_namespace):
@@ -143,7 +196,7 @@ def temporal_hook(
             )
 
 
-def theend_hook(q_, u_, p_, uv, mesh, ds, V, nu, Umean, D, **NS_namespace):
+def theend_hook(q_, u_, p_, uv, mesh, ds, V, nu, Umean, D, L, **NS_namespace):
     uv()
     plot(uv, title="Velocity")
     plot(p_, title="Pressure")

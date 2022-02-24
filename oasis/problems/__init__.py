@@ -38,15 +38,15 @@ df.parameters["form_compiler"]["cpp_optimize_flags"] = "-O3"
 # df.parameters["form_compiler"].add("no_ferari", True)
 # df.set_log_active(False)
 
-# Default parameters for all solvers
-NS_parameters = dict(
-    nu=0.01,  # Kinematic viscosity
-    folder="results",  # Relative folder for storing results
-    velocity_degree=2,  # default velocity degree
-    pressure_degree=1,  # default pressure degree
-)
+# Default parameters for all solvers should not be defined here, but rather in NSfrac.py or NScoupled.__init__.py with the rest
+# NS_parameters = dict(
+#     nu=0.01,  # Kinematic viscosity
+#     folder="results",  # Relative folder for storing results
+#     velocity_degree=2,  # default velocity degree
+#     pressure_degree=1,  # default pressure degree
+# )
 
-NS_expressions = {}
+# NS_expressions = {}
 
 constrained_domain = None
 
@@ -55,7 +55,7 @@ scalar_components = []
 
 # With diffusivities given as a Schmidt number defined by:
 #   Schmidt = nu / D (= momentum diffusivity / mass diffusivity)
-Schmidt = defaultdict(lambda: 1.0)
+Schmidt = defaultdict(lambda: 1.0)  # Schmidt["any_key"] returns 1.0
 Schmidt_T = defaultdict(lambda: 0.7)  # Turbulent Schmidt number (LES)
 
 Scalar = defaultdict(lambda: dict(Schmidt=1.0, family="CG", degree=1))
@@ -137,6 +137,7 @@ def QC(u):
     return Omega(u) - Strain(u)
 
 
+# dont use this
 def recursive_update(dst, src):
     """Update dict dst with items from src deeply ("deep update")."""
     for key, val in src.items():
@@ -198,18 +199,18 @@ def theend_hook(**NS_namespace):
     pass
 
 
-def problem_parameters(**NS_namespace):
+def get_problem_parameters(**NS_namespace):
     """Updates problem specific parameters, and handles restart"""
     pass
 
 
-def post_import_problem(
-    NS_parameters, mesh, commandline_kwargs, NS_expressions, **NS_namespace
-):
+def post_import_problem(NS_parameters, NS_expressions, mesh, commandline_kwargs):
     """Called after importing from problem."""
 
     # Update NS_parameters with all parameters modified through command line
     for key, val in commandline_kwargs.items():
+        if key not in NS_parameters.keys():
+            raise KeyError("unknown key", key)
         if isinstance(val, dict):
             NS_parameters[key].update(val)
         else:
@@ -222,7 +223,8 @@ def post_import_problem(
     assert isinstance(mesh, df.Mesh)
 
     # Returned dictionary to be updated in the NS namespace
-    d = dict(mesh=mesh)
-    d.update(NS_parameters)
-    d.update(NS_expressions)
-    return d
+    NS_parameters["mesh"] = mesh
+    # d = dict(mesh=mesh)
+    # d.update(NS_parameters)
+    NS_expressions.update(NS_expressions)
+    return NS_expressions

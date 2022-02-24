@@ -21,19 +21,42 @@ number in .h5 format, along with a readable .xdmf (not presented in paper).
 """
 
 from __future__ import print_function
-from oasis import *
-from oasis.problems import *
+from oasis.problems import (
+    constrained_domain,
+    scalar_components,
+    Schmidt,
+    Schmidt_T,
+    body_force,
+    initialize,
+    scalar_hook,
+    scalar_source,
+    pre_solve_hook,
+    theend_hook,
+    get_problem_parameters,
+    post_import_problem,
+    create_bcs,
+)
+from oasis.problems.NSfracStep import (
+    velocity_tentative_hook,
+    pressure_hook,
+    start_timestep_hook,
+    temporal_hook,
+)
+
+# from oasis.problems.EccentricStenosis import mesh
+import dolfin as df
 import numpy as np
 import random
 import os
 import platform
 
 
-def problem_parameters(
-    NS_parameters, NS_expressions, commandline_kwargs, **NS_namespace
-):
-    Re = float(commandline_kwargs.get("Re", 600))
-    NS_parameters.update(
+def get_problem_parameters(**kwargs):
+    Re = float(kwargs.get("Re", 600))
+    NS_parameters = dict(
+        scalar_components=scalar_components,
+        Schmidt=Schmidt,
+        Schmidt_T=Schmidt_T,
         nu=0.0031078341013824886,  # mm^2/ms #3.1078341E-6 m^2/s, #0.003372 Pa-s/1085 kg/m^3 this is nu_inf (m^2/s)
         D=6.35,  # 0.00635,
         T=15e3,  # ms
@@ -73,7 +96,8 @@ def problem_parameters(
     )
     NS_parameters.update(ave_inlet_velocity=average_inlet_velocity)
     inflow_prof = get_inflow_prof(average_inlet_velocity, NS_parameters["D"])
-    NS_expressions.update(dict(u_in=inflow_prof, noise=Noise()))
+    NS_expressions = dict(u_in=inflow_prof, noise=Noise())
+    return NS_parameters, NS_expressions
 
 
 def mesh(mesh_file, **NS_namespace):
@@ -90,11 +114,11 @@ def mesh(mesh_file, **NS_namespace):
             raise ImportError("Could not determine platform")
         print(f"Downloaded mesh {mesh_file}")
 
-    mesh = Mesh(mesh_file)
+    mesh = df.Mesh(mesh_file)
     return mesh
 
 
-class Noise(UserExpression):
+class Noise(df.UserExpression):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -102,22 +126,22 @@ class Noise(UserExpression):
         value[0] = np.random.normal(0, 0.001)
 
 
-def create_bcs(V, Q, mesh, mesh_file, **NS_namespace):
-    if MPI.rank(MPI.comm_world) == 0:
+def create_bcs(V, Q, mesh, mesh_file, NS_expressions, **NS_namespace):
+    if df.MPI.rank(df.MPI.comm_world) == 0:
         print("Create bcs")
 
-    boundaries = MeshFunction("size_t", mesh, 2, mesh.domains())
+    boundaries = df.MeshFunction("size_t", mesh, 2, mesh.domains())
     boundaries.set_values(boundaries.array() + 1)
 
     wallId = 1
     inletId = 2
     outletId = 3
 
-    bc0 = DirichletBC(V, 0, boundaries, wallId)
-    bc1 = DirichletBC(V, NS_expressions["u_in"], boundaries, inletId)
-    bc2 = DirichletBC(V, NS_expressions["noise"], boundaries, inletId)
-    bc3 = DirichletBC(V, NS_expressions["noise"], boundaries, inletId)
-    bc4 = DirichletBC(Q, 0, boundaries, outletId)
+    bc0 = df.DirichletBC(V, 0, boundaries, wallId)
+    bc1 = df.DirichletBC(V, NS_expressions["u_in"], boundaries, inletId)
+    bc2 = df.DirichletBC(V, NS_expressions["noise"], boundaries, inletId)
+    bc3 = df.DirichletBC(V, NS_expressions["noise"], boundaries, inletId)
+    bc4 = df.DirichletBC(Q, 0, boundaries, outletId)
     return dict(
         u0=[bc0, bc1],  # 0 on the sides, u_in on inlet, zero gradient outlet
         u1=[bc0, bc2],  # 0 on sides and perturbed inlet, zero gradient outlet
@@ -134,8 +158,9 @@ def initialize(V, q_, q_1, q_2, x_1, x_2, bcs, restart_folder, **NS_namespace):
 
 
 def pre_solve_hook(u_, tstep, AssignedVectorFunction, folder, **NS_namespace):
-    visfile = XDMFFile(
-        MPI.comm_world, path.join(folder, "viscosity_from_tstep_{}.xdmf".format(tstep))
+    visfile = df.XDMFFile(
+        df.MPI.comm_world,
+        os.path.join(folder, "viscosity_from_tstep_{}.xdmf".format(tstep)),
     )
     visfile.parameters["rewrite_function_mesh"] = False
     visfile.parameters["flush_output"] = True
@@ -169,7 +194,7 @@ def get_ave_inlet_velocity(Re, nu, D, **NS_namespace):
 
 
 def get_inflow_prof(average_inlet_velocity, D, **NS_namespace):
-    u_inflow = Expression(
+    u_inflow = df.Expression(
         "A*2*(1-((x[1]*x[1])+(x[2]*x[2]))*4/(D*D))",
         degree=2,
         A=average_inlet_velocity,

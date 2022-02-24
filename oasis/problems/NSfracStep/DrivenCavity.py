@@ -6,99 +6,40 @@ __license__ = "GNU Lesser GPL version 3 or any later version"
 # lots of unused imports, that are all imported here and used by the main script only
 # from ..NSfracStep import *
 from oasis.problems import (
-    subprocess,
-    getpid,
-    path,
-    defaultdict,
-    array,
-    maximum,
-    zeros,
-    getMemoryUsage,
-    # NS_parameters,
-    NS_expressions,
     constrained_domain,
     scalar_components,
     Schmidt,
     Schmidt_T,
-    Scalar,
-    RED,
-    BLUE,
-    GREEN,
-    info_blue,
-    info_green,
-    info_red,
-    OasisTimer,
-    OasisMemoryUsage,
-    initial_memory_use,
-    oasis_memory,
-    strain,
-    omega,
-    Omega,
-    Strain,
-    QC,
-    recursive_update,
-    OasisXDMFFile,
-    add_function_to_tstepfiles,
     body_force,
     initialize,
-    create_bcs,
     scalar_hook,
     scalar_source,
     pre_solve_hook,
     theend_hook,
-    problem_parameters,
+    get_problem_parameters,
     post_import_problem,
+    create_bcs,
 )
-from dolfin import (  # oasis.problems also included whole dolfin namespace
-    as_vector,
-    assemble,
-    KrylovSolver,
-    LUSolver,
-    TrialFunction,
-    TestFunction,
-    dx,
-    Vector,
-    Matrix,
-    FunctionSpace,
-    Timer,
-    div,
-    Form,
-    inner,
-    grad,
-    as_backend_type,
-    VectorFunctionSpace,
-    FunctionAssigner,
-    PETScKrylovSolver,
-    PETScPreconditioner,
-    DirichletBC,
-    MPI,
-    Function,
-    XDMFFile,
-    HDF5File,
-    DOLFIN_EPS,
-    norm,
-    list_timings,
-    TimingClear,
-    TimingType,
-)
+from oasis.problems import create_bcs
 from oasis.problems.NSfracStep import (
-    NS_parameters,
     velocity_tentative_hook,
     pressure_hook,
     start_timestep_hook,
     temporal_hook,
 )
-
-
-# from ..DrivenCavity import *
 from oasis.problems.DrivenCavity import noslip, top, bottom, mesh
 import dolfin as df
 
 # set_log_active(False)
 
-# Override some problem specific parameters
-def problem_parameters(NS_parameters, scalar_components, Schmidt, **NS_namespace):
-    NS_parameters.update(
+
+def get_problem_parameters(**kwargs):
+    Schmidt["alfa"] = 1.0
+    Schmidt["beta"] = 10.0
+    NS_parameters = dict(
+        Schmidt=Schmidt,
+        scalar_components=scalar_components + ["alfa", "beta"],
+        Schmidt_T=Schmidt_T,
         nu=0.001,
         T=1.0,
         dt=0.001,
@@ -110,9 +51,8 @@ def problem_parameters(NS_parameters, scalar_components, Schmidt, **NS_namespace
         use_krylov_solvers=True,
     )
 
-    scalar_components += ["alfa", "beta"]
-    Schmidt["alfa"] = 1.0
-    Schmidt["beta"] = 10.0
+    NS_expressions = {}
+    return NS_parameters, NS_expressions
 
     # NS_parameters['krylov_solvers'] = {'monitor_convergence': False,
     #                                   'report': False,

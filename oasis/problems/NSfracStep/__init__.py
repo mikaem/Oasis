@@ -13,8 +13,8 @@ from oasis.problems import (
     maximum,
     zeros,
     getMemoryUsage,
-    NS_parameters,
-    NS_expressions,
+    # NS_parameters,
+    # NS_expressions,
     constrained_domain,
     scalar_components,
     Schmidt,
@@ -40,17 +40,22 @@ from oasis.problems import (
     add_function_to_tstepfiles,
     body_force,
     initialize,
-    create_bcs,
+    # create_bcs,
     scalar_hook,
     scalar_source,
     pre_solve_hook,
     theend_hook,
-    problem_parameters,
+    get_problem_parameters,
     post_import_problem,
 )
 
 # Default parameters NSfracStep solver
-NS_parameters.update(
+NS_expressions = {}
+default_parameters = dict(
+    nu=0.01,  # Kinematic viscosity
+    folder="results",  # Relative folder for storing results
+    velocity_degree=2,  # default velocity degree
+    pressure_degree=1,  # default pressure degree
     # Physical constants and solver parameters
     t=0.0,  # Time
     tstep=0,  # Timestep

@@ -5,19 +5,44 @@ __date__ = "2013-06-25"
 __copyright__ = "Copyright (C) 2013 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
-from ..NSfracStep import *
+
+from oasis.problems import (
+    constrained_domain,
+    scalar_components,
+    Schmidt,
+    Schmidt_T,
+    body_force,
+    initialize,
+    scalar_hook,
+    scalar_source,
+    pre_solve_hook,
+    theend_hook,
+    get_problem_parameters,
+    post_import_problem,
+    info_red,
+    create_bcs,
+)
+from oasis.problems.NSfracStep import (
+    velocity_tentative_hook,
+    pressure_hook,
+    start_timestep_hook,
+    temporal_hook,
+)
+
+# from oasis.problems.Channel import mesh
+import dolfin as df
 from fenicstools import StructuredGrid, Probes
 from numpy import arctan, array, cos, pi
-from os import getcwd, makedirs
+from os import getcwd, makedirs, path
 import pickle
 import random
 
 
-def problem_parameters(
-    commandline_kwargs, NS_parameters, NS_expressions, **NS_namespace
-):
-    if "restart_folder" in commandline_kwargs.keys():
-        restart_folder = commandline_kwargs["restart_folder"]
+def get_problem_parameters(**kwargs):
+    if "restart_folder" in kwargs.keys():
+        # FIXME: this cant work, two different paths are joined.
+        restart_folder = kwargs["restart_folder"]
+        restart_folder = "my_restart_folder"
         restart_folder = path.join(getcwd(), restart_folder)
         f = open(
             path.join(
@@ -25,24 +50,27 @@ def problem_parameters(
             ),
             "r",
         )
-        NS_parameters.update(pickle.load(f))
+        NS_parameters = pickle.load(f)
         NS_parameters["restart_folder"] = restart_folder
-        globals().update(NS_parameters)
+        # globals().update(NS_parameters)
+        NS_expressions = {}  # should be loaded as well?
     else:
-        Lx = 4.0 * pi
-        Ly = 2.0
-        Lz = 4.0 * pi / 3.0
-        Nx = 16
-        Ny = 16
-        Nz = 16
-        NS_parameters.update(Lx=Lx, Ly=Ly, Lz=Lz, Nx=Nx, Ny=Ny, Nz=Nz)
-
-        # Override some problem specific parameters
-        T = 1.0
-        dt = 0.2
         nu = 2.0e-5
         Re_tau = 178.12
-        NS_parameters.update(
+        Lx = (4.0 * pi,)
+        Lz = (4.0 * pi / 3.0,)
+        NS_parameters = dict(
+            scalar_components=scalar_components,
+            Schmidt=Schmidt,
+            Schmidt_T=Schmidt_T,
+            Lx=Lx,
+            Ly=2.0,
+            Lz=Lz,
+            Nx=16,
+            Ny=16,
+            Nz=16,
+            T=1.0,
+            dt=0.2,
             update_statistics=10,
             save_statistics=100,
             check_flux=10,
@@ -51,14 +79,13 @@ def problem_parameters(
             save_step=100,
             nu=nu,
             Re_tau=Re_tau,
-            T=T,
-            dt=dt,
             velocity_degree=1,
             folder="channel_results",
             use_krylov_solvers=True,
         )
 
-    NS_expressions.update(dict(constrained_domain=PeriodicDomain(Lx, Lz)))
+        NS_expressions = dict(constrained_domain=PeriodicDomain(Lx, Lz))
+    return NS_parameters, NS_expressions
 
 
 class ChannelGrid(StructuredGrid):
@@ -74,34 +101,38 @@ class ChannelGrid(StructuredGrid):
 
 def mesh(Nx, Ny, Nz, Lx, Ly, Lz, **params):
     # Function for creating stretched mesh in y-direction
-    m = BoxMesh(
-        Point(0.0, -Ly / 2.0, -Lz / 2.0), Point(Lx, Ly / 2.0, Lz / 2.0), Nx, Ny, Nz
+    m = df.BoxMesh(
+        df.Point(0.0, -Ly / 2.0, -Lz / 2.0),
+        df.Point(Lx, Ly / 2.0, Lz / 2.0),
+        Nx,
+        Ny,
+        Nz,
     )
     x = m.coordinates()
     x[:, 1] = arctan(1.0 * pi * (x[:, 1])) / arctan(1.0 * pi)
     return m
 
 
-class PeriodicDomain(SubDomain):
+class PeriodicDomain(df.SubDomain):
     def __init__(self, Lx, Lz):
         self.Lx = Lx
         self.Lz = Lz
-        SubDomain.__init__(self)
+        df.SubDomain.__init__(self)
 
     def inside(self, x, on_boundary):
         # return True if on left or bottom boundary AND NOT on one of the two slave edges
         return bool(
-            (near(x[0], 0) or near(x[2], -self.Lz / 2.0))
-            and (not (near(x[0], self.Lx) or near(x[2], self.Lz / 2.0)))
+            (df.near(x[0], 0) or df.near(x[2], -self.Lz / 2.0))
+            and (not (df.near(x[0], self.Lx) or df.near(x[2], self.Lz / 2.0)))
             and on_boundary
         )
 
     def map(self, x, y):
-        if near(x[0], self.Lx) and near(x[2], self.Lz / 2.0):
+        if df.near(x[0], self.Lx) and df.near(x[2], self.Lz / 2.0):
             y[0] = x[0] - self.Lx
             y[1] = x[1]
             y[2] = x[2] - self.Lz
-        elif near(x[0], self.Lx):
+        elif df.near(x[0], self.Lx):
             y[0] = x[0] - self.Lx
             y[1] = x[1]
             y[2] = x[2]
@@ -112,12 +143,12 @@ class PeriodicDomain(SubDomain):
 
 
 def inlet(x, on_bnd):
-    return on_bnd and near(x[0], 0)
+    return on_bnd and df.near(x[0], 0)
 
 
 # Specify body force
 def body_force(nu, Re_tau, utau, **NS_namespace):
-    return Constant((utau ** 2, 0.0, 0.0))
+    return df.Constant((utau ** 2, 0.0, 0.0))
 
 
 def pre_solve_hook(
@@ -153,29 +184,29 @@ def pre_solve_hook(
     )
 
     # Create MeshFunction to compute flux
-    Inlet = AutoSubDomain(inlet)
-    facets = MeshFunction("size_t", mesh, mesh.topology().dim() - 1, 0)
+    Inlet = df.AutoSubDomain(inlet)
+    facets = df.MeshFunction("size_t", mesh, mesh.topology().dim() - 1, 0)
     Inlet.mark(facets, 1)
-    normal = FacetNormal(mesh)
+    normal = df.FacetNormal(mesh)
 
     return dict(uv=uv, stats=stats, facets=facets, normal=normal)
 
 
 def create_bcs(V, q_, q_1, q_2, sys_comp, u_components, Ly, **NS_namespace):
     def walls(x, on_bnd):
-        return near(x[1], -Ly / 2.0) or near(x[1], Ly / 2.0)
+        return df.near(x[1], -Ly / 2.0) or df.near(x[1], Ly / 2.0)
 
     info_red("Creating boundary conditions")
     bcs = dict((ui, []) for ui in sys_comp)
-    bc = [DirichletBC(V, Constant(0), walls)]
+    bc = [df.DirichletBC(V, df.Constant(0), walls)]
     bcs["u0"] = bc
     bcs["u1"] = bc
     bcs["u2"] = bc
     return bcs
 
 
-class RandomStreamVector(UserExpression):
-    random.seed(2 + MPI.rank(MPI.comm_world))
+class RandomStreamVector(df.UserExpression):
+    random.seed(2 + df.MPI.rank(df.MPI.comm_world))
 
     def eval(self, values, x):
         values[0] = 0.0005 * random.random()
@@ -189,24 +220,26 @@ class RandomStreamVector(UserExpression):
 def initialize(V, q_, q_1, q_2, bcs, restart_folder, utau, nu, **NS_namespace):
     if restart_folder is None:
         # Initialize using a perturbed flow. Create random streamfunction
-        Vv = VectorFunctionSpace(
+        Vv = df.VectorFunctionSpace(
             V.mesh(), V.ufl_element().family(), V.ufl_element().degree()
         )
-        psi = interpolate(RandomStreamVector(element=Vv.ufl_element()), Vv)
-        u0 = project(curl(psi), Vv, solver_type="cg")
-        u0x = project(u0[0], V, bcs=bcs["u0"], solver_type="cg")
-        u1x = project(u0[1], V, bcs=bcs["u0"], solver_type="cg")
-        u2x = project(u0[2], V, bcs=bcs["u0"], solver_type="cg")
+        psi = df.interpolate(RandomStreamVector(element=Vv.ufl_element()), Vv)
+        u0 = df.project(df.curl(psi), Vv, solver_type="cg")
+        u0x = df.project(u0[0], V, bcs=bcs["u0"], solver_type="cg")
+        u1x = df.project(u0[1], V, bcs=bcs["u0"], solver_type="cg")
+        u2x = df.project(u0[2], V, bcs=bcs["u0"], solver_type="cg")
 
         # Create base flow
-        y = interpolate(
-            Expression("x[1] > 0 ? 1-x[1] : 1+x[1]", element=V.ufl_element()), V
+        y = df.interpolate(
+            df.Expression("x[1] > 0 ? 1-x[1] : 1+x[1]", element=V.ufl_element()), V
         )
-        uu = project(
+        uu = df.project(
             (
                 1.25
                 * (
-                    utau / 0.41 * ln(conditional(y < 1e-12, 1.0e-12, y) * utau / nu)
+                    utau
+                    / 0.41
+                    * df.ln(df.conditional(y < 1e-12, 1.0e-12, y) * utau / nu)
                     + 5.0 * utau
                 )
             ),
@@ -259,11 +292,15 @@ def temporal_hook(
         stats.tovtk(0, statsfolder + "/dump_mean_{}.vtk".format(tstep))
 
     if tstep % check_flux == 0:
-        u1 = assemble(dot(u_, normal) * ds(1, domain=mesh, subdomain_data=facets))
-        u1 = assemble(dot(u_, normal) * ds(1, domain=mesh, subdomain_data=facets))
-        normv = norm(q_["u1"].vector())
-        normw = norm(q_["u2"].vector())
-        if MPI.rank(MPI.comm_world) == 0:
+        u1 = df.assemble(
+            df.dot(u_, normal) * df.ds(1, domain=mesh, subdomain_data=facets)
+        )
+        u1 = df.assemble(
+            df.dot(u_, normal) * df.ds(1, domain=mesh, subdomain_data=facets)
+        )
+        normv = df.norm(q_["u1"].vector())
+        normw = df.norm(q_["u2"].vector())
+        if df.MPI.rank(df.MPI.comm_world) == 0:
             print("Flux = ", u1, " tstep = ", tstep, " norm = ", normv, normw)
 
 
