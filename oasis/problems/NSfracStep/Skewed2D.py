@@ -26,6 +26,7 @@ from oasis.problems.NSfracStep import (
     pressure_hook,
     start_timestep_hook,
     temporal_hook,
+    default_parameters,
 )
 from oasis.problems.Skewed2D import mesh, walls, inlet, outlet
 import dolfin as df
@@ -43,6 +44,10 @@ def get_problem_parameters(**kwargs):
         print_velocity_pressure_convergence=True,
     )
     NS_expressions = {}
+    # set default parameters
+    for key, val in default_parameters.items():
+        if key not in NS_parameters.keys():
+            NS_parameters[key] = val
     return NS_parameters, NS_expressions
 
 

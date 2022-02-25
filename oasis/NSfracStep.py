@@ -36,12 +36,13 @@ import importlib
 import oasis.common.io as io
 import pickle
 from os import path
+import copy
 import dolfin as df
 import numpy as np
 from oasis.common import parse_command_line  # ,convert
 import oasis.common.utilities as ut
 from ufl import Coefficient
-from oasis.problems.NSfracStep import default_parameters
+
 from oasis.problems import (
     info_blue,
     info_green,
@@ -52,13 +53,10 @@ from oasis.problems import (
     post_import_problem,
 )
 
-# TODO: write a custom update function, that throws a warning when value is overwritten
-# TODO: get rid of importlib
-
 commandline_kwargs = parse_command_line()
 
 # Find the problem module
-default_problem = "DrivenCavity"  # Cylinder, DrivenCavity
+default_problem = "DrivenCavity"
 problemname = commandline_kwargs.get("problem", default_problem)
 # Import the problem module
 print("Importing problem module " + problemname)
@@ -87,20 +85,18 @@ elif problemname == "TaylorGreen2D":
 elif problemname == "TaylorGreen3D":
     import oasis.problems.NSfracStep.TaylorGreen3D as pblm
 
-NS_parameters, NS_expressions = pblm.get_problem_parameters()
-for key, val in default_parameters.items():
-    if key not in NS_parameters.keys():
-        NS_parameters[key] = val
-        # print(key, "set to default value, which is", val)
+NS_namespace, NS_expressions = pblm.get_problem_parameters()
 
-# merges everything into NS_parameters
-post_import_problem(NS_parameters, NS_expressions, pblm.mesh, commandline_kwargs)
-scalar_components = NS_parameters["scalar_components"]
-mesh = NS_parameters["mesh"]
+# problem_parameters used to be NS_parameters
+NS_namespace, problem_parameters = post_import_problem(
+    NS_namespace, NS_expressions, pblm.mesh, commandline_kwargs
+)
+scalar_components = problem_parameters["scalar_components"]
+mesh = NS_namespace["mesh"]
 
 # Use t and tstep from stored paramteres if restarting
-if NS_parameters["restart_folder"] is not None:
-    folder = path.abspath(NS_parameters["restart_folder"])
+if problem_parameters["restart_folder"] is not None:
+    folder = path.abspath(NS_namespace["restart_folder"])
     f = open(path.join(folder, "params.dat"), "rb")
     params = pickle.load(f)
     f.close()
@@ -108,9 +104,19 @@ if NS_parameters["restart_folder"] is not None:
     tstep = params["tstep"]
 
 # Import chosen functionality from solvers
-# TODO: make explicit
-pth = ".".join(("oasis.solvers.NSfracStep", NS_parameters["solver"]))
-solver = importlib.import_module(pth)
+solvername = problem_parameters["solver"]
+if solvername == "BDFPC":
+    import oasis.solvers.NSfracStep.BDFPC as solver
+elif solvername == "BDFPC_Fast":
+    import oasis.solvers.NSfracStep.BDFPC_Fast as solver
+elif solvername == "Chorin":
+    import oasis.solvers.NSfracStep.Chorin as solver
+elif solvername == "IPCS":
+    import oasis.solvers.NSfracStep.IPCS as solver
+elif solvername == "IPCS_ABCN":
+    import oasis.solvers.NSfracStep.IPCS_ABCN as solver
+elif solvername == "IPCS_ABE":
+    import oasis.solvers.NSfracStep.IPCS_ABE as solver
 
 # Create lists of components solved for
 dim = mesh.geometry().dim()
@@ -121,12 +127,14 @@ uc_comp = u_components + scalar_components
 # Set up initial folders for storing results
 newfolder, tstepfiles = io.create_initial_folders(
     sys_comp=sys_comp,
-    **NS_parameters,
+    **problem_parameters,
 )
+NS_namespace["newfolder"] = newfolder
+NS_namespace["tstepfiles"] = tstepfiles
 
 # Declare FunctionSpaces and arguments
-velocity_degree = NS_parameters["velocity_degree"]
-pressure_degree = NS_parameters["pressure_degree"]
+velocity_degree = problem_parameters["velocity_degree"]
+pressure_degree = problem_parameters["pressure_degree"]
 V = Q = df.FunctionSpace(
     mesh, "CG", velocity_degree, constrained_domain=pblm.constrained_domain
 )
@@ -134,12 +142,12 @@ if velocity_degree != pressure_degree:
     Q = df.FunctionSpace(
         mesh, "CG", pressure_degree, constrained_domain=pblm.constrained_domain
     )
-NS_parameters["V"] = V
-NS_parameters["Q"] = Q
-NS_parameters["u"] = u = df.TrialFunction(V)
-NS_parameters["v"] = v = df.TestFunction(V)
-NS_parameters["p"] = p = df.TrialFunction(Q)
-NS_parameters["q"] = q = df.TestFunction(Q)
+NS_namespace["V"] = V
+NS_namespace["Q"] = Q
+NS_namespace["u"] = u = df.TrialFunction(V)
+NS_namespace["v"] = v = df.TestFunction(V)
+NS_namespace["p"] = p = df.TrialFunction(Q)
+NS_namespace["q"] = q = df.TestFunction(Q)
 
 # Use dictionary to hold all FunctionSpaces
 VV = dict((ui, V) for ui in uc_comp)
@@ -149,21 +157,22 @@ VV["p"] = Q
 q_ = dict((ui, df.Function(VV[ui], name=ui)) for ui in sys_comp)
 q_1 = dict((ui, df.Function(VV[ui], name=ui + "_1")) for ui in sys_comp)
 q_2 = dict((ui, df.Function(V, name=ui + "_2")) for ui in u_components)
-NS_parameters["q_"], NS_parameters["q_1"], NS_parameters["q_2"] = q_, q_1, q_2
+NS_namespace["q_"], NS_namespace["q_1"], NS_namespace["q_2"] = q_, q_1, q_2
 
 # Read in previous solution if restarting
 io.init_from_restart(
     sys_comp=sys_comp,
     uc_comp=uc_comp,
     u_components=u_components,
-    **NS_parameters,
+    **problem_parameters,
+    **NS_namespace,
 )
 
 # Create vectors of the segregated velocity components
 u_ = df.as_vector([q_[ui] for ui in u_components])  # Velocity vector at t
 u_1 = df.as_vector([q_1[ui] for ui in u_components])  # Velocity vector at t - dt
 u_2 = df.as_vector([q_2[ui] for ui in u_components])  # Velocity vector at t - 2*dt
-NS_parameters["u_"], NS_parameters["u_1"], NS_parameters["u_2"] = u_, u_1, u_2
+NS_namespace["u_"], NS_namespace["u_1"], NS_namespace["u_2"] = u_, u_1, u_2
 
 # Adams Bashforth projection of velocity at t - dt/2
 U_AB = 1.5 * u_1 - 0.5 * u_2
@@ -172,61 +181,76 @@ U_AB = 1.5 * u_1 - 0.5 * u_2
 x_ = dict((ui, q_[ui].vector()) for ui in sys_comp)  # Solution vectors t
 x_1 = dict((ui, q_1[ui].vector()) for ui in sys_comp)  # Solution vectors t - dt
 x_2 = dict((ui, q_2[ui].vector()) for ui in u_components)  # Solution vectors t - 2*dt
-NS_parameters["x_"], NS_parameters["x_1"], NS_parameters["x_2"] = x_, x_1, x_2
+NS_namespace["x_"], NS_namespace["x_1"], NS_namespace["x_2"] = x_, x_1, x_2
 
 # Create vectors to hold rhs of equations
 b = dict((ui, df.Vector(x_[ui])) for ui in sys_comp)  # rhs vectors (final)
 b_tmp = dict((ui, df.Vector(x_[ui])) for ui in sys_comp)  # rhs temp storage vectors
-NS_parameters["b"], NS_parameters["b_tmp"] = b, b_tmp
+NS_namespace["b"], NS_namespace["b_tmp"] = b, b_tmp
 
 # Short forms pressure and scalars
-NS_parameters["p_"] = q_["p"]  # pressure at t
-NS_parameters["p_1"] = q_1["p"]  # pressure at t - dt
-NS_parameters["dp_"] = dp_ = df.Function(Q)  # pressure correction
+NS_namespace["p_"] = q_["p"]  # pressure at t
+NS_namespace["p_1"] = q_1["p"]  # pressure at t - dt
+NS_namespace["dp_"] = dp_ = df.Function(Q)  # pressure correction
 for ci in scalar_components:
     exec("{}_   = q_ ['{}']".format(ci, ci))
     exec("{}_1  = q_1['{}']".format(ci, ci))
 
-krylov_solvers = NS_parameters["krylov_solvers"]
-use_krylov_solvers = NS_parameters["use_krylov_solvers"]
+krylov_solvers = problem_parameters["krylov_solvers"]
+use_krylov_solvers = problem_parameters["use_krylov_solvers"]
 print_solve_info = use_krylov_solvers and krylov_solvers["monitor_convergence"]
 
 # Boundary conditions
-NS_parameters["bcs"] = bcs = pblm.create_bcs(V=V)
+NS_namespace["bcs"] = bcs = pblm.create_bcs(**problem_parameters, **NS_namespace)
 
 # LES setup
-# TODO: make explicit
-pth = ".".join(("oasis.solvers.NSfracStep.LES", NS_parameters["les_model"]))
-lesmodel = importlib.import_module(pth)
+les_modelname = problem_parameters["les_model"]
+if les_modelname == "DynamicLagrangian":
+    import oasis.solvers.NSfracStep.LES.DynamicLagrangian as lesmodel
+elif les_modelname == "DynamicModules":
+    import oasis.solvers.NSfracStep.LES.DynamicModules as lesmodel
+elif les_modelname == "KineticEnergySGS":
+    import oasis.solvers.NSfracStep.LES.KineticEnergySGS as lesmodel
+elif les_modelname == "NoModel":
+    import oasis.solvers.NSfracStep.LES.NoModel as lesmodel
+elif les_modelname == "ScaleDepDynamicLagrangian":
+    import oasis.solvers.NSfracStep.LES.ScaleDepDynamicLagrangian as lesmodel
+elif les_modelname == "Smagorinsky":
+    import oasis.solvers.NSfracStep.LES.Smagorinsky as lesmodel
+elif les_modelname == "Wale":
+    import oasis.solvers.NSfracStep.LES.Wale as lesmodel
+
 les_dict = lesmodel.les_setup()  # FIXME: which dicts have to be passed?
-NS_parameters.update(les_dict)
+NS_namespace.update(les_dict)
 
 # Non-Newtonian setup
-# TODO: make explicit
-# exec("from oasis.solvers.NSfracStep.NNModel.{} import *".format(nn_model))
-pth = ".".join(("oasis.solvers.NSfracStep.NNModel", NS_parameters["nn_model"]))
-nnmodel = importlib.import_module(pth)
+nn_modelname = problem_parameters["nn_model"]
+if nn_modelname == "NoModel":
+    import oasis.solvers.NSfracStep.NNModel.NoModel as nnmodel
+elif nn_modelname == "ModifiedCross":
+    import oasis.solvers.NSfracStep.NNModel.ModifiedCross as nnmodel
+
 nn_dict = nnmodel.nn_setup()  # FIXME: which dicts have to be passed?
-NS_parameters.update(nn_dict)
+NS_namespace.update(nn_dict)
 
 # Initialize solution
-pblm.initialize(**NS_parameters)
+pblm.initialize(**NS_namespace)
 
 #  Fetch linear algebra solvers
-u_sol, p_sol, c_sol = solver.get_solvers(**NS_parameters)
+u_sol, p_sol, c_sol = solver.get_solvers(**problem_parameters, **NS_namespace)
 
 # Get constant body forces
-f = pblm.body_force(**NS_parameters)
+f = pblm.body_force(**NS_namespace)
 assert isinstance(f, Coefficient)
 b0 = dict((ui, df.assemble(v * f[i] * df.dx)) for i, ui in enumerate(u_components))
-NS_parameters["f"], NS_parameters["b0"] = f, b0
+NS_namespace["f"], NS_namespace["b0"] = f, b0
 
 # Get scalar sources
-fs = pblm.scalar_source(**NS_parameters)
+fs = pblm.scalar_source(**problem_parameters)
 for ci in scalar_components:
     assert isinstance(fs[ci], Coefficient)
     b0[ci] = df.assemble(v * fs[ci] * df.dx)
-NS_parameters["fs"] = fs
+NS_namespace["fs"] = fs
 
 # Preassemble and allocate
 # TODO: ut.XXX should not be passed but raather imported in solver.py
@@ -239,32 +263,34 @@ F_dict = solver.setup(
     NNsource=ut.NNsource,
     assemble_matrix=ut.assemble_matrix,
     u_components=u_components,
-    **NS_parameters,
+    **problem_parameters,
+    **NS_namespace,
 )
-NS_parameters.update(F_dict)
+NS_namespace.update(F_dict)
 
-t = NS_parameters["t"]
-tstep = NS_parameters["tstep"]
-T = NS_parameters["T"]
-max_iter = NS_parameters["max_iter"]
-it0 = NS_parameters["iters_on_first_timestep"]
-max_error = NS_parameters["max_error"]
-print_intermediate_info = NS_parameters["print_intermediate_info"]
-AB_projection_pressure = NS_parameters["AB_projection_pressure"]
+t = problem_parameters["t"]
+tstep = problem_parameters["tstep"]
+T = problem_parameters["T"]
+max_iter = problem_parameters["max_iter"]
+it0 = problem_parameters["iters_on_first_timestep"]
+max_error = problem_parameters["max_error"]
+print_intermediate_info = problem_parameters["print_intermediate_info"]
+AB_projection_pressure = problem_parameters["AB_projection_pressure"]
 
 # Anything problem specific
-psh_dict = pblm.pre_solve_hook(mesh=mesh, velocity_degree=velocity_degree)
-NS_parameters.update(psh_dict)
+psh_dict = pblm.pre_solve_hook(**problem_parameters, **NS_namespace)
+NS_namespace.update(psh_dict)
 
 tx = OasisTimer("Timestep timer")
 tx.start()
 stop = False
 total_timer = OasisTimer("Start simulations", True)
 while t < (T - tstep * df.DOLFIN_EPS) and not stop:
-    t += NS_parameters["dt"]
+    t += problem_parameters["dt"]
     tstep += 1
-    NS_parameters["t"] = t
-    NS_parameters["tstep"] = tstep
+    # TODO: maybe t and tstep should not be in any dictionary, since it changes
+    problem_parameters["t"] = t
+    problem_parameters["tstep"] = tstep
     inner_iter = 0
     udiff = np.array([1e8])  # Norm of velocity change over last inner iter
     num_iter = max(it0, max_iter) if tstep <= 10 else max_iter
@@ -275,28 +301,30 @@ while t < (T - tstep * df.DOLFIN_EPS) and not stop:
 
         t0 = OasisTimer("Tentative velocity")
         if inner_iter == 1:
-            lesmodel.les_update(**NS_parameters)
-            nnmodel.nn_update(**NS_parameters)
+            lesmodel.les_update(**NS_namespace)
+            nnmodel.nn_update(**NS_namespace)
             solver.assemble_first_inner_iter(
                 u_components=u_components,
-                **NS_parameters,
+                **problem_parameters,
+                **NS_namespace,
             )
         udiff[0] = 0.0
         for i, ui in enumerate(u_components):
             t1 = OasisTimer("Solving tentative velocity " + ui, print_solve_info)
-            solver.velocity_tentative_assemble(ui=ui, **NS_parameters)
-            pblm.velocity_tentative_hook(ui=ui, **NS_parameters)
+            solver.velocity_tentative_assemble(ui=ui, **NS_namespace)
+            pblm.velocity_tentative_hook(ui=ui, **NS_namespace)
             solver.velocity_tentative_solve(
                 udiff=udiff,
                 ui=ui,
                 u_sol=u_sol,
-                **NS_parameters,
+                **problem_parameters,
+                **NS_namespace,
             )
             t1.stop()
         t0 = OasisTimer("Pressure solve", print_solve_info)
-        solver.pressure_assemble(**NS_parameters)
-        pblm.pressure_hook(**NS_parameters)
-        solver.pressure_solve(p_sol=p_sol, **NS_parameters)
+        solver.pressure_assemble(**problem_parameters, **NS_namespace)
+        pblm.pressure_hook(**NS_namespace)
+        solver.pressure_solve(p_sol=p_sol, **NS_namespace)
         t0.stop()
 
         solver.print_velocity_pressure_info(
@@ -305,43 +333,40 @@ while t < (T - tstep * df.DOLFIN_EPS) and not stop:
             info_blue=info_blue,
             inner_iter=inner_iter,
             udiff=udiff,
-            **NS_parameters,
+            **problem_parameters,
+            **NS_namespace,
         )
 
     # Update velocity
     t0 = OasisTimer("Velocity update")
     solver.velocity_update(
         u_components=u_components,
-        **NS_parameters,
+        **problem_parameters,
+        **NS_namespace,
     )
     t0.stop()
 
     # Solve for scalars
     if len(scalar_components) > 0:
-        solver.scalar_assemble(
-            **NS_parameters,
-        )
+        solver.scalar_assemble(**problem_parameters, **NS_namespace)
         for ci in scalar_components:
             t1 = OasisTimer("Solving scalar {}".format(ci), print_solve_info)
             pblm.scalar_hook()  # FIXME: what do we need to pass here?
             solver.scalar_solve(
-                c_sol=c_sol,
-                ci=ci,
-                **NS_parameters,
+                c_sol=c_sol, ci=ci, **problem_parameters, **NS_namespace
             )
             t1.stop()
-    pblm.temporal_hook(**NS_parameters)
+    pblm.temporal_hook(**problem_parameters, **NS_namespace)
 
     # Save solution if required and check for killoasis file
     stop = io.save_solution(
-        newfolder=newfolder,
-        tstepfiles=tstepfiles,
         u_components=u_components,
-        NS_parameters=NS_parameters,
+        NS_parameters=problem_parameters,
         constrained_domain=pblm.constrained_domain,
         AssignedVectorFunction=ut.AssignedVectorFunction,
         total_timer=total_timer,
-        **NS_parameters,
+        **problem_parameters,
+        **NS_namespace,
     )
     # Update to a new timestep
     for ui in u_components:
@@ -388,15 +413,17 @@ info_red(
     + " MB (RSS)"
 )
 
-if NS_parameters["restart_folder"] is not None:
+if problem_parameters["restart_folder"] is not None:
     io.merge_visualization_files(newfolder=newfolder)
 
 # Final hook
-pblm.theend_hook(**NS_parameters)
+pblm.theend_hook(**problem_parameters, **NS_namespace)
 
 # F_dict.keys() = dict_keys(['A', 'M', 'K', 'Ap', 'divu', 'gradp', 'Ta', 'Tb', 'bb', 'bx', 'u_ab', 'a_conv', 'a_scalar', 'LT', 'KT', 'NT'])
 # nn_dict.keys() = dict_keys(['nunn_'])
 # les_dict.keys() = dict_keys(['nut_'])
 # quantities.keys() = dict_keys(['u', 'u_', 'u_1', 'u_2', 'x_', 'x_1', 'x_2', 'b', 'b_tmp', 'p', 'p_', 'p_1', 'dp_', 'q', 'q_', 'q_1', 'q_2', 'v', 'V', 'Q', 'f', 'fs', 'bcs', 'b0'])
+# NS_parameters.keys() = dict_keys(['nu', 'folder', 'velocity_degree', 'pressure_degree', 't', 'tstep', 'T', 'dt', 'AB_projection_pressure', 'solver', 'max_iter', 'max_error', 'iters_on_first_timestep', 'use_krylov_solvers', 'print_intermediate_info', 'print_velocity_pressure_convergence', 'plot_interval', 'checkpoint', 'save_step', 'restart_folder', 'output_timeseries_as_vector', 'killtime', 'les_model', 'Smagorinsky', 'Wale', 'DynamicSmagorinsky', 'KineticEnergySGS', 'nn_model', 'ModifiedCross', 'testing', 'krylov_solvers', 'velocity_update_solver', 'velocity_krylov_solver', 'pressure_krylov_solver', 'scalar_krylov_solver', 'nut_krylov_solver', 'nu_nn_krylov_solver'])
+# psh_dict.keys() = dict_keys(['uv'])
 # NS_parameters.keys() = dict_keys(['nu', 'folder', 'velocity_degree', 'pressure_degree', 't', 'tstep', 'T', 'dt', 'AB_projection_pressure', 'solver', 'max_iter', 'max_error', 'iters_on_first_timestep', 'use_krylov_solvers', 'print_intermediate_info', 'print_velocity_pressure_convergence', 'plot_interval', 'checkpoint', 'save_step', 'restart_folder', 'output_timeseries_as_vector', 'killtime', 'les_model', 'Smagorinsky', 'Wale', 'DynamicSmagorinsky', 'KineticEnergySGS', 'nn_model', 'ModifiedCross', 'testing', 'krylov_solvers', 'velocity_update_solver', 'velocity_krylov_solver', 'pressure_krylov_solver', 'scalar_krylov_solver', 'nut_krylov_solver', 'nu_nn_krylov_solver'])
 # psh_dict.keys() = dict_keys(['uv'])

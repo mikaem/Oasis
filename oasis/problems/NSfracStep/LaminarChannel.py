@@ -26,6 +26,7 @@ from oasis.problems.NSfracStep import (
     pressure_hook,
     start_timestep_hook,
     temporal_hook,
+    default_parameters,
 )
 
 # from oasis.problems.LaminarChannel import mesh
@@ -56,6 +57,10 @@ def get_problem_parameters(**kwargs):
         velocity_degree=1,
         use_krylov_solvers=False,
     )
+    # set default parameters
+    for key, val in default_parameters.items():
+        if key not in NS_parameters.keys():
+            NS_parameters[key] = val
 
     NS_expressions = dict(constrained_domain=PeriodicDomain(L))
     return NS_parameters, NS_expressions

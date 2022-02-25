@@ -41,6 +41,7 @@ from oasis.problems.NSfracStep import (
     pressure_hook,
     start_timestep_hook,
     temporal_hook,
+    default_parameters,
 )
 
 # from oasis.problems.EccentricStenosis import mesh
@@ -90,6 +91,10 @@ def get_problem_parameters(**kwargs):
         print_intermediate_info=100,
         print_velocity_pressure_convergence=False,
     )
+    # set default parameters
+    for key, val in default_parameters.items():
+        if key not in NS_parameters.keys():
+            NS_parameters[key] = val
 
     average_inlet_velocity = get_ave_inlet_velocity(
         NS_parameters["Re"], NS_parameters["nu"], NS_parameters["D"]

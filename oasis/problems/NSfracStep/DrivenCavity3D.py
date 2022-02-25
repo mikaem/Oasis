@@ -24,6 +24,7 @@ from oasis.problems.NSfracStep import (
     pressure_hook,
     start_timestep_hook,
     temporal_hook,
+    default_parameters,
 )
 
 # from oasis.problems.DrivenCavity3D import mesh
@@ -46,7 +47,10 @@ def get_problem_parameters(**kwargs):
         print_intermediate_info=100,
         use_krylov_solvers=True,
     )
-
+    # set default parameters
+    for key, val in default_parameters.items():
+        if key not in NS_parameters.keys():
+            NS_parameters[key] = val
     NS_expressions = dict(constrained_domain=PeriodicDomain())
     return NS_parameters, NS_expressions
 

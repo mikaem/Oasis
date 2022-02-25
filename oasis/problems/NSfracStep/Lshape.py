@@ -24,6 +24,7 @@ from oasis.problems.NSfracStep import (
     pressure_hook,
     start_timestep_hook,
     temporal_hook,
+    default_parameters,
 )
 
 # from oasis.problems.Lshape import mesh
@@ -55,6 +56,10 @@ def get_problem_parameters(**kwargs):
         degree = kwargs["pressure_degree"]
     else:
         degree = NS_parameters["pressure_degree"]
+    # set default parameters
+    for key, val in default_parameters.items():
+        if key not in NS_parameters.keys():
+            NS_parameters[key] = val
 
     NS_expressions = dict(p_in=df.Expression("sin(pi*t)", t=0.0, degree=degree))
     return NS_parameters, NS_expressions

@@ -82,25 +82,25 @@ def create_initial_folders(
     return newfolder, tstepfiles
 
 
-# TODO: dont pass NS_parameters, but rather all
+# FIXME
 def save_solution(
-    tstep,
-    t,
+    tstep,  # is in NS_parameters
+    t,  # is in NS_parameters
     q_,
     q_1,
-    folder,
+    folder,  # is in NS_parameters
     newfolder,
-    save_step,
+    save_step,  # is in NS_parameters
     checkpoint,
     NS_parameters,
     tstepfiles,
     u_,
     u_components,
-    scalar_components,
-    output_timeseries_as_vector,
+    scalar_components,  # is in NS_parameters
+    output_timeseries_as_vector,  # is in NS_parameters
     constrained_domain,
-    AssignedVectorFunction,  # TODO: why is this an argument? it can be imported from utilities
-    killtime,
+    AssignedVectorFunction,  # it can be imported from utilities
+    killtime,  # is in NS_parameters
     total_timer,
     **NS_namespace
 ):
@@ -108,16 +108,16 @@ def save_solution(
     NS_parameters.update(t=t, tstep=tstep)
     if tstep % save_step == 0:
         save_tstep_solution_h5(
-            tstep,
+            tstep,  # is in NS_parameters
             q_,
             u_,
             newfolder,
             tstepfiles,
             constrained_domain,
-            output_timeseries_as_vector,
+            output_timeseries_as_vector,  # is in NS_parameters
             u_components,
-            AssignedVectorFunction,
-            scalar_components,
+            AssignedVectorFunction,  # it can be imported from utilities
+            scalar_components,  # is in NS_parameters
             NS_parameters,
         )
 
@@ -135,17 +135,18 @@ def save_solution(
     return killoasis
 
 
+# FIXME
 def save_tstep_solution_h5(
-    tstep,
+    tstep,  # is in NS_parameters
     q_,
     u_,
     newfolder,
     tstepfiles,
     constrained_domain,
-    output_timeseries_as_vector,
+    output_timeseries_as_vector,  # is in NS_parameters
     u_components,
-    AssignedVectorFunction,
-    scalar_components,
+    AssignedVectorFunction,  # it can be imported from utilities
+    scalar_components,  # is in NS_parameters
     NS_parameters,
 ):
     """Store solution on current timestep to XDMF file."""

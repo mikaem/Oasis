@@ -10,6 +10,7 @@ from os import getpid, path
 from collections import defaultdict
 from numpy import array, maximum, zeros
 
+
 # UnitSquareMesh(20, 20) # Just due to MPI bug on Scinet
 
 # try:
@@ -207,7 +208,12 @@ def get_problem_parameters(**NS_namespace):
 def post_import_problem(NS_parameters, NS_expressions, mesh, commandline_kwargs):
     """Called after importing from problem."""
 
-    # Update NS_parameters with all parameters modified through command line
+    # # set default parameters
+    # for key, val in NS_parameters.items():
+    #     if key not in NS_parameters.keys():
+    #         NS_parameters[key] = val
+
+    # Update NS_namespace with all parameters modified through command line
     for key, val in commandline_kwargs.items():
         if key not in NS_parameters.keys():
             raise KeyError("unknown key", key)
@@ -216,15 +222,37 @@ def post_import_problem(NS_parameters, NS_expressions, mesh, commandline_kwargs)
         else:
             NS_parameters[key] = val
 
+    NS_parameters.update(NS_expressions)
+
     # If the mesh is a callable function, then create the mesh here.
     if callable(mesh):
         mesh = mesh(**NS_parameters)
-
     assert isinstance(mesh, df.Mesh)
 
-    # Returned dictionary to be updated in the NS namespace
-    NS_parameters["mesh"] = mesh
-    # d = dict(mesh=mesh)
-    # d.update(NS_parameters)
-    NS_expressions.update(NS_expressions)
-    return NS_expressions
+    # split :
+    # this is the dictionary that will be saved, it should not be changed
+    problem_parameters = {}  # problem specific parameters
+    NS_namespace = {}  # objects, functions, ... that are needed to solve the problem
+    NS_namespace["mesh"] = mesh
+
+    for key, val in NS_parameters.items():
+        if type(val) in [str, bool, type(None), float, int]:
+            problem_parameters[key] = val
+        elif type(val) == dict:
+            k0 = list(val.keys())[0]
+            if type(val[k0]) in [str, bool, type(None), float, int]:
+                problem_parameters[key] = val
+            else:
+                print(key, val)
+                NS_namespace[key] = val
+        elif type(val) == list:
+            k0 = val[0]
+            if type(val[0]) in [str, bool, type(None), float, int]:
+                problem_parameters[key] = val
+            else:
+                print(key, val)
+                NS_namespace[key] = val
+        else:
+            print(key, val)
+            NS_namespace[key] = val
+    return NS_namespace, problem_parameters

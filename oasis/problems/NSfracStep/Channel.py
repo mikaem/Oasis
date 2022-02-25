@@ -23,10 +23,12 @@ from oasis.problems import (
     create_bcs,
 )
 from oasis.problems.NSfracStep import (
+    default_parameters,
     velocity_tentative_hook,
     pressure_hook,
     start_timestep_hook,
     temporal_hook,
+    default_parameters,
 )
 
 # from oasis.problems.Channel import mesh
@@ -85,6 +87,10 @@ def get_problem_parameters(**kwargs):
         )
 
         NS_expressions = dict(constrained_domain=PeriodicDomain(Lx, Lz))
+        # set default parameters
+        for key, val in default_parameters.items():
+            if key not in NS_parameters.keys():
+                NS_parameters[key] = val
     return NS_parameters, NS_expressions
 
 

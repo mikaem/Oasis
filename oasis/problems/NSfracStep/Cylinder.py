@@ -22,13 +22,26 @@ from oasis.problems import (
     post_import_problem,
     create_bcs,
 )
+import oasis.common.utilities as ut
 from oasis.problems.NSfracStep import (
     velocity_tentative_hook,
     pressure_hook,
     start_timestep_hook,
     temporal_hook,
+    default_parameters,
 )
-from oasis.problems.Cylinder import mesh, Inlet, Cyl, Wall, Outlet, center, cases, D
+from oasis.problems.Cylinder import (
+    mesh,
+    Inlet,
+    Cyl,
+    Wall,
+    Outlet,
+    center,
+    cases,
+    H,
+    L,
+    D,
+)
 from dolfin import (
     Expression,
     DirichletBC,
@@ -47,6 +60,7 @@ from dolfin import (
     curl,
     DomainBoundary,
     Point,
+    ds,
 )
 from os import getcwd, path
 import pickle
@@ -81,6 +95,9 @@ def get_problem_parameters(**kwargs):
             Re=Re,
             Umean=Umean,
             nu=Umean * D / Re,
+            H=H,
+            L=L,
+            D=D,
             T=100,
             dt=0.01,
             checkpoint=50,
@@ -90,12 +107,15 @@ def get_problem_parameters(**kwargs):
             print_intermediate_info=100,
             use_krylov_solvers=True,
         )
-        # FIXME:
         NS_parameters["krylov_solvers"] = dict(monitor_convergence=True)
 
         NS_parameters["velocity_krylov_solver"] = dict(
             preconditioner_type="jacobi", solver_type="bicgstab"
         )
+        # set default parameters
+        for key, val in default_parameters.items():
+            if key not in NS_parameters.keys():
+                NS_parameters[key] = val
 
     NS_expressions = {}
     return NS_parameters, NS_expressions
@@ -128,21 +148,21 @@ def pre_solve_hook(
     newfolder,
     tstepfiles,
     tstep,
-    ds,
+    # ds,  # defined in dolfin -> import
     u_,
-    AssignedVectorFunction,
+    # AssignedVectorFunction,  # defined in utilities -> import
     **NS_namespace
 ):
-    uv = AssignedVectorFunction(u_, name="Velocity")
+    uv = ut.AssignedVectorFunction(u_, name="Velocity")
     omega = Function(V, name="omega")
     # Store omega each save_step
     add_function_to_tstepfiles(omega, newfolder, tstepfiles, tstep)
     ff = MeshFunction("size_t", mesh, mesh.ufl_cell().geometric_dimension() - 1)
     Cyl.mark(ff, 1)
     n = FacetNormal(mesh)
-    ds = ds[ff]
+    ds_ = ds[ff]
 
-    return dict(uv=uv, omega=omega, ds=ds, ff=ff, n=n)
+    return dict(uv=uv, omega=omega, ds=ds_, ff=ff, n=n)
 
 
 def temporal_hook(

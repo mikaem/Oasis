@@ -25,6 +25,7 @@ from oasis.problems.NSfracStep import (
     pressure_hook,
     start_timestep_hook,
     temporal_hook,
+    default_parameters,
 )
 import numpy as np
 
@@ -65,6 +66,10 @@ def get_problem_parameters(**kwargs):
         "relative_tolerance": 1e-12,
         "absolute_tolerance": 1e-12,
     }
+    # set default parameters
+    for key, val in default_parameters.items():
+        if key not in NS_parameters.keys():
+            NS_parameters[key] = val
     NS_expressions = dict(
         dict(
             constrained_domain=PeriodicDomain(),
