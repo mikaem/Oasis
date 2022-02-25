@@ -246,8 +246,11 @@ def post_import_problem(NS_parameters, NS_expressions, mesh, commandline_kwargs)
                 print(key, val)
                 NS_namespace[key] = val
         elif type(val) == list:
-            k0 = val[0]
-            if type(val[0]) in [str, bool, type(None), float, int]:
+            if len(val) == 0:
+                problem_parameters[key] = val
+            elif (len(val) == 0) | (
+                type(val[0]) in [str, bool, type(None), float, int]
+            ):
                 problem_parameters[key] = val
             else:
                 print(key, val)

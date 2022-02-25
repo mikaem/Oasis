@@ -5,14 +5,97 @@ __date__ = "2014-04-04"
 __copyright__ = "Copyright (C) 2014 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
-from ..NSCoupled import *
-from ..Cylinder import *
 
-# Override some problem specific parameters
-def problem_parameters(NS_parameters, scalar_components, **NS_namespace):
-    NS_parameters.update(omega=1.0, max_iter=100, plot_interval=10, velocity_degree=2)
+from oasis.problems import (
+    add_function_to_tstepfiles,
+    constrained_domain,
+    scalar_components,
+    Schmidt,
+    Schmidt_T,
+    body_force,
+    initialize,
+    scalar_hook,
+    scalar_source,
+    pre_solve_hook,
+    theend_hook,
+    get_problem_parameters,
+    post_import_problem,
+    create_bcs,
+)
+import oasis.common.utilities as ut
+from oasis.problems.NSCoupled import (
+    NS_hook,
+    start_iter_hook,
+    end_iter_hook,
+    default_parameters,
+)
+from oasis.problems.Cylinder import (
+    mesh,
+    Inlet,
+    Cyl,
+    Wall,
+    Outlet,
+    center,
+    cases,
+    H,
+    L,
+    D,
+)
+from dolfin import (
+    Expression,
+    DirichletBC,
+    Function,
+    MeshFunction,
+    FacetNormal,
+    plot,
+    TestFunction,
+    Identity,
+    VectorFunctionSpace,
+    grad,
+    dot,
+    assemble,
+    project,
+    DirichletBC,
+    curl,
+    DomainBoundary,
+    Point,
+    ds,
+    Constant,
+    div,
+    dx,
+)
+from os import getcwd, path
+import pickle
+import matplotlib.pyplot as plt
 
-    scalar_components += ["c", "d"]
+
+def get_problem_parameters(**kwargs):
+    case = kwargs["case"] if "case" in kwargs else 1
+    Um = cases[case]["Um"]
+    Re = cases[case]["Re"]
+    Umean = 2.0 / 3.0 * Um
+    NS_parameters = dict(
+        scalar_components=scalar_components + ["c", "d"],
+        Schmidt=Schmidt,
+        Schmidt_T=Schmidt_T,
+        Um=Um,
+        Re=Re,
+        Umean=Umean,
+        H=H,
+        L=L,
+        D=D,
+        nu=Umean * D / Re,
+        omega=1.0,
+        max_iter=100,
+        plot_interval=10,
+        velocity_degree=2,
+    )
+
+    # set default parameters
+    for key, val in default_parameters.items():
+        if key not in NS_parameters.keys():
+            NS_parameters[key] = val
+    return NS_parameters
 
 
 def scalar_source(c_, d_, **NS_namespace):

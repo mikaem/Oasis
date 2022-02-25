@@ -3,10 +3,13 @@ __date__ = "2014-04-09"
 __copyright__ = "Copyright (C) 2014 " + __author__
 __license__ = "GNU Lesser GPL version 3 or any later version"
 
-from oasis.problems import *
 
 # Default parameters NSCoupled solver
-NS_parameters.update(
+default_parameters = dict(
+    nu=0.01,  # Kinematic viscosity
+    folder="results",  # Relative folder for storing results
+    velocity_degree=2,  # default velocity degree
+    pressure_degree=1,  # default pressure degree
     # Solver parameters
     omega=1.0,  # Underrelaxation factor
     # Some discretization options
