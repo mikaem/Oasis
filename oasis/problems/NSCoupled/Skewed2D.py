@@ -9,11 +9,8 @@ from ..Skewed2D import *
 # Override some problem specific parameters
 def problem_parameters(NS_parameters, **NS_namespace):
     NS_parameters.update(
-        nu=0.1,
-        omega=1.0,
-        plot_interval=10,
-        max_iter=100,
-        max_error=1e-12)
+        nu=0.1, omega=1.0, plot_interval=10, max_iter=100, max_error=1e-12
+    )
 
 
 def create_bcs(VQ, mesh, **NS_namespace):
@@ -24,5 +21,5 @@ def create_bcs(VQ, mesh, **NS_namespace):
 
 
 def theend_hook(u_, p_, **NS_namespace):
-    plot(u_, title='Velocity')
-    plot(p_, title='Pressure')
+    plot(u_, title="Velocity")
+    plot(p_, title="Pressure")

@@ -5,31 +5,32 @@ __license__ = "GNU Lesser GPL version 3 or any later version"
 
 from ..NSCoupled import *
 from ..SkewedFlow import *
+
 # set_log_active(False)
 
 # Override some problem specific parameters
 def problem_parameters(NS_parameters, **NS_namespace):
     NS_parameters.update(
-        nu=0.1,
-        omega=1.0,
-        plot_interval=10,
-        max_iter=100,
-        max_error=1e-12)
+        nu=0.1, omega=1.0, plot_interval=10, max_iter=100, max_error=1e-12
+    )
 
 
 def create_bcs(V, VQ, mesh, **NS_namespace):
     # Create inlet profile by solving Poisson equation on boundary
-    bmesh = BoundaryMesh(mesh, 'exterior')
-    cc = MeshFunction('size_t', bmesh, bmesh.topology().dim(), 0)
+    bmesh = BoundaryMesh(mesh, "exterior")
+    cc = MeshFunction("size_t", bmesh, bmesh.topology().dim(), 0)
     ii = AutoSubDomain(inlet)
     ii.mark(cc, 1)
     smesh = SubMesh(bmesh, cc, 1)
-    Vu = FunctionSpace(smesh, 'CG', 1)
+    Vu = FunctionSpace(smesh, "CG", 1)
     su = Function(Vu)
     us = TrialFunction(Vu)
     vs = TestFunction(Vu)
-    solve(inner(grad(us), grad(vs)) * dx == Constant(10.0) * vs * dx, su,
-          bcs=[DirichletBC(Vu, Constant(0), DomainBoundary())])
+    solve(
+        inner(grad(us), grad(vs)) * dx == Constant(10.0) * vs * dx,
+        su,
+        bcs=[DirichletBC(Vu, Constant(0), DomainBoundary())],
+    )
 
     # Wrap the boundary function in an Expression to avoid the need to interpolate it back to V
     class MyExp(UserExpression):
@@ -50,5 +51,5 @@ def create_bcs(V, VQ, mesh, **NS_namespace):
 
 
 def theend_hook(u_, p_, **NS_namespace):
-    plot(u_, title='Velocity')
-    plot(p_, title='Pressure')
+    plot(u_, title="Velocity")
+    plot(p_, title="Pressure")

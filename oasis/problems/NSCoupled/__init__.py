@@ -8,19 +8,15 @@ from oasis.problems import *
 # Default parameters NSCoupled solver
 NS_parameters.update(
     # Solver parameters
-    omega=1.0,           # Underrelaxation factor
-
+    omega=1.0,  # Underrelaxation factor
     # Some discretization options
-    solver="default",    # "default", "naive"
-
+    solver="default",  # "default", "naive"
     # Parameters used to tweek solver
-    max_iter=10,         # Maximum number of iterations
-    max_error=1e-8,      # Tolerance for absolute error
+    max_iter=10,  # Maximum number of iterations
+    max_error=1e-8,  # Tolerance for absolute error
     print_velocity_pressure_convergence=False,
-
     # Parameter set when enabling test mode
     testing=False,
-
     # Parameters used to tweek output
     plot_interval=10,
     output_timeseries_as_vector=True,  # Store velocity as vector in Timeseries
@@ -33,6 +29,7 @@ def NS_hook(**NS_namespace):
 
 def start_iter_hook(**NS_namespace):
     pass
+
 
 def end_iter_hook(**NS_namespace):
     pass

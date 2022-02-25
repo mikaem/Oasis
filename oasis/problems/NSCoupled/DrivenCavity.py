@@ -8,9 +8,7 @@ from ..DrivenCavity import *
 
 # Override some problem specific parameters
 def problem_parameters(NS_parameters, **NS_namespace):
-    NS_parameters.update(
-        nu=0.002,
-        max_iter=100)
+    NS_parameters.update(nu=0.002, max_iter=100)
 
 
 # Specify boundary conditions
@@ -21,14 +19,15 @@ def create_bcs(VQ, **NS_namespace):
 
 
 def theend_hook(u_, p_, mesh, **NS_namespace):
-    plot(u_, title='Velocity')
-    plot(p_, title='Pressure')
+    plot(u_, title="Velocity")
+    plot(p_, title="Pressure")
 
     try:
         from fenicstools import StreamFunction
         import matplotlib.pyplot as plt
+
         psi = StreamFunction(u_, [], mesh, use_strong_bc=True)
-        plot(psi, title='Streamfunction')
+        plot(psi, title="Streamfunction")
         plt.show()
     except:
         pass
