@@ -259,3 +259,68 @@ def post_import_problem(NS_parameters, NS_expressions, mesh, commandline_kwargs)
             print(key, val)
             NS_namespace[key] = val
     return NS_namespace, problem_parameters
+
+
+class Domain:
+    def __init__(self):
+        #
+        return
+
+    def get_problem_parameters(self):
+        raise NotImplementedError()
+
+    def scalar_source(self):
+        self.scalar_components
+        return dict((ci, df.Constant(0)) for ci in scalar_components)
+
+    def create_bcs(self):
+        sys_comp = self.sys_comp
+        return dict((ui, []) for ui in sys_comp)
+
+    def initialize(self):
+        raise NotImplementedError()
+
+    def body_force(self):
+        """Specify body force"""
+        mesh = self.mesh
+        return df.Constant((0,) * mesh.geometry().dim())
+
+    def pre_solve_hook(self):
+        raise NotImplementedError()
+
+    def scalar_hook(self):
+        raise NotImplementedError()
+
+    def theend_hook(self):
+        raise NotImplementedError()
+
+    def recommend_dt(self):
+        Cmax = 0.05
+        dt = Cmax * self.mesh.hmin() / self.Umean
+        print("recommended dt =", dt)
+        return dt
+
+    def set_parameters_from_commandline(self, commandline_kwargs):
+        # Update NS_namespace with all parameters modified through command line
+        for key, val in commandline_kwargs.items():
+            setattr(self, key, commandline_kwargs[key])
+            if key not in self.__dict__.keys():
+                raise KeyError("unknown key", key)
+            elif isinstance(val, dict):
+                setattr(self, key, commandline_kwargs[key])
+            else:
+                setattr(self, key, commandline_kwargs[key])
+        return
+
+    def show_info(self, t, tstep, toc):
+
+        info_green(
+            "Time = {0:2.4e}, timestep = {1:6d}, End time = {2:2.4e}".format(
+                t, tstep, self.T
+            )
+        )
+        info_red(
+            "Total computing time on previous {0:d} timesteps = {1:f}".format(
+                self.print_intermediate_info, toc
+            )
+        )
