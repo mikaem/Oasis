@@ -9,11 +9,10 @@ from os import getcwd, makedirs
 import pickle
 import random
 from pprint import pprint
-from fenicstools import interpolate_nonmatching_mesh_any
 
 """
 This script is written for simulating turbulent flow in a straight pipe.
-We assume that the axial directon is x direction in this script. 
+We assume that the axial directon is x direction in this script.
 """
 
 def problem_parameters(commandline_kwargs, NS_parameters, NS_expressions, **NS_namespace):
@@ -35,7 +34,7 @@ def problem_parameters(commandline_kwargs, NS_parameters, NS_expressions, **NS_n
         nu = 1/7*1.e-3
         Re_tau = 180
         NS_parameters.update(
-            save_solution_after_tstep = 150000,
+            save_solution_after_tstep = 100000,
             save_solution_step = 5,
             checkpoint=1000,
             utau = nu * Re_tau / (D/2),
@@ -71,11 +70,8 @@ class PeriodicDomain(SubDomain):
 def body_force(utau, D, **NS_namespace):
     return Constant((4*(utau**2)/D, 0., 0.))
 
-def pre_solve_hook(mesh, restart_folder, velocity_degree, newfolder, MPI, **NS_namespace):
+def pre_solve_hook(mesh, V, velocity_degree, newfolder, MPI, **NS_namespace):
     """Called prior to time loop"""
-    if MPI.rank(MPI.comm_world) == 0:
-        makedirs(path.join(newfolder, "Outlet"))
-
     if MPI.rank(MPI.comm_world) == 0:
         makedirs(path.join(newfolder, "Solutions"))
 
@@ -93,21 +89,18 @@ def pre_solve_hook(mesh, restart_folder, velocity_degree, newfolder, MPI, **NS_n
     Vv = VectorFunctionSpace(mesh, "CG", velocity_degree)
     U = Function(Vv)
 
-    # create path for saving velocioties at the outlet 
-    out_let_path = path.join(newfolder, "Outlet")
-    u0_outlet_path = path.join(out_let_path, "u0_outlet.h5")
-    u1_outlet_path = path.join(out_let_path, "u1_outlet.h5")
-    u2_outlet_path = path.join(out_let_path, "u2_outlet.h5")
-    outlet_files = {"u0_outlet": u0_outlet_path, "u1_outlet": u1_outlet_path, "u2_outlet": u2_outlet_path}
-   
-    Vu = FunctionSpace(outlet_mesh, "CG", velocity_degree)
-    
-    return dict(outlet_files=outlet_files, solution_files=solution_files, U=U, Vu=Vu)
+    # Functions for saving the mean velocity
+    u_mean = Function(Vv)
+    u_mean0 = Function(V)
+    u_mean1 = Function(V)
+    u_mean2 = Function(V)
+
+    return dict(solution_files=solution_files, U=U, u_mean=u_mean, u_mean0=u_mean0, u_mean1=u_mean1, u_mean2=u_mean2)
 
 def create_bcs(V, sys_comp, **NS_namespace):
-
     info_red("Creating boundary conditions")
     bcs = dict((ui, []) for ui in sys_comp)
+    # The following numbering should be consistent with the numbering in the mesh file (mf.xdmf)
     bc_dict = {"inlet":1, "outlet":2, "wall":3}
     bc = [DirichletBC(V, Constant(0), mf, bc_dict["wall"])]
     bcs['u0'] = bc
@@ -119,6 +112,7 @@ class RandomStreamVector(UserExpression):
     random.seed(2 + MPI.rank(MPI.comm_world))
 
     def eval(self, values, x):
+        # Here we use 0.01 to create random velocity field, but it can be changed and is problem/mesh dependent
         values[0] = 0.01 * random.random() 
         values[1] = 0.01 * random.random()
         values[2] = 0.01 * random.random()
@@ -148,39 +142,11 @@ def initialize(V, q_1, q_2, utau, D, Lx, bcs, restart_folder, nu, **NS_namespace
          q_2['u1'].vector()[:] = q_1['u1'].vector()[:]
          q_2['u2'].vector()[:] = q_1['u2'].vector()[:]
 
-def temporal_hook(u_, p_, Vu, tstep, outlet_files, save_solution_after_tstep, save_solution_step, U, solution_files, u_mean0, u_mean1, u_mean2,
+def temporal_hook(u_, p_, tstep, save_solution_after_tstep, save_solution_step, U, solution_files, u_mean0, u_mean1, u_mean2,
                  **NS_namespace): 
-
-    if tstep >= save_solution_after_tstep:
-         # save velocity at outlet  / first we interpolate u_ into Vu which is defined on the bmesh (outlet)
-        u0_outlet = interpolate_nonmatching_mesh_any(u_[0], Vu)
-        u1_outlet = interpolate_nonmatching_mesh_any(u_[1], Vu)
-        u2_outlet = interpolate_nonmatching_mesh_any(u_[2], Vu) 
-
-        if MPI.rank(MPI.comm_world) == 0:
-            print("u1 outlet = ", u1_outlet.vector().get_local()[100])
-        
-        # Save velocity at outlet
-        u0_path = outlet_files["u0_outlet"]
-        u1_path = outlet_files["u1_outlet"]
-        u2_path = outlet_files["u2_outlet"]
-
-        # Save velocity at the outlet of the mesh. They will be used as inlet profile of coilped pipe
-        file_mode = "w" if tstep == save_solution_after_tstep else "a"
-
-        u0_hdf5_file = HDF5File(MPI.comm_world, u0_path, file_mode=file_mode)
-        u0_hdf5_file.write(u0_outlet,"/velocity", tstep)
-        u0_hdf5_file.close()
-        u1_hdf5_file = HDF5File(MPI.comm_world, u1_path, file_mode=file_mode)
-        u1_hdf5_file.write(u1_outlet,"/velocity", tstep)
-        u1_hdf5_file.close()
-        u2_hdf5_file = HDF5File(MPI.comm_world, u2_path, file_mode=file_mode)
-        u2_hdf5_file.write(u2_outlet,"/velocity", tstep)
-        u2_hdf5_file.close()
-
-        
-     # save velocity and pressure in the entire domain
+    # save velocity and pressure in the entire domain
     if tstep % save_solution_step == 0 and tstep >= save_solution_after_tstep:
+        file_mode = "w" if tstep == save_solution_after_tstep else "a"
         # Assign velocity components to vector solution
         assign(U.sub(0), u_[0])
         assign(U.sub(1), u_[1])
@@ -202,16 +168,16 @@ def temporal_hook(u_, p_, Vu, tstep, outlet_files, save_solution_after_tstep, sa
         u_mean2.vector().axpy(1, u_[2].vector())
 
 def theend_hook(newfolder, u_mean, u_mean0, u_mean1, u_mean2, T, dt, save_solution_after_tstep, save_solution_step, **NS_namespace):
+    # Compute mean velocity
     path_to_u_mean = path.join(newfolder, "Solutions", "u_mean.h5")
     NumTStepForAverage = (T/dt - save_solution_after_tstep) / save_solution_step + 1
     u_mean0.vector()[:] = u_mean0.vector()[:] /  NumTStepForAverage 
     u_mean1.vector()[:] = u_mean1.vector()[:] /  NumTStepForAverage 
     u_mean2.vector()[:] = u_mean2.vector()[:] /  NumTStepForAverage 
-
+    # Assign velocity components to vector solution
     assign(u_mean.sub(0), u_mean0)
     assign(u_mean.sub(1), u_mean1)
     assign(u_mean.sub(2), u_mean2)
-
     # check flux at the outlet / Volume flow rate  is the same as mean bulk velocity
     normal = FacetNormal(mesh)
     ds_outlet =  Measure("ds", domain=mesh, subdomain_data=mf, subdomain_id=2)
