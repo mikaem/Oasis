@@ -21,7 +21,7 @@ import sys
 
 def setup(u, q_, q_1, uc_comp, u_components, dt, v, U_AB, u_1, u_2, q_2,
           nu, p_, p_1, dp_, mesh, f, fs, q, p, u_, Schmidt, Schmidt_T, les_model, nut_,
-          scalar_components, boundary, backflow_facets, backflow_beta, **NS_namespace):
+          scalar_components,**NS_namespace):
     
     """Set up all equations to be solved."""
     # Implicit Crank Nicolson velocity at t - dt/2
