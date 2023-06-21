@@ -4,7 +4,7 @@ import numpy as np
 """
 Author : Kei Yamamoto <keiya@math.uio.no>
 Here, we assume that mesh files are placed inside mesh folder. 
-You can download mesh file from https://drive.google.com/drive/folders/1YWCEOJ5vnuNpcLkpiofD54xi56QH1cLQ?usp=sharing
+You can download mesh file from https://drive.google.com/drive/folders/1udtEhv1GFOFq3O7fE-TsQHkUk8Oayhsk?usp=sharing
 """
 
 mesh = Mesh()
@@ -19,19 +19,6 @@ with XDMFFile(MPI.comm_world, "mesh/StraightPipe/mf.xdmf") as infile:
 
 mf = cpp.mesh.MeshFunctionSizet(mesh, mvc)
 dx = Measure("dx")(subdomain_data=mf)
-
-# create mesh functions for the outlet mesh
-outlet_mesh = Mesh()
-outlet_mvc = MeshValueCollection("size_t", outlet_mesh, outlet_mesh.topology().dim())
-with XDMFFile(MPI.comm_world, "mesh/Outlet/mesh.xdmf") as outlet_infile:
-   outlet_infile.read(outlet_mesh)
-   outlet_infile.read(outlet_mvc, "name_to_read")
-
-outlet_mvc = MeshValueCollection("size_t", outlet_mesh, outlet_mesh.topology().dim()-1)
-with XDMFFile(MPI.comm_world, "mesh/Outlet/mf.xdmf") as outlet_infile:
-    outlet_infile.read(outlet_mvc, "name_to_read")
-
-outlet_mf = cpp.mesh.MeshFunctionSizet(outlet_mesh, outlet_mvc)
 
 comm = MPI.comm_world
 local_xmin = mesh.coordinates()[:, 0].min()
