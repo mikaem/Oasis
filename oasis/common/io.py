@@ -288,4 +288,5 @@ def merge_xml_files(files):
     base_tree.write(new_file[0], xml_declaration=True)
 
     # Delete xdmf file
-    [remove(f) for f in old_files]
+    if MPI.rank(MPI.comm_world) == 0:
+        [remove(f) for f in old_files]
