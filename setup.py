@@ -3,7 +3,7 @@
 from setuptools import setup
 
 # Version number
-major = 2018
+major = 2019
 minor = 1
 
 setup(name = "oasis",
