@@ -3,7 +3,7 @@ jobs:
   build:
     machine: true
     environment: 
-      FENICS_VERSION: 2018.1
+      FENICS_VERSION: 2019.1
     steps:
       - checkout
 
