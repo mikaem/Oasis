@@ -8,6 +8,8 @@ import subprocess
 from os import getpid, path
 from collections import defaultdict
 from numpy import array, maximum, zeros
+import resource
+import shutil
 
 # UnitSquareMesh(20, 20) # Just due to MPI bug on Scinet
 
@@ -18,13 +20,21 @@ from numpy import array, maximum, zeros
 
 
 def getMemoryUsage(rss=True):
-    mypid = str(getpid())
-    rss = "rss" if rss else "vsz"
-    process = subprocess.Popen(['ps', '-o', rss, mypid],
-                                stdout=subprocess.PIPE)
-    out, _ = process.communicate()
-    mymemory = out.split()[1]
-    return eval(mymemory) / 1024
+    """Returns the memory usage of the current process in MB."""
+
+    # Check if 'ps' command is available
+    if shutil.which("ps"):
+        mypid = str(getpid())
+        rss_flag = "rss" if rss else "vsz"
+        process = subprocess.Popen(['ps', '-o', rss_flag, mypid],
+                                   stdout=subprocess.PIPE)
+        out, _ = process.communicate()
+        mymemory = out.split()[1]
+        return int(mymemory) / 1024  # Convert from KB to MB
+
+    # Fallback: Use resource module (Only provides RSS)
+    usage = resource.getrusage(resource.RUSAGE_SELF)
+    return usage.ru_maxrss / 1024  # Convert from KB to MB
 
 
 parameters["linear_algebra_backend"] = "PETSc"
@@ -94,13 +104,17 @@ class OasisMemoryUsage:
     def __init__(self, s):
         self.memory = 0
         self.memory_vm = 0
+        self.ps_available = shutil.which("ps") is not None  # Check if `ps` is available
         self(s)
 
     def __call__(self, s, verbose=False):
         self.prev = self.memory
         self.prev_vm = self.memory_vm
         self.memory = MPI.sum(MPI.comm_world, getMemoryUsage())
-        self.memory_vm = MPI.sum(MPI.comm_world, getMemoryUsage(False))
+
+        # If `ps` is available, get VMS; otherwise, just store RSS again
+        self.memory_vm = MPI.sum(MPI.comm_world, getMemoryUsage(False)) if self.ps_available else self.memory
+
         if MPI.rank(MPI.comm_world) == 0 and verbose:
             info_blue('{0:26s}  {1:10d} MB {2:10d} MB {3:10d} MB {4:10d} MB'.format(s,
                         int(self.memory - self.prev), int(self.memory),
