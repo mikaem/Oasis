@@ -6,14 +6,11 @@ __license__ = "GNU Lesser GPL version 3 or any later version"
 from dolfin import Mesh, AutoSubDomain, near
 import os
 import platform
+import urllib.request
 
 if not os.path.isfile("cylinder.xml"):
-    if platform.system() == "Linux":
-        os.system("wget -O cylinder.xml https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=0")
-    elif platform.system() == "Darwin":
-        os.system("curl -L https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=0 -o cylinder.xml")
-    else:
-        raise ImportError("Could not determine platform")
+    url = "https://www.dropbox.com/s/d78g4cyjxl3ylay/cylinder.xml?dl=1"
+    urllib.request.urlretrieve(url, "cylinder.xml")
 
     # try:
         #os.system("gmsh mesh/cylinder.geo -2 -o mesh/cylinder.msh")

@@ -26,6 +26,7 @@ from oasis.problems import *
 import numpy as np
 import random
 import os
+import urllib.request
 import platform
 
 def problem_parameters(NS_parameters, NS_expressions, commandline_kwargs, **NS_namespace):
@@ -72,12 +73,8 @@ def problem_parameters(NS_parameters, NS_expressions, commandline_kwargs, **NS_n
 
 def mesh(mesh_file, **NS_namespace):
     if not os.path.isfile(mesh_file):
-        if platform.system() == "Linux":
-            os.system(f"wget -O {mesh_file} https://ndownloader.figshare.com/files/28254414")
-        elif platform.system() == "Darwin":
-            os.system(f"curl -L https://ndownloader.figshare.com/files/28254414 -o {mesh_file}")
-        else:
-            raise ImportError("Could not determine platform")
+        url = "https://ndownloader.figshare.com/files/28254414"
+        urllib.request.urlretrieve(url, mesh_file)
         print(f"Downloaded mesh {mesh_file}")
 
     mesh = Mesh(mesh_file)
