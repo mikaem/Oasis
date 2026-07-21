@@ -13,7 +13,7 @@ details are chosen at run-time and imported from any one of:
 
   solvers/NSfracStep/IPCS_ABCN.py    # Implicit convection
   solvers/NSfracStep/IPCS_ABE.py     # Explicit convection
-  solvers/NSfracStep/IPCS.py         # Naive implict convection
+  solvers/NSfracStep/IPCS.py         # Naive implicit convection
   solvers/NSfracStep/BDFPC.py        # Naive Backwards Differencing IPCS in rotational form
   solvers/NSfracStep/BDFPC_Fast.py   # Fast Backwards Differencing IPCS in rotational form
   solvers/NSfracStep/Chorin.py       # Naive
